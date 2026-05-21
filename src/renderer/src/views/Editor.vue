@@ -3,10 +3,12 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Setting } from '@element-plus/icons-vue'
+import { useEditorStore } from '../stores/editor'
 
 const route = useRoute()
 const router = useRouter()
 const projectId = route.params.id as string
+const store = useEditorStore()
 
 interface Project {
   id: string
@@ -18,37 +20,12 @@ interface Project {
   aspect_ratio: string
   created_at: number
   updated_at: number
-}
-
-interface ProgressItem {
-  step: number
-  status: 'running' | 'done' | 'error' | 'waiting'
-  message: string
-}
-
-interface ResultData {
-  shotsData: any
-  extractData: any
-  assocData: any
+  script_text?: string
 }
 
 const project = ref<Project | null>(null)
 const activeNav = ref('overview')
-const scriptText = ref('')
-const generating = ref(false)
 const currentModel = ref('')
-
-// 进度
-const progressSteps = ref<ProgressItem[]>([
-  { step: 1, status: 'waiting', message: '分析剧本、拆分镜头' },
-  { step: 2, status: 'waiting', message: '提取角色和场景' },
-  { step: 3, status: 'waiting', message: '关联角色和场景到分镜' },
-  { step: 4, status: 'waiting', message: '保存项目' }
-])
-
-// 结果
-const showResult = ref(false)
-const resultData = ref<ResultData | null>(null)
 const expandCharacters = ref(false)
 const expandScenes = ref(false)
 
@@ -65,9 +42,96 @@ async function loadProject() {
   try {
     const data = await window.api.getProject(projectId) as Project | null
     project.value = data
+    // 加载上次保存的剧本
+    if (data?.script_text) {
+      store.scriptText = data.script_text
+    }
   } catch (err) {
     ElMessage.error('加载项目失败')
     console.error(err)
+  }
+}
+
+async function loadExistingData() {
+  try {
+    const chapters = await window.api.getChapters(projectId) as any[]
+    if (!chapters || chapters.length === 0) {
+      return // 没有已有数据，保持空白输入区
+    }
+
+    const characters = await window.api.getCharacters(projectId) as any[]
+    const scenes = await window.api.getScenes(projectId) as any[]
+
+    // 组装 shotsData
+    const shotsData: any = { chapters: [] }
+    for (let ci = 0; ci < chapters.length; ci++) {
+      const chapter = chapters[ci]
+      const shots = await window.api.getShots(chapter.id) as any[]
+      const shotList: any[] = []
+      for (const s of shots) {
+        // 反推 description 和 dialogue
+        const parts = (s.description || '').split('\n对白: ')
+        const description = parts[0]
+        const dialogue = parts[1] || ''
+
+        shotList.push({
+          shot_index: s.shot_index,
+          description,
+          dialogue,
+          first_frame_prompt: s.first_frame_prompt || '',
+          last_frame_prompt: s.last_frame_prompt || '',
+          video_prompt: s.video_prompt || ''
+        })
+      }
+      shotsData.chapters.push({
+        title: chapter.title,
+        shots: shotList
+      })
+    }
+
+    // 组装 extractData
+    const extractData = {
+      characters: characters.map((c: any) => ({
+        name: c.name,
+        description: c.description || '',
+        prompt: c.prompt || ''
+      })),
+      scenes: scenes.map((s: any) => ({
+        name: s.name,
+        description: s.description || '',
+        prompt: s.prompt || ''
+      }))
+    }
+
+    // 组装 assocData（从 shot_characters 和 shot_scenes 反推）
+    const associations: any[] = []
+    for (let ci = 0; ci < chapters.length; ci++) {
+      const chapter = chapters[ci]
+      const shots = await window.api.getShots(chapter.id) as any[]
+      for (const s of shots) {
+        const shotChars = await window.api.getShotCharacters(s.id) as any[]
+        const shotScenes = await window.api.getShotScenes(s.id) as any[]
+        if (shotChars.length > 0 || shotScenes.length > 0) {
+          associations.push({
+            chapter_index: ci,
+            shot_index: s.shot_index,
+            character_names: shotChars.map((c: any) => c.name),
+            scene_name: shotScenes[0]?.name || ''
+          })
+        }
+      }
+    }
+    const assocData = { associations }
+
+    // 写入 store
+    store.setResult({ shotsData, extractData, assocData })
+    // 标记所有步骤为完成
+    for (let i = 0; i < store.progressSteps.length; i++) {
+      store.updateProgressStep(i, 'done', store.progressSteps[i].message + ' 完成')
+    }
+  } catch (err) {
+    console.error('加载已有数据失败', err)
+    // 静默失败，不影响正常使用
   }
 }
 
@@ -92,17 +156,8 @@ function goSettings() {
   router.push('/settings')
 }
 
-function resetProgress() {
-  progressSteps.value = [
-    { step: 1, status: 'waiting', message: '分析剧本、拆分镜头' },
-    { step: 2, status: 'waiting', message: '提取角色和场景' },
-    { step: 3, status: 'waiting', message: '关联角色和场景到分镜' },
-    { step: 4, status: 'waiting', message: '保存项目' }
-  ]
-}
-
 async function handleGenerate() {
-  if (!scriptText.value.trim()) {
+  if (!store.scriptText.trim()) {
     ElMessage.warning('请输入剧本内容')
     return
   }
@@ -121,34 +176,29 @@ async function handleGenerate() {
     return
   }
 
-  generating.value = true
-  showResult.value = false
-  resultData.value = null
-  resetProgress()
+  store.setGenerating(true)
+  store.resetResult()
 
   // 监听进度
   removeAIProgress = window.api.onAIProgress((data: any) => {
     if (data.step >= 1 && data.step <= 4) {
       const idx = data.step - 1
-      progressSteps.value[idx].status = data.status
-      progressSteps.value[idx].message = data.message
-      // 前面步骤标记为完成
-      for (let i = 0; i < idx; i++) {
-        if (progressSteps.value[i].status !== 'error') {
-          progressSteps.value[i].status = 'done'
-        }
-      }
+      store.updateProgressStep(idx, data.status, data.message)
+      store.markPreviousStepsDone(idx)
     }
     if (data.status === 'error') {
-      generating.value = false
+      store.setGenerating(false)
       ElMessage.error(data.message || '生成失败')
     }
   })
 
   try {
-    const res = await window.api.autoProcess(projectId, scriptText.value.trim()) as ResultData
-    resultData.value = res
-    showResult.value = true
+    const res = await window.api.autoProcess(projectId, store.scriptText.trim()) as {
+      shotsData: any
+      extractData: any
+      assocData: any
+    }
+    store.setResult(res)
     ElMessage.success('生成完成！')
   } catch (err: any) {
     console.error(err)
@@ -156,7 +206,7 @@ async function handleGenerate() {
       ElMessage.error(err.message || '生成失败，请重试')
     }
   } finally {
-    generating.value = false
+    store.setGenerating(false)
     if (removeAIProgress) {
       removeAIProgress()
       removeAIProgress = null
@@ -165,13 +215,11 @@ async function handleGenerate() {
 }
 
 function handleRegenerate() {
-  showResult.value = false
-  resultData.value = null
+  store.resetResult()
   handleGenerate()
 }
 
 function handleContinue() {
-  // 跳转到剧集结构页
   activeNav.value = 'episodes'
 }
 
@@ -185,7 +233,7 @@ function countShots(data: any): number {
 }
 
 onMounted(() => {
-  loadProject()
+  loadProject().then(() => loadExistingData())
   loadModelName()
 })
 
@@ -251,25 +299,25 @@ onUnmounted(() => {
           </div>
 
           <!-- 剧本输入 -->
-          <div v-if="!showResult" class="script-section">
+          <div v-if="!store.showResult" class="script-section">
             <label class="section-label">剧本内容</label>
             <el-input
-              v-model="scriptText"
+              v-model="store.scriptText"
               type="textarea"
               :rows="12"
               placeholder="在此输入剧本内容..."
               resize="none"
               class="script-textarea"
-              :disabled="generating"
+              :disabled="store.generating"
             />
           </div>
 
           <!-- 进度面板 -->
-          <div v-if="generating" class="progress-panel">
+          <div v-if="store.generating" class="progress-panel">
             <h3 class="progress-title">生成进度</h3>
             <div class="progress-list">
               <div
-                v-for="s in progressSteps"
+                v-for="s in store.progressSteps"
                 :key="s.step"
                 class="progress-item"
                 :class="s.status"
@@ -286,23 +334,23 @@ onUnmounted(() => {
           </div>
 
           <!-- 结果面板 -->
-          <div v-if="showResult && resultData" class="result-panel">
+          <div v-if="store.showResult && store.resultData" class="result-panel">
             <h3 class="result-title">生成完成</h3>
             <div class="result-cards">
               <div class="result-card">
-                <span class="result-number">{{ resultData.shotsData?.chapters?.length || 0 }}</span>
+                <span class="result-number">{{ store.resultData.shotsData?.chapters?.length || 0 }}</span>
                 <span class="result-label">章节</span>
               </div>
               <div class="result-card">
-                <span class="result-number">{{ countShots(resultData.shotsData) }}</span>
+                <span class="result-number">{{ countShots(store.resultData.shotsData) }}</span>
                 <span class="result-label">分镜</span>
               </div>
               <div class="result-card clickable" @click="expandCharacters = !expandCharacters">
-                <span class="result-number">{{ resultData.extractData?.characters?.length || 0 }}</span>
+                <span class="result-number">{{ store.resultData.extractData?.characters?.length || 0 }}</span>
                 <span class="result-label">角色 {{ expandCharacters ? '▲' : '▼' }}</span>
               </div>
               <div class="result-card clickable" @click="expandScenes = !expandScenes">
-                <span class="result-number">{{ resultData.extractData?.scenes?.length || 0 }}</span>
+                <span class="result-number">{{ store.resultData.extractData?.scenes?.length || 0 }}</span>
                 <span class="result-label">场景 {{ expandScenes ? '▲' : '▼' }}</span>
               </div>
             </div>
@@ -310,7 +358,7 @@ onUnmounted(() => {
             <!-- 角色列表 -->
             <div v-if="expandCharacters" class="detail-list">
               <div
-                v-for="(c, i) in resultData.extractData?.characters || []"
+                v-for="(c, i) in store.resultData.extractData?.characters || []"
                 :key="i"
                 class="detail-item"
               >
@@ -322,7 +370,7 @@ onUnmounted(() => {
             <!-- 场景列表 -->
             <div v-if="expandScenes" class="detail-list">
               <div
-                v-for="(s, i) in resultData.extractData?.scenes || []"
+                v-for="(s, i) in store.resultData.extractData?.scenes || []"
                 :key="i"
                 class="detail-item"
               >
@@ -340,11 +388,11 @@ onUnmounted(() => {
           </div>
 
           <!-- 操作栏 -->
-          <div v-if="!generating && !showResult" class="action-bar">
+          <div v-if="!store.generating && !store.showResult" class="action-bar">
             <el-button
               type="primary"
               size="large"
-              :loading="generating"
+              :loading="store.generating"
               @click="handleGenerate"
             >
               开始生成

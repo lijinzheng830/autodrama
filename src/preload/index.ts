@@ -19,7 +19,13 @@ const api = {
   },
   getSetting: (key: string) => ipcRenderer.invoke('settings:get', key),
   setSetting: (key: string, value: string) => ipcRenderer.invoke('settings:set', { key, value }),
-  getProviders: () => ipcRenderer.invoke('providers:list')
+  getProviders: () => ipcRenderer.invoke('providers:list'),
+  getChapters: (projectId: string) => ipcRenderer.invoke('project:chapters', projectId),
+  getShots: (chapterId: string) => ipcRenderer.invoke('project:shots', chapterId),
+  getCharacters: (projectId: string) => ipcRenderer.invoke('project:characters', projectId),
+  getScenes: (projectId: string) => ipcRenderer.invoke('project:scenes', projectId),
+  getShotCharacters: (shotId: string) => ipcRenderer.invoke('project:shotCharacters', shotId),
+  getShotScenes: (shotId: string) => ipcRenderer.invoke('project:shotScenes', shotId)
 }
 
 if (process.contextIsolated) {

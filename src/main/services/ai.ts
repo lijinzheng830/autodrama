@@ -1,6 +1,7 @@
 import { getDb } from './db'
 import { getProvider } from './providers'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
+import { updateProjectScript } from './project'
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant'
@@ -57,6 +58,9 @@ export async function callAI(
 
   const url = `${providerConfig.baseURL}/chat/completions`
 
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 500000)
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -68,29 +72,33 @@ export async function callAI(
         model,
         messages,
         temperature: 0.7
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     if (!response.ok) {
       const status = response.status
-      let errMsg = `API请求失败 (${status})`
+      let errMsg = `API请求失败`
+      let rawErr = ''
       try {
         const errData = await response.json()
-        errMsg = errData.error?.message || errMsg
+        rawErr = errData.error?.message || ''
+        errMsg = rawErr || errMsg
       } catch {
         // ignore
       }
 
       if (status === 401) {
-        throw new Error('API Key 无效，请检查设置中的 API Key 是否正确')
+        throw new Error(`API Key 无效 (401: ${rawErr || errMsg})`)
       } else if (status === 429) {
-        throw new Error('请求过于频繁，请稍后再试')
+        throw new Error(`请求过于频繁，请稍后再试 (429: ${rawErr || errMsg})`)
       } else if (status === 402 || status === 403) {
-        throw new Error('API 余额不足或权限受限，请检查账户状态')
+        throw new Error(`API 余额不足或权限受限 (${status}: ${rawErr || errMsg})`)
       } else if (status >= 500) {
-        throw new Error('AI 服务暂时不可用，请稍后再试')
+        throw new Error(`AI 服务暂时不可用 (${status}: ${rawErr || errMsg})`)
       } else {
-        throw new Error(`AI 调用失败: ${errMsg}`)
+        throw new Error(`AI 调用失败 (${status}: ${rawErr || errMsg})`)
       }
     }
 
@@ -101,12 +109,20 @@ export async function callAI(
     }
     return content
   } catch (err: any) {
+    clearTimeout(timeout)
+
+    if (err.name === 'AbortError') {
+      throw new Error('AI 调用超时（500秒），请检查网络或换用更快的模型')
+    }
+
     if (err.message && err.message.includes('请')) {
       throw err
     }
+
     if (err.name === 'TypeError' || err.message?.includes('fetch')) {
-      throw new Error('网络连接失败，请检查网络状态')
+      throw new Error(`网络连接失败: ${err.message}`)
     }
+
     throw new Error(`AI 调用出错: ${err.message || String(err)}`)
   }
 }
@@ -169,6 +185,13 @@ export async function autoProcess(
   onProgress: (data: ProgressData) => void,
   sendProgress: (data: ProgressData) => void
 ): Promise<{ shotsData: any; extractData: any; assocData: any }> {
+  // 保存剧本到项目
+  try {
+    updateProjectScript(projectId, script)
+  } catch {
+    // 忽略保存失败
+  }
+
   // 步骤1：分镜
   onProgress({ step: 1, status: 'running', message: '正在分析剧本、拆分镜头...' })
   sendProgress({ step: 1, status: 'running', message: '正在分析剧本、拆分镜头...' })

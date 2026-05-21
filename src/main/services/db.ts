@@ -95,6 +95,13 @@ export function initDatabase(): Database.Database {
     insertSetting.run(s.key, s.value)
   }
 
+  // 迁移：给 projects 表添加 script_text 字段（如果不存在）
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN script_text TEXT`)
+  } catch {
+    // 字段已存在，忽略错误
+  }
+
   return db
 }
 

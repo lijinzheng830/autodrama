@@ -2,7 +2,12 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
-import { createProject, getProjects, getProject } from './services/project'
+import {
+  createProject, getProjects, getProject,
+  getChaptersByProject, getShotsByChapter,
+  getCharactersByProject, getScenesByProject,
+  getShotCharacters, getShotScenes
+} from './services/project'
 import { autoProcess } from './services/ai'
 import { getSetting, setSetting } from './services/settings'
 import { PROVIDERS } from './services/providers'
@@ -119,6 +124,30 @@ app.whenReady().then(() => {
 
   ipcMain.handle('providers:list', async () => {
     return PROVIDERS
+  })
+
+  ipcMain.handle('project:chapters', async (_, projectId: string) => {
+    return getChaptersByProject(projectId)
+  })
+
+  ipcMain.handle('project:shots', async (_, chapterId: string) => {
+    return getShotsByChapter(chapterId)
+  })
+
+  ipcMain.handle('project:characters', async (_, projectId: string) => {
+    return getCharactersByProject(projectId)
+  })
+
+  ipcMain.handle('project:scenes', async (_, projectId: string) => {
+    return getScenesByProject(projectId)
+  })
+
+  ipcMain.handle('project:shotCharacters', async (_, shotId: string) => {
+    return getShotCharacters(shotId)
+  })
+
+  ipcMain.handle('project:shotScenes', async (_, shotId: string) => {
+    return getShotScenes(shotId)
   })
 
   createWindow()

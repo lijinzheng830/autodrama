@@ -76,3 +76,50 @@ export function getProject(id: string): Project | null {
   const row = stmt.get(id) as Project | undefined
   return row ?? null
 }
+
+export function updateProjectScript(projectId: string, script: string): void {
+  const db = getDb()
+  db.prepare('UPDATE projects SET script_text = ?, updated_at = ? WHERE id = ?').run(script, Date.now(), projectId)
+}
+
+export function getChaptersByProject(projectId: string) {
+  const db = getDb()
+  return db.prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY chapter_index').all(projectId) as any[]
+}
+
+export function getShotsByChapter(chapterId: string) {
+  const db = getDb()
+  return db.prepare('SELECT * FROM shots WHERE chapter_id = ? ORDER BY shot_index').all(chapterId) as any[]
+}
+
+export function getCharactersByProject(projectId: string) {
+  const db = getDb()
+  return db.prepare('SELECT * FROM characters WHERE project_id = ?').all(projectId) as any[]
+}
+
+export function getScenesByProject(projectId: string) {
+  const db = getDb()
+  return db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as any[]
+}
+
+export function getShotCharacters(shotId: string) {
+  const db = getDb()
+  return db
+    .prepare(`
+      SELECT c.* FROM characters c
+      JOIN shot_characters sc ON c.id = sc.character_id
+      WHERE sc.shot_id = ?
+    `)
+    .all(shotId) as any[]
+}
+
+export function getShotScenes(shotId: string) {
+  const db = getDb()
+  return db
+    .prepare(`
+      SELECT s.* FROM scenes s
+      JOIN shot_scenes ss ON s.id = ss.scene_id
+      WHERE ss.shot_id = ?
+    `)
+    .all(shotId) as any[]
+}
