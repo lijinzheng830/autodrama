@@ -21,6 +21,8 @@ export interface Api {
   getScenes: (projectId: string) => Promise<unknown[]>
   getShotCharacters: (shotId: string) => Promise<unknown[]>
   getShotScenes: (shotId: string) => Promise<unknown[]>
+  getShotCharactersByProject: (projectId: string) => Promise<unknown[]>
+  getShotScenesByProject: (projectId: string) => Promise<unknown[]>
 }
 
 declare global {

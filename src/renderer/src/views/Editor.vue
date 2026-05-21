@@ -59,79 +59,71 @@ async function loadExistingData() {
       return // 没有已有数据，保持空白输入区
     }
 
-    const characters = await window.api.getCharacters(projectId) as any[]
-    const scenes = await window.api.getScenes(projectId) as any[]
+    const [characters, scenes, shotChars, shotScns] = await Promise.all([
+      window.api.getCharacters(projectId),
+      window.api.getScenes(projectId),
+      window.api.getShotCharactersByProject(projectId),
+      window.api.getShotScenesByProject(projectId)
+    ]) as [any[], any[], any[], any[]]
 
     // 组装 shotsData
     const shotsData: any = { chapters: [] }
-    for (let ci = 0; ci < chapters.length; ci++) {
-      const chapter = chapters[ci]
+    for (const chapter of chapters) {
       const shots = await window.api.getShots(chapter.id) as any[]
-      const shotList: any[] = []
-      for (const s of shots) {
-        // 反推 description 和 dialogue
+      const shotList = shots.map((s: any) => {
         const parts = (s.description || '').split('\n对白: ')
-        const description = parts[0]
-        const dialogue = parts[1] || ''
-
-        shotList.push({
+        return {
           shot_index: s.shot_index,
-          description,
-          dialogue,
+          description: parts[0],
+          dialogue: parts[1] || '',
           first_frame_prompt: s.first_frame_prompt || '',
           last_frame_prompt: s.last_frame_prompt || '',
           video_prompt: s.video_prompt || ''
-        })
-      }
-      shotsData.chapters.push({
-        title: chapter.title,
-        shots: shotList
+        }
       })
+      shotsData.chapters.push({ title: chapter.title, shots: shotList })
     }
 
-    // 组装 extractData
-    const extractData = {
-      characters: characters.map((c: any) => ({
-        name: c.name,
-        description: c.description || '',
-        prompt: c.prompt || ''
-      })),
-      scenes: scenes.map((s: any) => ({
-        name: s.name,
-        description: s.description || '',
-        prompt: s.prompt || ''
-      }))
+    // 用 shot_id 做索引组装关联
+    const charMap = new Map<string, string[]>()
+    for (const sc of shotChars) {
+      if (!charMap.has(sc.shot_id)) charMap.set(sc.shot_id, [])
+      charMap.get(sc.shot_id)!.push(sc.name)
+    }
+    const sceneMap = new Map<string, string>()
+    for (const ss of shotScns) {
+      if (!sceneMap.has(ss.shot_id)) sceneMap.set(ss.shot_id, ss.name)
     }
 
-    // 组装 assocData（从 shot_characters 和 shot_scenes 反推）
+    // 组装 assocData
     const associations: any[] = []
     for (let ci = 0; ci < chapters.length; ci++) {
-      const chapter = chapters[ci]
-      const shots = await window.api.getShots(chapter.id) as any[]
+      const shots = await window.api.getShots(chapters[ci].id) as any[]
       for (const s of shots) {
-        const shotChars = await window.api.getShotCharacters(s.id) as any[]
-        const shotScenes = await window.api.getShotScenes(s.id) as any[]
-        if (shotChars.length > 0 || shotScenes.length > 0) {
+        const charNames = charMap.get(s.id) || []
+        const sceneName = sceneMap.get(s.id) || ''
+        if (charNames.length > 0 || sceneName) {
           associations.push({
             chapter_index: ci,
             shot_index: s.shot_index,
-            character_names: shotChars.map((c: any) => c.name),
-            scene_name: shotScenes[0]?.name || ''
+            character_names: charNames,
+            scene_name: sceneName
           })
         }
       }
     }
-    const assocData = { associations }
 
-    // 写入 store
-    store.setResult({ shotsData, extractData, assocData })
-    // 标记所有步骤为完成
+    const extractData = {
+      characters: characters.map((c: any) => ({ name: c.name, description: c.description || '', prompt: c.prompt || '' })),
+      scenes: scenes.map((s: any) => ({ name: s.name, description: s.description || '', prompt: s.prompt || '' }))
+    }
+
+    store.setResult({ shotsData, extractData, assocData: { associations } })
     for (let i = 0; i < store.progressSteps.length; i++) {
       store.updateProgressStep(i, 'done', store.progressSteps[i].message + ' 完成')
     }
   } catch (err) {
     console.error('加载已有数据失败', err)
-    // 静默失败，不影响正常使用
   }
 }
 
@@ -216,7 +208,6 @@ async function handleGenerate() {
 
 function handleRegenerate() {
   store.resetResult()
-  handleGenerate()
 }
 
 function handleContinue() {
@@ -301,7 +292,7 @@ onUnmounted(() => {
           </div>
 
           <!-- 剧本输入 -->
-          <div v-if="!store.showResult" class="script-section">
+          <div class="script-section">
             <label class="section-label">剧本内容</label>
             <el-input
               v-model="store.scriptText"
@@ -390,7 +381,7 @@ onUnmounted(() => {
           </div>
 
           <!-- 操作栏 -->
-          <div v-if="!store.generating && !store.showResult" class="action-bar">
+          <div v-if="!store.generating" class="action-bar">
             <el-button
               type="primary"
               size="large"

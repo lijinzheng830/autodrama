@@ -123,3 +123,31 @@ export function getShotScenes(shotId: string) {
     `)
     .all(shotId) as any[]
 }
+
+export function getShotCharactersByProject(projectId: string) {
+  const db = getDb()
+  return db
+    .prepare(`
+      SELECT sc.shot_id, c.id as character_id, c.name, c.description, c.prompt
+      FROM shot_characters sc
+      JOIN characters c ON c.id = sc.character_id
+      JOIN shots s ON sc.shot_id = s.id
+      JOIN chapters ch ON s.chapter_id = ch.id
+      WHERE ch.project_id = ?
+    `)
+    .all(projectId) as any[]
+}
+
+export function getShotScenesByProject(projectId: string) {
+  const db = getDb()
+  return db
+    .prepare(`
+      SELECT ss.shot_id, s.id as scene_id, s.name, s.description, s.prompt
+      FROM shot_scenes ss
+      JOIN scenes s ON s.id = ss.scene_id
+      JOIN shots sh ON ss.shot_id = sh.id
+      JOIN chapters ch ON sh.chapter_id = ch.id
+      WHERE ch.project_id = ?
+    `)
+    .all(projectId) as any[]
+}

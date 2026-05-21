@@ -6,7 +6,8 @@ import {
   createProject, getProjects, getProject,
   getChaptersByProject, getShotsByChapter,
   getCharactersByProject, getScenesByProject,
-  getShotCharacters, getShotScenes
+  getShotCharacters, getShotScenes,
+  getShotCharactersByProject, getShotScenesByProject
 } from './services/project'
 import { autoProcess } from './services/ai'
 import { getSetting, setSetting } from './services/settings'
@@ -97,7 +98,9 @@ app.whenReady().then(() => {
     if (!mainWindow) throw new Error('主窗口未就绪')
 
     const sendProgress = (data: any) => {
-      mainWindow?.webContents.send('ai:progress', data)
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('ai:progress', data)
+      }
     }
 
     try {
@@ -148,6 +151,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:shotScenes', async (_, shotId: string) => {
     return getShotScenes(shotId)
+  })
+
+  ipcMain.handle('project:shotCharactersByProject', async (_, projectId: string) => {
+    return getShotCharactersByProject(projectId)
+  })
+
+  ipcMain.handle('project:shotScenesByProject', async (_, projectId: string) => {
+    return getShotScenesByProject(projectId)
   })
 
   createWindow()

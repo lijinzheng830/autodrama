@@ -25,7 +25,9 @@ const api = {
   getCharacters: (projectId: string) => ipcRenderer.invoke('project:characters', projectId),
   getScenes: (projectId: string) => ipcRenderer.invoke('project:scenes', projectId),
   getShotCharacters: (shotId: string) => ipcRenderer.invoke('project:shotCharacters', shotId),
-  getShotScenes: (shotId: string) => ipcRenderer.invoke('project:shotScenes', shotId)
+  getShotScenes: (shotId: string) => ipcRenderer.invoke('project:shotScenes', shotId),
+  getShotCharactersByProject: (projectId: string) => ipcRenderer.invoke('project:shotCharactersByProject', projectId),
+  getShotScenesByProject: (projectId: string) => ipcRenderer.invoke('project:shotScenesByProject', projectId)
 }
 
 if (process.contextIsolated) {
