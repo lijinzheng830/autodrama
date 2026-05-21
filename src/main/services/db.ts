@@ -42,7 +42,6 @@ export function initDatabase(): Database.Database {
       name TEXT NOT NULL,
       description TEXT,
       reference_image TEXT,
-      prompt TEXT,
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
@@ -140,6 +139,52 @@ export function initDatabase(): Database.Database {
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS character_images (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL,
+      image_path TEXT NOT NULL,
+      is_selected INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS scene_images (
+      id TEXT PRIMARY KEY,
+      scene_id TEXT NOT NULL,
+      image_path TEXT NOT NULL,
+      is_selected INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS prop_images (
+      id TEXT PRIMARY KEY,
+      prop_id TEXT NOT NULL,
+      image_path TEXT NOT NULL,
+      is_selected INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (prop_id) REFERENCES props(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS shot_images (
+      id TEXT PRIMARY KEY,
+      shot_id TEXT NOT NULL,
+      image_path TEXT NOT NULL,
+      is_selected INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS shot_videos (
+      id TEXT PRIMARY KEY,
+      shot_id TEXT NOT NULL,
+      video_path TEXT NOT NULL,
+      is_selected INTEGER DEFAULT 0,
+      has_new_badge INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE
+    );
   `)
 
   // 插入默认设置
@@ -174,6 +219,94 @@ export function initDatabase(): Database.Database {
     } catch {
       // 字段已存在，忽略错误
     }
+  }
+
+  // M1-03: 迁移 scenes 表的 prompt 列
+  // description 就是提示词主体，不需要单独的 prompt 列
+  try {
+    const colInfo = db.prepare(`PRAGMA table_info(scenes)`).all() as any[]
+    const hasPrompt = colInfo.some((c) => c.name === 'prompt')
+
+    if (hasPrompt) {
+      // 检查 prompt 列是否有实际数据
+      const countRow = db
+        .prepare(
+          `SELECT COUNT(*) as c FROM scenes WHERE prompt IS NOT NULL AND TRIM(prompt) != ''`
+        )
+        .get() as { c: number }
+
+      if (countRow.c > 0) {
+        // 有数据：合并到 description，然后重建表去掉 prompt 列
+        const fkState = db.prepare(`PRAGMA foreign_keys`).get() as { foreign_keys: number }
+        db.exec(`PRAGMA foreign_keys = OFF`)
+        db.exec(`BEGIN TRANSACTION`)
+
+        db.exec(`
+          UPDATE scenes SET description =
+            CASE
+              WHEN description IS NULL OR TRIM(description) = '' THEN prompt
+              ELSE description || '\n\n[Prompt] ' || prompt
+            END
+          WHERE prompt IS NOT NULL AND TRIM(prompt) != ''
+        `)
+
+        db.exec(`
+          CREATE TABLE scenes_new (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            reference_image TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+          )
+        `)
+
+        db.exec(`
+          INSERT INTO scenes_new (id, project_id, name, description, reference_image)
+          SELECT id, project_id, name, description, reference_image FROM scenes
+        `)
+
+        db.exec(`DROP TABLE scenes`)
+        db.exec(`ALTER TABLE scenes_new RENAME TO scenes`)
+
+        db.exec(`COMMIT`)
+        db.exec(`PRAGMA foreign_keys = ${fkState.foreign_keys}`)
+      } else {
+        // 无数据：尝试 DROP COLUMN（SQLite 3.35.0+ 支持）
+        try {
+          db.exec(`ALTER TABLE scenes DROP COLUMN prompt`)
+        } catch {
+          // 旧版本 SQLite 不支持 DROP COLUMN，重建表
+          const fkState = db.prepare(`PRAGMA foreign_keys`).get() as { foreign_keys: number }
+          db.exec(`PRAGMA foreign_keys = OFF`)
+          db.exec(`BEGIN TRANSACTION`)
+
+          db.exec(`
+            CREATE TABLE scenes_new (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL,
+              name TEXT NOT NULL,
+              description TEXT,
+              reference_image TEXT,
+              FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            )
+          `)
+
+          db.exec(`
+            INSERT INTO scenes_new (id, project_id, name, description, reference_image)
+            SELECT id, project_id, name, description, reference_image FROM scenes
+          `)
+
+          db.exec(`DROP TABLE scenes`)
+          db.exec(`ALTER TABLE scenes_new RENAME TO scenes`)
+
+          db.exec(`COMMIT`)
+          db.exec(`PRAGMA foreign_keys = ${fkState.foreign_keys}`)
+        }
+      }
+    }
+  } catch (e) {
+    console.error('迁移 scenes.prompt 失败:', e)
   }
 
   return db
