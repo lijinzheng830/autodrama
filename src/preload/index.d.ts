@@ -10,6 +10,11 @@ export interface Api {
   }) => Promise<unknown>
   getProjects: () => Promise<unknown[]>
   getProject: (id: string) => Promise<unknown | null>
+  autoProcess: (projectId: string, script: string) => Promise<unknown>
+  onAIProgress: (callback: (data: any) => void) => () => void
+  getSetting: (key: string) => Promise<string | null>
+  setSetting: (key: string, value: string) => Promise<void>
+  getProviders: () => Promise<unknown[]>
 }
 
 declare global {

@@ -3,6 +3,9 @@ import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
 import { createProject, getProjects, getProject } from './services/project'
+import { autoProcess } from './services/ai'
+import { getSetting, setSetting } from './services/settings'
+import { PROVIDERS } from './services/providers'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -29,8 +32,10 @@ function watchWindowShortcuts(window: BrowserWindow): void {
   })
 }
 
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     show: false,
@@ -43,7 +48,11 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow!.show()
+  })
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -77,6 +86,39 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:get', async (_, id: string) => {
     return getProject(id)
+  })
+
+  ipcMain.handle('ai:auto-process', async (_, { projectId, script }: { projectId: string; script: string }) => {
+    if (!mainWindow) throw new Error('主窗口未就绪')
+
+    const sendProgress = (data: any) => {
+      mainWindow?.webContents.send('ai:progress', data)
+    }
+
+    try {
+      const result = await autoProcess(
+        projectId,
+        script,
+        () => {},
+        sendProgress
+      )
+      return result
+    } catch (err: any) {
+      sendProgress({ step: 0, status: 'error', message: err.message || '生成失败' })
+      throw err
+    }
+  })
+
+  ipcMain.handle('settings:get', async (_, key: string) => {
+    return getSetting(key)
+  })
+
+  ipcMain.handle('settings:set', async (_, { key, value }: { key: string; value: string }) => {
+    setSetting(key, value)
+  })
+
+  ipcMain.handle('providers:list', async () => {
+    return PROVIDERS
   })
 
   createWindow()

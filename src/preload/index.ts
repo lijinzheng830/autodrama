@@ -10,7 +10,16 @@ const api = {
     aspectRatio: string
   }) => ipcRenderer.invoke('project:create', input),
   getProjects: () => ipcRenderer.invoke('project:list'),
-  getProject: (id: string) => ipcRenderer.invoke('project:get', id)
+  getProject: (id: string) => ipcRenderer.invoke('project:get', id),
+  autoProcess: (projectId: string, script: string) => ipcRenderer.invoke('ai:auto-process', { projectId, script }),
+  onAIProgress: (callback: (data: any) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('ai:progress', handler)
+    return () => ipcRenderer.removeListener('ai:progress', handler)
+  },
+  getSetting: (key: string) => ipcRenderer.invoke('settings:get', key),
+  setSetting: (key: string, value: string) => ipcRenderer.invoke('settings:set', { key, value }),
+  getProviders: () => ipcRenderer.invoke('providers:list')
 }
 
 if (process.contextIsolated) {

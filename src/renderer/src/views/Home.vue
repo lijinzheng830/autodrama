@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Setting } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -129,9 +129,14 @@ onMounted(() => {
         <span class="gradient-text">AutoDrama</span>
         <span class="subtitle"> - AI漫剧制作</span>
       </h1>
-      <el-button type="primary" size="large" :icon="Plus" @click="dialogVisible = true">
-        创建项目
-      </el-button>
+      <div class="header-actions">
+        <el-button text :icon="Setting" class="settings-btn" @click="router.push('/settings')">
+          设置
+        </el-button>
+        <el-button type="primary" size="large" :icon="Plus" @click="dialogVisible = true">
+          创建项目
+        </el-button>
+      </div>
     </header>
 
     <main class="home-main">
@@ -238,6 +243,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-btn {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.settings-btn:hover {
+  color: #e5e7eb;
 }
 
 .gradient-text {

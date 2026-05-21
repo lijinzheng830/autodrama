@@ -77,7 +77,23 @@ export function initDatabase(): Database.Database {
       FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE,
       FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `)
+
+  // 插入默认设置
+  const defaultSettings = [
+    { key: 'provider', value: 'qwen' },
+    { key: 'model', value: 'qwen3.6-flash' },
+    { key: 'api_key_qwen', value: '' }
+  ]
+  const insertSetting = db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`)
+  for (const s of defaultSettings) {
+    insertSetting.run(s.key, s.value)
+  }
 
   return db
 }
