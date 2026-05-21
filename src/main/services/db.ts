@@ -91,6 +91,55 @@ export function initDatabase(): Database.Database {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS props (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      reference_image TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS shot_props (
+      id TEXT PRIMARY KEY,
+      shot_id TEXT NOT NULL,
+      prop_id TEXT NOT NULL,
+      FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE,
+      FOREIGN KEY (prop_id) REFERENCES props(id) ON DELETE CASCADE,
+      UNIQUE(shot_id, prop_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS generation_tasks (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      shot_id TEXT DEFAULT NULL,
+      type TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      channel TEXT DEFAULT NULL,
+      model TEXT DEFAULT NULL,
+      status TEXT DEFAULT 'pending',
+      input_params TEXT DEFAULT '{}',
+      output_path TEXT DEFAULT NULL,
+      error_message TEXT DEFAULT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS prompt_templates (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      usage TEXT NOT NULL,
+      name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      is_default INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
   `)
 
   // 插入默认设置
