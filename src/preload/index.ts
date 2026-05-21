@@ -60,7 +60,11 @@ const api = {
   getProjectData: (projectId: string) => ipcRenderer.invoke('project:data', projectId),
   moveShotUp: (shotId: string) => ipcRenderer.invoke('shot:moveUp', shotId),
   moveShotDown: (shotId: string) => ipcRenderer.invoke('shot:moveDown', shotId),
-  deleteShot: (shotId: string) => ipcRenderer.invoke('shot:delete', shotId)
+  deleteShot: (shotId: string) => ipcRenderer.invoke('shot:delete', shotId),
+  updateShot: (shotId: string, input: any) => ipcRenderer.invoke('shot:update', { shotId, input }),
+  addShotAssociation: (shotId: string, type: string, assetId: string) => ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
+  createGenerationTask: (input: any) => ipcRenderer.invoke('generationTask:create', input),
+  selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath)
 }
 
 if (process.contextIsolated) {

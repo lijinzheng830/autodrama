@@ -56,6 +56,10 @@ export interface Api {
   moveShotUp: (shotId: string) => Promise<void>
   moveShotDown: (shotId: string) => Promise<void>
   deleteShot: (shotId: string) => Promise<void>
+  updateShot: (shotId: string, input: any) => Promise<void>
+  addShotAssociation: (shotId: string, type: string, assetId: string) => Promise<void>
+  createGenerationTask: (input: any) => Promise<unknown>
+  selectImage: (projectPath: string) => Promise<string | null>
 }
 
 declare global {

@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { ArrowLeft, Setting, Plus, VideoPlay, DocumentAdd } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ArrowLeft, Setting, Plus, VideoPlay, DocumentAdd,
+  ArrowUp, ArrowDown, Delete, Search, Back,
+  Tools, Minus, Upload, Grid
+} from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 
 const route = useRoute()
@@ -26,18 +30,39 @@ interface Project {
 const project = ref<Project | null>(null)
 const activeNav = ref('overview')
 const currentModel = ref('')
-const expandCharacters = ref(false)
-const expandScenes = ref(false)
 
-// 风格/比例选择
+// 风格/比例
 const selectedStyle = ref('')
 const selectedAspectRatio = ref('16:9')
 
-// 统计数据
-const stats = ref({ characters: 0, scenes: 0, props: 0, chapters: 0, shots: 0 })
-const hasData = computed(() => stats.value.chapters > 0)
+// 项目数据（剧集结构页用）
+const projectData = ref<any>(null)
+const episodesLoading = ref(false)
 
-// AI解析弹窗
+// 全选
+const selectedShots = ref<Set<string>>(new Set())
+const allShotIds = computed(() => {
+  const ids: string[] = []
+  for (const shot of projectData.value?.shots || []) ids.push(shot.id)
+  return ids
+})
+const isAllSelected = computed(() => allShotIds.value.length > 0 && allShotIds.value.every(id => selectedShots.value.has(id)))
+
+// 右侧面板
+const panelMode = ref<'resident' | 'detail'>('resident')
+const residentTab = ref<'characters' | 'scenes' | 'props'>('characters')
+const detailType = ref('')
+const detailData = ref<any>(null)
+const searchKeyword = ref('')
+
+// 编辑状态
+const editingCell = ref<{ shotId: string; field: string } | null>(null)
+const editText = ref('')
+
+// 生图控制（详情面板）
+const genCount = ref(1)
+
+// AI解析弹窗（保留）
 const parseDialogVisible = ref(false)
 const parseMode = ref<'full' | 'append'>('full')
 const parseScriptText = ref('')
@@ -56,14 +81,16 @@ const activeTab = ref('ai')
 
 let removeAIProgress: (() => void) | null = null
 
-const navItems = [
-  { key: 'overview', label: '项目总览' },
-  { key: 'characters', label: '角色管理' },
-  { key: 'scenes', label: '场景管理' },
-  { key: 'episodes', label: '剧集结构' }
-]
+const navItems = computed(() => {
+  const chapters = projectData.value?.chapters?.length || 0
+  const shots = projectData.value?.shots?.length || 0
+  return [
+    { key: 'overview', label: '项目总览' },
+    { key: 'episodes', label: `剧集结构 ${chapters}集·${shots}镜` }
+  ]
+})
 
-// 13种预设风格
+// 风格预设（保留）
 const stylePresets = [
   { name: '二次元动漫', prompt: 'Anime style, vibrant colors, detailed eyes, cel shading, clean line art, expressive characters, dynamic composition, high quality illustration', negative: 'photorealistic, 3d render, blurry, low quality, bad anatomy, deformed, ugly, duplicate, watermark, signature', color: '#ff6b9d' },
   { name: '写实摄影', prompt: 'Photorealistic, high detail, natural lighting, 8k uhd, cinematic shot, depth of field, professional photography, realistic textures, lifelike', negative: 'painting, illustration, cartoon, anime, 3d render, blurry, low quality, artificial, oversaturated', color: '#4ecdc4' },
@@ -86,6 +113,8 @@ const aspectRatios = [
   { label: '1:1 方形', value: '1:1' }
 ]
 
+// ===== 数据加载 =====
+
 async function loadProject() {
   try {
     const data = await window.api.getProject(projectId) as Project | null
@@ -93,9 +122,7 @@ async function loadProject() {
     if (data) {
       selectedStyle.value = data.style_name || ''
       selectedAspectRatio.value = data.aspect_ratio || '16:9'
-      if (data.script_text) {
-        store.scriptText = data.script_text
-      }
+      if (data.script_text) store.scriptText = data.script_text
     }
   } catch (err) {
     ElMessage.error('加载项目失败')
@@ -103,92 +130,16 @@ async function loadProject() {
   }
 }
 
-async function loadStats() {
+async function loadEpisodesData() {
+  episodesLoading.value = true
   try {
-    const data = await window.api.getProjectData(projectId) as any
-    if (data) {
-      stats.value = {
-        characters: data.characters?.length || 0,
-        scenes: data.scenes?.length || 0,
-        props: data.props?.length || 0,
-        chapters: data.chapters?.length || 0,
-        shots: data.shots?.length || 0
-      }
-    }
+    const data = await window.api.getProjectData(projectId)
+    projectData.value = data
   } catch (err) {
-    console.error('加载统计失败', err)
-  }
-}
-
-async function loadExistingData() {
-  try {
-    const chapters = await window.api.getChapters(projectId) as any[]
-    if (!chapters || chapters.length === 0) {
-      return
-    }
-
-    const [characters, scenes, shotChars, shotScns] = await Promise.all([
-      window.api.getCharacters(projectId),
-      window.api.getScenes(projectId),
-      window.api.getShotCharactersByProject(projectId),
-      window.api.getShotScenesByProject(projectId)
-    ]) as [any[], any[], any[], any[]]
-
-    const shotsData: any = { chapters: [] }
-    for (const chapter of chapters) {
-      const shots = await window.api.getShots(chapter.id) as any[]
-      const shotList = shots.map((s: any) => {
-        const parts = (s.description || '').split('\n对白: ')
-        return {
-          shot_index: s.shot_index,
-          description: parts[0],
-          dialogue: parts[1] || '',
-          first_frame_prompt: s.first_frame_prompt || '',
-          last_frame_prompt: s.last_frame_prompt || '',
-          video_prompt: s.video_prompt || ''
-        }
-      })
-      shotsData.chapters.push({ title: chapter.title, shots: shotList })
-    }
-
-    const charMap = new Map<string, string[]>()
-    for (const sc of shotChars) {
-      if (!charMap.has(sc.shot_id)) charMap.set(sc.shot_id, [])
-      charMap.get(sc.shot_id)!.push(sc.name)
-    }
-    const sceneMap = new Map<string, string>()
-    for (const ss of shotScns) {
-      if (!sceneMap.has(ss.shot_id)) sceneMap.set(ss.shot_id, ss.name)
-    }
-
-    const associations: any[] = []
-    for (let ci = 0; ci < chapters.length; ci++) {
-      const shots = await window.api.getShots(chapters[ci].id) as any[]
-      for (const s of shots) {
-        const charNames = charMap.get(s.id) || []
-        const sceneName = sceneMap.get(s.id) || ''
-        if (charNames.length > 0 || sceneName) {
-          associations.push({
-            chapter_index: ci,
-            shot_index: s.shot_index,
-            character_names: charNames,
-            scene_name: sceneName
-          })
-        }
-      }
-    }
-
-    const extractData = {
-      characters: characters.map((c: any) => ({ name: c.name, description: c.description || '', prompt: '' })),
-      scenes: scenes.map((s: any) => ({ name: s.name, description: s.description || '', prompt: '' }))
-    }
-
-    store.setResult({ shotsData, extractData, assocData: { associations } })
-    for (let i = 0; i < store.progressSteps.length; i++) {
-      store.updateProgressStep(i, 'done', store.progressSteps[i].message + ' 完成')
-    }
-  } catch (err) {
-    console.error('加载已有数据失败', err)
+    ElMessage.error('加载剧集数据失败')
+    console.error(err)
+  } finally {
+    episodesLoading.value = false
   }
 }
 
@@ -205,7 +156,8 @@ async function loadModelName() {
   }
 }
 
-// 风格/比例变更保存
+// ===== 风格/比例（总览页）=====
+
 async function handleStyleSelect(style: any) {
   selectedStyle.value = style.name
   await saveStyleToProject()
@@ -232,7 +184,12 @@ async function saveStyleToProject() {
   }
 }
 
-// AI解析弹窗
+function handleCustomStyle() {
+  ElMessage.info('自定义风格功能后续版本开放')
+}
+
+// ===== AI解析弹窗（保留）=====
+
 function openParseDialog(mode: 'full' | 'append') {
   parseMode.value = mode
   parseScriptText.value = ''
@@ -285,7 +242,6 @@ async function handleParseSubmit() {
     ElMessage.warning('请输入剧本内容')
     return
   }
-
   try {
     const provider = await window.api.getSetting('provider')
     const apiKey = await window.api.getSetting(`api_key_${provider}`)
@@ -300,7 +256,6 @@ async function handleParseSubmit() {
   }
 
   parseGenerating.value = true
-
   removeAIProgress = window.api.onAIProgress((data: any) => {
     if (data.step >= 1 && data.step <= 4) {
       const idx = data.step - 1
@@ -319,36 +274,22 @@ async function handleParseSubmit() {
 
   try {
     const template = templates.value.find((t: any) => t.id === selectedTemplate.value)
-    const res = await window.api.autoProcess(
-      projectId,
-      parseScriptText.value.trim(),
-      {
-        promptTemplate: template?.content,
-        aspectRatio: selectedAspectRatio.value,
-        model: selectedModel.value !== '未配置' ? selectedModel.value : undefined,
-        mode: parseMode.value
-      }
-    ) as {
-      shotsData: any
-      extractData: any
-      assocData: any
-    }
-    store.setResult(res)
+    await window.api.autoProcess(projectId, parseScriptText.value.trim(), {
+      promptTemplate: template?.content,
+      aspectRatio: selectedAspectRatio.value,
+      model: selectedModel.value !== '未配置' ? selectedModel.value : undefined,
+      mode: parseMode.value
+    })
     ElMessage.success('生成完成！')
     parseDialogVisible.value = false
     activeNav.value = 'episodes'
-    await loadStats()
+    await loadEpisodesData()
   } catch (err: any) {
     console.error(err)
-    if (!err.message?.includes('请')) {
-      ElMessage.error(err.message || '生成失败，请重试')
-    }
+    if (!err.message?.includes('请')) ElMessage.error(err.message || '生成失败，请重试')
   } finally {
     parseGenerating.value = false
-    if (removeAIProgress) {
-      removeAIProgress()
-      removeAIProgress = null
-    }
+    if (removeAIProgress) { removeAIProgress(); removeAIProgress = null }
   }
 }
 
@@ -356,8 +297,300 @@ function handleSkipParse() {
   parseDialogVisible.value = false
 }
 
-function handleCustomStyle() {
-  ElMessage.info('自定义风格功能后续版本开放')
+// ===== 分镜列表 =====
+
+const groupedShots = computed(() => {
+  if (!projectData.value) return []
+  const result: any[] = []
+  for (const chapter of projectData.value.chapters || []) {
+    const shots = (projectData.value.shots || []).filter((s: any) => s.chapter_id === chapter.id)
+    result.push({ chapter, shots })
+  }
+  return result
+})
+
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedShots.value.clear()
+  } else {
+    for (const id of allShotIds.value) selectedShots.value.add(id)
+  }
+}
+
+function toggleShotSelect(shotId: string) {
+  if (selectedShots.value.has(shotId)) selectedShots.value.delete(shotId)
+  else selectedShots.value.add(shotId)
+}
+
+function startEdit(shotId: string, field: string, currentText: string) {
+  editingCell.value = { shotId, field }
+  editText.value = currentText
+}
+
+async function saveEdit(shotId: string, field: string) {
+  if (!editingCell.value) return
+  try {
+    const update: any = {}
+    if (field === 'description') update.description = editText.value
+    else if (field === 'first_frame_prompt') update.first_frame_prompt = editText.value
+    else if (field === 'last_frame_prompt') update.last_frame_prompt = editText.value
+    await window.api.updateShot(shotId, update)
+    // 智能关联
+    await checkAndCreateAssociations(shotId, editText.value)
+    await loadEpisodesData()
+  } catch (err) {
+    ElMessage.error('保存失败')
+    console.error(err)
+  } finally {
+    editingCell.value = null
+  }
+}
+
+async function checkAndCreateAssociations(shotId: string, text: string) {
+  const chars = projectData.value?.characters || []
+  const scenes = projectData.value?.scenes || []
+  const props = projectData.value?.props || []
+  const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
+  if (!shot) return
+
+  for (const c of chars) {
+    if (text.includes(c.name) && !shot.characters?.some((sc: any) => sc.id === c.id)) {
+      await window.api.addShotAssociation(shotId, 'character', c.id)
+    }
+  }
+  for (const s of scenes) {
+    if (text.includes(s.name) && !shot.scenes?.some((ss: any) => ss.id === s.id)) {
+      await window.api.addShotAssociation(shotId, 'scene', s.id)
+    }
+  }
+  for (const p of props) {
+    if (text.includes(p.name) && !shot.props?.some((sp: any) => sp.id === p.id)) {
+      await window.api.addShotAssociation(shotId, 'prop', p.id)
+    }
+  }
+}
+
+function getHighlightText(text: string, shot: any) {
+  if (!text) return ''
+  const names = new Set<string>()
+  for (const c of shot.characters || []) names.add(c.name)
+  for (const s of shot.scenes || []) names.add(s.name)
+  for (const p of shot.props || []) names.add(p.name)
+  let html = text
+  for (const name of names) {
+    html = html.replaceAll(name, `<mark class="hl-asset">${name}</mark>`)
+  }
+  return html
+}
+
+async function handleMoveUp(shotId: string) {
+  try {
+    await window.api.moveShotUp(shotId)
+    await loadEpisodesData()
+  } catch (err) {
+    ElMessage.error('移动失败')
+    console.error(err)
+  }
+}
+
+async function handleMoveDown(shotId: string) {
+  try {
+    await window.api.moveShotDown(shotId)
+    await loadEpisodesData()
+  } catch (err) {
+    ElMessage.error('移动失败')
+    console.error(err)
+  }
+}
+
+async function handleDeleteShot(shotId: string) {
+  try {
+    await ElMessageBox.confirm('确定删除该分镜吗？此操作不可撤销', '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await window.api.deleteShot(shotId)
+    selectedShots.value.delete(shotId)
+    await loadEpisodesData()
+  } catch (err: any) {
+    if (err !== 'cancel' && err?.message !== 'cancel') {
+      ElMessage.error('删除失败')
+      console.error(err)
+    }
+  }
+}
+
+function handleBatchGenerate(type: string) {
+  ElMessage.info(`${type}批量生成功能后续版本开放`)
+}
+
+// ===== 右侧面板 =====
+
+function showDetail(type: string, data: any) {
+  panelMode.value = 'detail'
+  detailType.value = type
+  detailData.value = data
+  genCount.value = 1
+}
+
+function backToResident() {
+  panelMode.value = 'resident'
+  detailData.value = null
+}
+
+const filteredAssets = computed(() => {
+  const list = projectData.value?.[residentTab.value] || []
+  if (!searchKeyword.value) return list
+  return list.filter((a: any) => a.name?.includes(searchKeyword.value))
+})
+
+const usedCharacterIds = computed(() => {
+  const ids = new Set<string>()
+  for (const shot of projectData.value?.shots || []) {
+    for (const c of shot.characters || []) ids.add(c.id)
+  }
+  return ids
+})
+const usedSceneIds = computed(() => {
+  const ids = new Set<string>()
+  for (const shot of projectData.value?.shots || []) {
+    for (const s of shot.scenes || []) ids.add(s.id)
+  }
+  return ids
+})
+const usedPropIds = computed(() => {
+  const ids = new Set<string>()
+  for (const shot of projectData.value?.shots || []) {
+    for (const p of shot.props || []) ids.add(p.id)
+  }
+  return ids
+})
+
+function isAssetUsed(assetId: string) {
+  if (residentTab.value === 'characters') return usedCharacterIds.value.has(assetId)
+  if (residentTab.value === 'scenes') return usedSceneIds.value.has(assetId)
+  return usedPropIds.value.has(assetId)
+}
+
+async function handleAssetNameChange(type: string, asset: any, newName: string) {
+  if (!newName.trim() || newName === asset.name) return
+  try {
+    if (type === 'character') await window.api.updateCharacter(asset.id, { name: newName.trim() })
+    else if (type === 'scene') await window.api.updateScene(asset.id, { name: newName.trim() })
+    else if (type === 'prop') await window.api.updateProp(asset.id, { name: newName.trim() })
+    await loadEpisodesData()
+  } catch (err) {
+    ElMessage.error('改名失败')
+    console.error(err)
+  }
+}
+
+async function handleAssetDescChange(type: string, asset: any, newDesc: string) {
+  try {
+    if (type === 'character') await window.api.updateCharacter(asset.id, { description: newDesc })
+    else if (type === 'scene') await window.api.updateScene(asset.id, { description: newDesc })
+    else if (type === 'prop') await window.api.updateProp(asset.id, { description: newDesc })
+    await loadEpisodesData()
+  } catch (err) {
+    ElMessage.error('保存描述失败')
+    console.error(err)
+  }
+}
+
+async function handleSelectImage(type: string, asset: any) {
+  if (!project.value?.path) return
+  try {
+    const imagePath = await window.api.selectImage(project.value.path)
+    if (!imagePath) return
+    if (type === 'character') await window.api.updateCharacter(asset.id, { referenceImage: imagePath })
+    else if (type === 'scene') await window.api.updateScene(asset.id, { referenceImage: imagePath })
+    else if (type === 'prop') await window.api.updateProp(asset.id, { referenceImage: imagePath })
+    await loadEpisodesData()
+    // 如果当前在详情面板，刷新详情数据
+    if (detailData.value?.id === asset.id) {
+      detailData.value = { ...detailData.value, reference_image: imagePath }
+    }
+  } catch (err) {
+    ElMessage.error('上传图片失败')
+    console.error(err)
+  }
+}
+
+async function handleDeleteAsset(type: string, assetId: string) {
+  try {
+    await ElMessageBox.confirm('确定删除吗？', '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    if (type === 'character') await window.api.deleteCharacter(assetId)
+    else if (type === 'scene') await window.api.deleteScene(assetId)
+    else if (type === 'prop') await window.api.deleteProp(assetId)
+    await loadEpisodesData()
+  } catch (err: any) {
+    if (err !== 'cancel' && err?.message !== 'cancel') {
+      ElMessage.error('删除失败')
+      console.error(err)
+    }
+  }
+}
+
+async function handleCreateAsset() {
+  const tab = residentTab.value
+  const label = tab === 'characters' ? '角色' : tab === 'scenes' ? '场景' : '道具'
+  try {
+    const { value } = await ElMessageBox.prompt(`请输入${label}名称`, `创建${label}`, {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /\S/,
+      inputErrorMessage: '名称不能为空'
+    })
+    const name = value.trim()
+    if (tab === 'characters') await window.api.createCharacter(projectId, { name })
+    else if (tab === 'scenes') await window.api.createScene(projectId, { name })
+    else if (tab === 'props') await window.api.createProp(projectId, { name })
+    await loadEpisodesData()
+  } catch (err: any) {
+    if (err !== 'cancel' && err?.message !== 'cancel') {
+      console.error(err)
+    }
+  }
+}
+
+function handleImportAsset() {
+  ElMessage.info('从其他项目导入功能后续版本开放')
+}
+
+// 生图按钮（MVP1占位）
+async function handleGenerateImage(type: string, shotId?: string) {
+  try {
+    await window.api.createGenerationTask({
+      projectId,
+      shotId,
+      type: 'image',
+      purpose: type,
+      inputParams: JSON.stringify({ count: genCount.value })
+    })
+    ElMessage.success('已加入生成队列，图片生成将在后续版本开放')
+  } catch (err) {
+    ElMessage.error('创建生成任务失败')
+    console.error(err)
+  }
+}
+
+// 提示词编辑（首帧/尾帧详情）
+async function handleShotPromptChange(shotId: string, field: string, value: string) {
+  try {
+    const update: any = {}
+    update[field] = value
+    await window.api.updateShot(shotId, update)
+    await checkAndCreateAssociations(shotId, value)
+    await loadEpisodesData()
+  } catch (err) {
+    ElMessage.error('保存失败')
+    console.error(err)
+  }
 }
 
 function goHome() {
@@ -368,29 +601,17 @@ function goSettings() {
   router.push('/settings')
 }
 
-function handleContinue() {
-  activeNav.value = 'episodes'
-}
-
-function countShots(data: any): number {
-  if (!data?.chapters) return 0
-  return data.chapters.reduce((sum: number, ch: any) => sum + (ch.shots?.length || 0), 0)
-}
-
 const scriptCharCount = computed(() => parseScriptText.value.length)
 
 onMounted(() => {
   store.resetResult()
   store.scriptText = ''
-  loadProject().then(() => loadExistingData())
+  loadProject().then(() => loadEpisodesData())
   loadModelName()
-  loadStats()
 })
 
 onUnmounted(() => {
-  if (removeAIProgress) {
-    removeAIProgress()
-  }
+  if (removeAIProgress) removeAIProgress()
 })
 </script>
 
@@ -399,16 +620,11 @@ onUnmounted(() => {
     <!-- 顶部栏 -->
     <header class="editor-header">
       <div class="header-left">
-        <el-button :icon="ArrowLeft" text class="back-btn" @click="goHome">
-          返回首页
-        </el-button>
+        <el-button :icon="ArrowLeft" text class="back-btn" @click="goHome">返回首页</el-button>
         <span class="project-name">{{ project?.name || '加载中...' }}</span>
       </div>
       <div class="header-right">
-        <span class="model-badge">
-          <span class="model-dot" />
-          {{ currentModel }}
-        </span>
+        <span class="model-badge"><span class="model-dot" />{{ currentModel }}</span>
         <span class="project-id">ID: {{ projectId }}</span>
         <el-button text :icon="Setting" class="settings-btn" @click="goSettings" />
       </div>
@@ -434,37 +650,10 @@ onUnmounted(() => {
         <div v-if="activeNav === 'overview'" class="content-panel">
           <h2 class="panel-title">项目总览</h2>
 
-          <!-- 数据统计 -->
-          <div v-if="hasData" class="stats-bar">
-            <div class="stat-item">
-              <span class="stat-number">{{ stats.characters }}</span>
-              <span class="stat-label">角色</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-number">{{ stats.scenes }}</span>
-              <span class="stat-label">场景</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-number">{{ stats.props }}</span>
-              <span class="stat-label">道具</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-number">{{ stats.chapters }}</span>
-              <span class="stat-label">剧集</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-number">{{ stats.shots }}</span>
-              <span class="stat-label">分镜</span>
-            </div>
-          </div>
-
-          <!-- 画面风格选择 -->
           <div class="section-block">
             <div class="section-header">
               <span class="section-title">画面风格</span>
-              <el-button text size="small" :icon="Plus" @click="handleCustomStyle">
-                自定义风格
-              </el-button>
+              <el-button text size="small" :icon="Plus" @click="handleCustomStyle">自定义风格</el-button>
             </div>
             <div class="style-grid">
               <div
@@ -480,7 +669,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- 画面比例选择 -->
           <div class="section-block">
             <span class="section-title">画面比例</span>
             <div class="ratio-group">
@@ -491,86 +679,511 @@ onUnmounted(() => {
                 :class="{ active: selectedAspectRatio === r.value }"
                 @click="handleAspectRatioSelect(r.value)"
               >
-                <div class="ratio-icon" :class="r.value" />
+                <div class="ratio-icon" :class="'_' + r.value.replace(':', '_')" />
                 <span class="ratio-label">{{ r.label }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 操作按钮 -->
           <div class="action-bar">
-            <el-button
-              type="primary"
-              size="large"
-              :icon="VideoPlay"
-              @click="openParseDialog('full')"
-            >
+            <el-button type="primary" size="large" :icon="VideoPlay" @click="openParseDialog('full')">
               AI解析剧本
             </el-button>
-            <el-button
-              size="large"
-              :icon="DocumentAdd"
-              @click="openParseDialog('append')"
-            >
+            <el-button size="large" :icon="DocumentAdd" @click="openParseDialog('append')">
               追加解析
             </el-button>
           </div>
-
-          <!-- 已有结果展示（保留兼容） -->
-          <div v-if="store.showResult && store.resultData" class="result-panel">
-            <h3 class="result-title">生成结果</h3>
-            <div class="result-cards">
-              <div class="result-card">
-                <span class="result-number">{{ store.resultData.shotsData?.chapters?.length || 0 }}</span>
-                <span class="result-label">章节</span>
-              </div>
-              <div class="result-card">
-                <span class="result-number">{{ countShots(store.resultData.shotsData) }}</span>
-                <span class="result-label">分镜</span>
-              </div>
-              <div class="result-card clickable" @click="expandCharacters = !expandCharacters">
-                <span class="result-number">{{ store.resultData.extractData?.characters?.length || 0 }}</span>
-                <span class="result-label">角色 {{ expandCharacters ? '▲' : '▼' }}</span>
-              </div>
-              <div class="result-card clickable" @click="expandScenes = !expandScenes">
-                <span class="result-number">{{ store.resultData.extractData?.scenes?.length || 0 }}</span>
-                <span class="result-label">场景 {{ expandScenes ? '▲' : '▼' }}</span>
-              </div>
-            </div>
-
-            <div v-if="expandCharacters" class="detail-list">
-              <div
-                v-for="(c, i) in store.resultData.extractData?.characters || []"
-                :key="i"
-                class="detail-item"
-              >
-                <span class="detail-name">{{ c.name }}</span>
-                <span class="detail-desc">{{ c.description }}</span>
-              </div>
-            </div>
-
-            <div v-if="expandScenes" class="detail-list">
-              <div
-                v-for="(s, i) in store.resultData.extractData?.scenes || []"
-                :key="i"
-                class="detail-item"
-              >
-                <span class="detail-name">{{ s.name }}</span>
-                <span class="detail-desc">{{ s.description }}</span>
-              </div>
-            </div>
-
-            <div class="result-actions">
-              <el-button type="primary" size="large" @click="handleContinue">
-                查看剧集结构
-              </el-button>
-            </div>
-          </div>
         </div>
 
-        <!-- 其他页面 -->
-        <div v-else class="content-panel placeholder">
-          <el-empty description="该功能正在开发中..." />
+        <!-- 剧集结构页 -->
+        <div v-else-if="activeNav === 'episodes'" class="episodes-layout">
+          <!-- 顶部工具栏占位 -->
+          <div class="toolbar-placeholder">
+            <span class="toolbar-text">顶部工具栏占位</span>
+          </div>
+
+          <!-- 分镜列表 + 右侧面板 -->
+          <div class="episodes-body">
+            <!-- 横向分镜列表 -->
+            <div class="shot-table-wrapper">
+              <div v-if="episodesLoading" class="loading-mask">加载中...</div>
+
+              <div v-else class="shot-table">
+                <!-- 表头 -->
+                <div class="shot-table-header">
+                  <div class="th col-num">
+                    <el-checkbox :model-value="isAllSelected" @change="toggleSelectAll" />
+                    <span>序号</span>
+                  </div>
+                  <div class="th col-script">剧本</div>
+                  <div class="th col-chars">
+                    出场人物
+                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('人物')">[批量生成]</el-button>
+                  </div>
+                  <div class="th col-scenes">
+                    场景
+                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('场景')">[批量生成]</el-button>
+                  </div>
+                  <div class="th col-props">
+                    道具
+                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('道具')">[批量生成]</el-button>
+                  </div>
+                  <div class="th col-voice">配音</div>
+                  <div class="th col-first">
+                    首帧
+                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('首帧')">[批量生成]</el-button>
+                  </div>
+                  <div class="th col-first-prompt">首帧提示词</div>
+                  <div class="th col-last">
+                    尾帧
+                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('尾帧')">[批量生成]</el-button>
+                  </div>
+                  <div class="th col-last-prompt">尾帧提示词</div>
+                  <div class="th col-video">
+                    视频
+                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('视频')">[批量生成]</el-button>
+                  </div>
+                  <div class="th col-op">操作</div>
+                </div>
+
+                <!-- 数据行 -->
+                <div v-for="group in groupedShots" :key="group.chapter.id" class="chapter-group">
+                  <!-- 章节标题行 -->
+                  <div class="chapter-row">
+                    {{ group.chapter.title || `第${group.chapter.chapter_index + 1}章` }}
+                  </div>
+
+                  <!-- 分镜行 -->
+                  <div
+                    v-for="(shot, idx) in group.shots"
+                    :key="shot.id"
+                    class="shot-row"
+                    :class="{ selected: selectedShots.has(shot.id) }"
+                  >
+                    <!-- 序号 -->
+                    <div class="td col-num">
+                      <el-checkbox :model-value="selectedShots.has(shot.id)" @change="toggleShotSelect(shot.id)" />
+                      <span class="shot-index">{{ Number(idx) + 1 }}</span>
+                    </div>
+
+                    <!-- 剧本 -->
+                    <div class="td col-script">
+                      <div
+                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'description'"
+                        class="edit-cell"
+                      >
+                        <el-input
+                          v-model="editText"
+                          type="textarea"
+                          :rows="3"
+                          @blur="saveEdit(shot.id, 'description')"
+                          @keydown.enter.prevent="saveEdit(shot.id, 'description')"
+                        />
+                      </div>
+                      <div
+                        v-else
+                        class="cell-text"
+                        v-html="getHighlightText(shot.description, shot)"
+                        @dblclick="startEdit(shot.id, 'description', shot.description || '')"
+                      />
+                      <div class="tag-bar">
+                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
+                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
+                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{ p.name }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 出场人物 -->
+                    <div class="td col-chars">
+                      <div class="thumb-grid">
+                        <div
+                          v-for="c in shot.characters"
+                          :key="c.id"
+                          class="thumb-cell"
+                          @click="showDetail('character', c)"
+                        >
+                          <img v-if="c.reference_image" :src="c.reference_image" class="thumb-img" />
+                          <div v-else class="thumb-placeholder">{{ c.name }}</div>
+                        </div>
+                        <div v-if="!shot.characters?.length" class="thumb-empty">-</div>
+                      </div>
+                    </div>
+
+                    <!-- 场景 -->
+                    <div class="td col-scenes">
+                      <div class="thumb-grid">
+                        <div
+                          v-for="s in shot.scenes"
+                          :key="s.id"
+                          class="thumb-cell"
+                          @click="showDetail('scene', s)"
+                        >
+                          <img v-if="s.reference_image" :src="s.reference_image" class="thumb-img" />
+                          <div v-else class="thumb-placeholder">{{ s.name }}</div>
+                        </div>
+                        <div v-if="!shot.scenes?.length" class="thumb-empty">-</div>
+                      </div>
+                    </div>
+
+                    <!-- 道具 -->
+                    <div class="td col-props">
+                      <div class="thumb-grid">
+                        <div
+                          v-for="p in shot.props"
+                          :key="p.id"
+                          class="thumb-cell"
+                          @click="showDetail('prop', p)"
+                        >
+                          <img v-if="p.reference_image" :src="p.reference_image" class="thumb-img" />
+                          <div v-else class="thumb-placeholder">{{ p.name }}</div>
+                        </div>
+                        <div v-if="!shot.props?.length" class="thumb-empty">-</div>
+                      </div>
+                    </div>
+
+                    <!-- 配音 -->
+                    <div class="td col-voice">
+                      <el-button text size="small" @click="showDetail('voice', shot)">配音</el-button>
+                    </div>
+
+                    <!-- 首帧 -->
+                    <div class="td col-first">
+                      <div class="media-cell" @click="showDetail('firstFrame', shot)">
+                        <div v-if="shot.first_frame_image_path" class="media-preview">
+                          <img :src="shot.first_frame_image_path" />
+                        </div>
+                        <div v-else class="media-placeholder">首帧</div>
+                      </div>
+                    </div>
+
+                    <!-- 首帧提示词 -->
+                    <div class="td col-first-prompt">
+                      <div
+                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'first_frame_prompt'"
+                        class="edit-cell"
+                      >
+                        <el-input
+                          v-model="editText"
+                          type="textarea"
+                          :rows="3"
+                          @blur="saveEdit(shot.id, 'first_frame_prompt')"
+                          @keydown.enter.prevent="saveEdit(shot.id, 'first_frame_prompt')"
+                        />
+                      </div>
+                      <div
+                        v-else
+                        class="cell-text"
+                        v-html="getHighlightText(shot.first_frame_prompt, shot)"
+                        @dblclick="startEdit(shot.id, 'first_frame_prompt', shot.first_frame_prompt || '')"
+                      />
+                      <div class="tag-bar">
+                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
+                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
+                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{ p.name }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 尾帧 -->
+                    <div class="td col-last">
+                      <div class="media-cell" @click="showDetail('lastFrame', shot)">
+                        <div v-if="shot.last_frame_image_path" class="media-preview">
+                          <img :src="shot.last_frame_image_path" />
+                        </div>
+                        <div v-else class="media-placeholder">尾帧</div>
+                      </div>
+                    </div>
+
+                    <!-- 尾帧提示词 -->
+                    <div class="td col-last-prompt">
+                      <div
+                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'last_frame_prompt'"
+                        class="edit-cell"
+                      >
+                        <el-input
+                          v-model="editText"
+                          type="textarea"
+                          :rows="3"
+                          @blur="saveEdit(shot.id, 'last_frame_prompt')"
+                          @keydown.enter.prevent="saveEdit(shot.id, 'last_frame_prompt')"
+                        />
+                      </div>
+                      <div
+                        v-else
+                        class="cell-text"
+                        v-html="getHighlightText(shot.last_frame_prompt, shot)"
+                        @dblclick="startEdit(shot.id, 'last_frame_prompt', shot.last_frame_prompt || '')"
+                      />
+                      <div class="tag-bar">
+                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
+                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
+                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{ p.name }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 视频 -->
+                    <div class="td col-video">
+                      <div class="media-cell" @click="showDetail('video', shot)">
+                        <div v-if="shot.video_path" class="media-preview">
+                          <video :src="shot.video_path" class="media-video" />
+                        </div>
+                        <div v-else class="media-placeholder">视频</div>
+                      </div>
+                    </div>
+
+                    <!-- 操作 -->
+                    <div class="td col-op">
+                      <el-button text size="small" :icon="ArrowUp" @click="handleMoveUp(shot.id)" />
+                      <el-button text size="small" :icon="ArrowDown" @click="handleMoveDown(shot.id)" />
+                      <el-button text size="small" :icon="Delete" class="delete-btn" @click="handleDeleteShot(shot.id)" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧面板 -->
+            <aside class="right-panel">
+              <!-- 常驻状态 -->
+              <div v-if="panelMode === 'resident'" class="panel-resident">
+                <div class="panel-toolbar">
+                  <el-button text :icon="Back" title="返回" disabled />
+                  <el-button text :icon="Grid" title="前进" disabled />
+                  <div class="panel-tabs">
+                    <div
+                      v-for="tab in [{k:'characters',l:'角色'},{k:'scenes',l:'场景'},{k:'props',l:'道具'}]"
+                      :key="tab.k"
+                      class="panel-tab"
+                      :class="{ active: residentTab === tab.k }"
+                      @click="residentTab = tab.k as any"
+                    >
+                      {{ tab.l }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel-search">
+                  <el-input v-model="searchKeyword" placeholder="搜索..." :prefix-icon="Search" size="small" />
+                  <el-button text size="small" @click="handleBatchGenerate('批量')">批量生成</el-button>
+                </div>
+
+                <!-- 作品中 -->
+                <div class="panel-section">
+                  <div class="panel-section-title">
+                    作品中 ({{ filteredAssets.length }}/{{ projectData?.[residentTab]?.length || 0 }})
+                  </div>
+                  <div class="asset-grid">
+                    <div
+                      v-for="asset in filteredAssets"
+                      :key="asset.id"
+                      class="asset-card"
+                      :class="{ unused: !isAssetUsed(asset.id) }"
+                      @click="showDetail(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset)"
+                    >
+                      <img v-if="asset.reference_image" :src="asset.reference_image" class="asset-img" />
+                      <div v-else class="asset-placeholder">{{ asset.name }}</div>
+                      <el-button
+                        text
+                        circle
+                        size="small"
+                        class="asset-delete"
+                        :icon="Delete"
+                        @click.stop="handleDeleteAsset(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset.id)"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 全部可用 -->
+                <div class="panel-section">
+                  <div class="panel-section-title">
+                    全部可用 ({{ filteredAssets.filter((a:any) => isAssetUsed(a.id)).length }}/{{ filteredAssets.length }})
+                  </div>
+                  <div class="asset-grid">
+                    <div
+                      v-for="asset in filteredAssets.filter((a:any) => isAssetUsed(a.id))"
+                      :key="asset.id"
+                      class="asset-card"
+                      @click="showDetail(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset)"
+                    >
+                      <img v-if="asset.reference_image" :src="asset.reference_image" class="asset-img" />
+                      <div v-else class="asset-placeholder">{{ asset.name }}</div>
+                    </div>
+                    <div v-if="!filteredAssets.filter((a:any) => isAssetUsed(a.id)).length" class="panel-empty">
+                      暂无可用资产
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel-footer">
+                  <el-button :icon="Plus" @click="handleCreateAsset">创建</el-button>
+                  <el-button text @click="handleImportAsset">从其他项目导入</el-button>
+                </div>
+              </div>
+
+              <!-- 详情状态 -->
+              <div v-else class="panel-detail">
+                <div class="detail-toolbar">
+                  <el-button text :icon="Back" @click="backToResident">返回</el-button>
+                </div>
+
+                <!-- 角色/场景/道具详情 -->
+                <div v-if="['character','scene','prop'].includes(detailType)" class="detail-body">
+                  <div class="detail-media">
+                    <img v-if="detailData?.reference_image" :src="detailData.reference_image" class="detail-img" />
+                    <div v-else class="detail-placeholder">{{ detailData?.name }}</div>
+                    <div class="detail-upload">
+                      <el-button :icon="Upload" size="small" @click="handleSelectImage(detailType, detailData)">上传本地</el-button>
+                      <el-button text size="small" @click="ElMessage.info('资产库导入后续版本开放')">资产库导入</el-button>
+                    </div>
+                  </div>
+                  <div class="detail-fields">
+                    <div class="detail-field">
+                      <label>名称</label>
+                      <el-input
+                        :model-value="detailData?.name"
+                        @blur="(e: any) => handleAssetNameChange(detailType, detailData, e.target.value)"
+                      />
+                    </div>
+                    <div class="detail-field">
+                      <label>描述</label>
+                      <el-input
+                        :model-value="detailData?.description"
+                        type="textarea"
+                        :rows="4"
+                        @blur="(e: any) => handleAssetDescChange(detailType, detailData, e.target.value)"
+                      />
+                    </div>
+                  </div>
+                  <!-- 生图控制栏 -->
+                  <div class="gen-control">
+                    <div class="gen-control-row">
+                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <span class="gen-label">生成张数</span>
+                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
+                      <el-input v-model.number="genCount" class="gen-count-input" />
+                      <el-button text :icon="Plus" @click="genCount++" />
+                    </div>
+                    <el-button type="primary" class="gen-btn" @click="handleGenerateImage(detailType, detailData?.id)">
+                      AI生图
+                    </el-button>
+                  </div>
+                  <div class="history-section">
+                    <div class="history-title">历史记录</div>
+                    <div class="history-empty">暂无生成记录</div>
+                  </div>
+                </div>
+
+                <!-- 首帧详情 -->
+                <div v-else-if="detailType === 'firstFrame'" class="detail-body">
+                  <div class="detail-media">
+                    <div v-if="detailData?.first_frame_image_path" class="detail-placeholder">
+                      <img :src="detailData.first_frame_image_path" class="detail-img" />
+                    </div>
+                    <div v-else class="detail-placeholder">首帧占位</div>
+                  </div>
+                  <div class="detail-fields">
+                    <div class="detail-field">
+                      <label>首帧提示词</label>
+                      <el-input
+                        :model-value="detailData?.first_frame_prompt"
+                        type="textarea"
+                        :rows="4"
+                        @blur="(e: any) => handleShotPromptChange(detailData.id, 'first_frame_prompt', e.target.value)"
+                      />
+                    </div>
+                  </div>
+                  <div class="gen-control">
+                    <div class="gen-control-row">
+                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <span class="gen-label">生成张数</span>
+                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
+                      <el-input v-model.number="genCount" class="gen-count-input" />
+                      <el-button text :icon="Plus" @click="genCount++" />
+                    </div>
+                    <el-button type="primary" class="gen-btn" @click="handleGenerateImage('firstFrame', detailData?.id)">
+                      AI生图
+                    </el-button>
+                  </div>
+                  <div class="history-section">
+                    <div class="history-title">历史记录</div>
+                    <div class="history-empty">暂无生成记录</div>
+                  </div>
+                </div>
+
+                <!-- 尾帧详情 -->
+                <div v-else-if="detailType === 'lastFrame'" class="detail-body">
+                  <div class="detail-media">
+                    <div v-if="detailData?.last_frame_image_path" class="detail-placeholder">
+                      <img :src="detailData.last_frame_image_path" class="detail-img" />
+                    </div>
+                    <div v-else class="detail-placeholder">尾帧占位</div>
+                  </div>
+                  <div class="detail-fields">
+                    <div class="detail-field">
+                      <label>尾帧提示词</label>
+                      <el-input
+                        :model-value="detailData?.last_frame_prompt"
+                        type="textarea"
+                        :rows="4"
+                        @blur="(e: any) => handleShotPromptChange(detailData.id, 'last_frame_prompt', e.target.value)"
+                      />
+                    </div>
+                  </div>
+                  <div class="gen-control">
+                    <div class="gen-control-row">
+                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <span class="gen-label">生成张数</span>
+                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
+                      <el-input v-model.number="genCount" class="gen-count-input" />
+                      <el-button text :icon="Plus" @click="genCount++" />
+                    </div>
+                    <el-button type="primary" class="gen-btn" @click="handleGenerateImage('lastFrame', detailData?.id)">
+                      AI生图
+                    </el-button>
+                  </div>
+                  <div class="history-section">
+                    <div class="history-title">历史记录</div>
+                    <div class="history-empty">暂无生成记录</div>
+                  </div>
+                </div>
+
+                <!-- 视频详情 -->
+                <div v-else-if="detailType === 'video'" class="detail-body">
+                  <div class="detail-media">
+                    <div v-if="detailData?.video_path" class="detail-placeholder">
+                      <video :src="detailData.video_path" class="detail-video" controls />
+                    </div>
+                    <div v-else class="detail-placeholder">视频占位</div>
+                  </div>
+                  <div class="gen-control">
+                    <div class="gen-control-row">
+                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <span class="gen-label">生成数量</span>
+                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
+                      <el-input v-model.number="genCount" class="gen-count-input" />
+                      <el-button text :icon="Plus" @click="genCount++" />
+                    </div>
+                    <el-button type="primary" class="gen-btn" @click="ElMessage.info('视频生成后续版本开放')">
+                      AI生视频
+                    </el-button>
+                  </div>
+                  <div class="history-section">
+                    <div class="history-title">备选素材</div>
+                    <div class="history-empty">暂无备选素材</div>
+                  </div>
+                  <div class="history-section">
+                    <div class="history-title">历史记录</div>
+                    <div class="history-empty">暂无生成记录</div>
+                  </div>
+                </div>
+
+                <!-- 配音详情 -->
+                <div v-else-if="detailType === 'voice'" class="detail-body">
+                  <div class="detail-placeholder">配音功能开发中</div>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </main>
     </div>
@@ -584,14 +1197,11 @@ onUnmounted(() => {
       :autofocus="false"
       class="dark-dialog parse-dialog"
     >
-      <!-- Tab -->
       <div class="parse-tabs">
         <div class="parse-tab active">AI生成</div>
         <div class="parse-tab disabled" title="后续版本开放">手动切分</div>
       </div>
-
       <div class="parse-body">
-        <!-- 剧本输入 -->
         <div class="parse-section">
           <div class="parse-section-header">
             <span class="parse-section-title">剧本内容</span>
@@ -599,85 +1209,39 @@ onUnmounted(() => {
               {{ scriptCharCount }} 字{{ scriptCharCount < 500 ? '（建议500字以上）' : '' }}
             </span>
           </div>
-          <el-input
-            v-model="parseScriptText"
-            type="textarea"
-            :rows="10"
-            placeholder="在此粘贴剧本内容..."
-            resize="none"
-            :disabled="parseGenerating"
-          />
+          <el-input v-model="parseScriptText" type="textarea" :rows="10" placeholder="在此粘贴剧本内容..." resize="none" :disabled="parseGenerating" />
         </div>
-
-        <!-- 风格选择（与总览页同步） -->
         <div class="parse-section compact">
           <span class="parse-section-title">画面风格</span>
           <div class="style-grid compact">
-            <div
-              v-for="s in stylePresets"
-              :key="s.name"
-              class="style-card compact"
-              :class="{ active: selectedStyle === s.name }"
-              @click="handleStyleSelect(s)"
-            >
+            <div v-for="s in stylePresets" :key="s.name" class="style-card compact" :class="{ active: selectedStyle === s.name }" @click="handleStyleSelect(s)">
               <div class="style-preview compact" :style="{ background: s.color }" />
               <span class="style-name compact">{{ s.name }}</span>
             </div>
           </div>
         </div>
-
-        <!-- 比例选择 -->
         <div class="parse-section compact">
           <span class="parse-section-title">画面比例</span>
           <div class="ratio-group compact">
-            <div
-              v-for="r in aspectRatios"
-              :key="r.value"
-              class="ratio-card compact"
-              :class="{ active: selectedAspectRatio === r.value }"
-              @click="handleAspectRatioSelect(r.value)"
-            >
-              <div class="ratio-icon compact" :class="r.value" />
+            <div v-for="r in aspectRatios" :key="r.value" class="ratio-card compact" :class="{ active: selectedAspectRatio === r.value }" @click="handleAspectRatioSelect(r.value)">
+              <div class="ratio-icon compact" :class="'_' + r.value.replace(':', '_')" />
               <span class="ratio-label">{{ r.label }}</span>
             </div>
           </div>
         </div>
-
-        <!-- 提示词模板 -->
         <div class="parse-section compact">
           <span class="parse-section-title">提示词模板</span>
-          <el-select
-            v-model="selectedTemplate"
-            style="width: 100%"
-            @change="handleTemplateChange"
-            :disabled="parseGenerating"
-          >
-            <el-option
-              v-for="t in templates"
-              :key="t.id"
-              :label="t.name"
-              :value="t.id"
-            />
+          <el-select v-model="selectedTemplate" style="width: 100%" @change="handleTemplateChange" :disabled="parseGenerating">
+            <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
-          <div v-if="templatePreview" class="template-preview">
-            {{ templatePreview }}
-          </div>
+          <div v-if="templatePreview" class="template-preview">{{ templatePreview }}</div>
         </div>
-
-        <!-- 模型选择 -->
         <div class="parse-section compact">
           <span class="parse-section-title">语言模型</span>
           <el-input v-model="selectedModel" disabled />
         </div>
-
-        <!-- 进度 -->
         <div v-if="parseGenerating" class="parse-progress">
-          <div
-            v-for="s in parseProgressSteps"
-            :key="s.step"
-            class="progress-item"
-            :class="s.status"
-          >
+          <div v-for="s in parseProgressSteps" :key="s.step" class="progress-item" :class="s.status">
             <span class="progress-icon">
               <span v-if="s.status === 'done'">✅</span>
               <span v-else-if="s.status === 'running'" class="spin">🔄</span>
@@ -688,19 +1252,9 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-
       <template #footer>
-        <el-button :disabled="parseGenerating" @click="handleSkipParse">
-          暂时跳过
-        </el-button>
-        <el-button
-          type="primary"
-          :loading="parseGenerating"
-          :disabled="parseGenerating"
-          @click="handleParseSubmit"
-        >
-          一键生成分镜
-        </el-button>
+        <el-button :disabled="parseGenerating" @click="handleSkipParse">暂时跳过</el-button>
+        <el-button type="primary" :loading="parseGenerating" :disabled="parseGenerating" @click="handleParseSubmit">一键生成分镜</el-button>
       </template>
     </el-dialog>
   </div>
@@ -721,8 +1275,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
-  padding: 0 24px;
+  height: 48px;
+  padding: 0 20px;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
@@ -745,7 +1299,7 @@ onUnmounted(() => {
 }
 
 .project-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #f3f4f6;
 }
@@ -753,7 +1307,7 @@ onUnmounted(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   font-size: 12px;
   color: #6b7280;
 }
@@ -764,7 +1318,7 @@ onUnmounted(() => {
   gap: 6px;
   background: rgba(167, 139, 250, 0.1);
   color: #c4b5fd;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 20px;
   font-size: 12px;
 }
@@ -774,10 +1328,6 @@ onUnmounted(() => {
   height: 6px;
   border-radius: 50%;
   background: #a78bfa;
-}
-
-.project-id {
-  font-family: 'Menlo', 'Lucida Console', monospace;
 }
 
 .settings-btn {
@@ -799,18 +1349,18 @@ onUnmounted(() => {
 
 /* 左侧导航栏 */
 .editor-sidebar {
-  width: 200px;
+  width: 160px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.02);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 16px 0;
+  padding: 12px 0;
   display: flex;
   flex-direction: column;
 }
 
 .nav-item {
-  padding: 12px 20px;
-  font-size: 14px;
+  padding: 10px 16px;
+  font-size: 13px;
   color: #9ca3af;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -832,72 +1382,42 @@ onUnmounted(() => {
 /* 中间内容区 */
 .editor-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 32px 40px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-panel {
+  padding: 24px 32px;
+  overflow-y: auto;
   max-width: 960px;
 }
 
 .panel-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #f3f4f6;
-  margin: 0 0 24px 0;
+  margin: 0 0 20px 0;
 }
 
-/* 统计栏 */
-.stats-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.stat-item {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.stat-number {
-  font-size: 24px;
-  font-weight: 700;
-  color: #a78bfa;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-/* 区块 */
+/* 总览页 */
 .section-block {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .section-title {
   font-size: 14px;
   font-weight: 600;
   color: #e5e7eb;
-  display: block;
-  margin-bottom: 14px;
 }
 
-/* 风格网格 */
 .style-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -967,7 +1487,6 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* 比例选择 */
 .ratio-group {
   display: flex;
   gap: 12px;
@@ -1006,16 +1525,9 @@ onUnmounted(() => {
 }
 
 .ratio-icon {
-  width: 48px;
-  height: 32px;
   border-radius: 4px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
-}
-
-.ratio-icon.compact {
-  width: 36px;
-  height: 24px;
 }
 
 .ratio-icon._16_9 {
@@ -1058,116 +1570,609 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* 操作栏 */
 .action-bar {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
-/* 结果面板 */
-.result-panel {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  padding: 24px;
-}
-
-.result-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #f3f4f6;
-  margin: 0 0 16px 0;
-}
-
-.result-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.result-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  padding: 16px;
+/* 剧集结构页 */
+.episodes-layout {
   display: flex;
   flex-direction: column;
+  height: 100%;
+}
+
+.toolbar-placeholder {
+  height: 40px;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.01);
+  flex-shrink: 0;
 }
 
-.result-card.clickable {
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.result-card.clickable:hover {
-  background: rgba(167, 139, 250, 0.08);
-  border-color: rgba(167, 139, 250, 0.2);
-}
-
-.result-number {
-  font-size: 24px;
-  font-weight: 700;
-  color: #a78bfa;
-}
-
-.result-label {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.detail-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.detail-item {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.detail-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e5e7eb;
-}
-
-.detail-desc {
+.toolbar-text {
   font-size: 12px;
-  color: #6b7280;
-  line-height: 1.5;
+  color: #4b5563;
 }
 
-.result-actions {
+.episodes-body {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  flex: 1;
+  overflow: hidden;
 }
 
-.placeholder {
+/* 分镜列表 */
+.shot-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.loading-mask {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  height: 200px;
+  color: #6b7280;
 }
 
-/* 弹窗内样式 */
+.shot-table {
+  min-width: 1400px;
+}
+
+.shot-table-header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #0f0f11;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shot-table-header .th {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.shot-table-header .th:last-child {
+  border-right: none;
+}
+
+.batch-btn {
+  font-size: 11px;
+  color: #60a5fa;
+  padding: 0;
+  margin-top: 2px;
+}
+
+.col-num {
+  width: 70px;
+}
+
+.col-script {
+  width: 240px;
+}
+
+.col-chars,
+.col-scenes,
+.col-props {
+  width: 140px;
+}
+
+.col-voice {
+  width: 70px;
+}
+
+.col-first,
+.col-last,
+.col-video {
+  width: 90px;
+}
+
+.col-first-prompt,
+.col-last-prompt {
+  width: 200px;
+}
+
+.col-op {
+  width: 110px;
+}
+
+/* 章节行 */
+.chapter-row {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 分镜行 */
+.shot-row {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+.shot-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.shot-row.selected {
+  background: rgba(167, 139, 250, 0.08);
+}
+
+.shot-row .td {
+  padding: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shot-row .td:last-child {
+  border-right: none;
+}
+
+.shot-index {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+.cell-text {
+  font-size: 12px;
+  color: #d1d5db;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  min-height: 20px;
+}
+
+.cell-text :deep(.hl-asset) {
+  background: rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.edit-cell :deep(.el-textarea__inner) {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #e5e7eb;
+  font-size: 12px;
+}
+
+.tag-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.tag-char {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+
+.tag-scene {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.tag-prop {
+  background: rgba(251, 191, 77, 0.15);
+  color: #fbbf4d;
+}
+
+/* 缩略图网格 */
+.thumb-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.thumb-cell {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.thumb-cell:hover {
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-placeholder {
+  font-size: 9px;
+  color: #6b7280;
+  text-align: center;
+  padding: 2px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.thumb-empty {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+/* 媒体单元格 */
+.media-cell {
+  width: 70px;
+  height: 50px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.media-cell:hover {
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.media-placeholder {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.media-preview img,
+.media-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-video {
+  width: 100%;
+  height: 100%;
+}
+
+/* 操作列 */
+.col-op {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.col-op .delete-btn:hover {
+  color: #ef4444;
+}
+
+/* 右侧面板 */
+.right-panel {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.01);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-resident,
+.panel-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.panel-tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.panel-tab {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.panel-tab:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.panel-tab.active {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.1);
+  font-weight: 500;
+}
+
+.panel-search {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.panel-section {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+
+.panel-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.asset-card {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.asset-card:hover {
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.asset-card.unused {
+  opacity: 0.5;
+}
+
+.asset-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.asset-placeholder {
+  font-size: 10px;
+  color: #6b7280;
+  text-align: center;
+  padding: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.asset-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: #ef4444;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.asset-card:hover .asset-delete {
+  opacity: 1;
+}
+
+.panel-empty {
+  font-size: 12px;
+  color: #4b5563;
+  text-align: center;
+  padding: 16px;
+}
+
+.panel-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+/* 详情面板 */
+.detail-toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.detail-media {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-img {
+  width: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+  max-height: 200px;
+}
+
+.detail-video {
+  width: 100%;
+  border-radius: 8px;
+  max-height: 200px;
+}
+
+.detail-placeholder {
+  width: 100%;
+  height: 160px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.detail-upload {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-field label {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.detail-field :deep(.el-input__wrapper),
+.detail-field :deep(.el-textarea__inner) {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.detail-field :deep(.el-input__inner),
+.detail-field :deep(.el-textarea__inner) {
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+/* 生图控制栏 */
+.gen-control {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.gen-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gen-label {
+  font-size: 12px;
+  color: #9ca3af;
+  flex: 1;
+}
+
+.gen-count-input {
+  width: 50px;
+}
+
+.gen-count-input :deep(.el-input__wrapper) {
+  padding: 0 4px;
+}
+
+.gen-count-input :deep(.el-input__inner) {
+  text-align: center;
+}
+
+.gen-btn {
+  width: 100%;
+}
+
+.history-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+}
+
+.history-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.history-empty {
+  font-size: 12px;
+  color: #4b5563;
+  text-align: center;
+  padding: 16px;
+}
+
+/* 弹窗 */
 .parse-tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 0;
 }
 
 .parse-tab {
@@ -1284,36 +2289,6 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-@media (max-width: 768px) {
-  .editor-sidebar {
-    width: 160px;
-  }
-
-  .style-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .style-grid.compact {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
-  .stats-bar {
-    flex-wrap: wrap;
-  }
-
-  .stat-item {
-    min-width: 80px;
-  }
-
-  .result-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .editor-content {
-    padding: 20px;
-  }
 }
 </style>
 

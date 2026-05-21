@@ -1,7 +1,7 @@
 import { getDb } from './db'
 import { app } from 'electron'
-import { join } from 'path'
-import { mkdirSync } from 'fs'
+import { join, extname } from 'path'
+import { mkdirSync, copyFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 
 export interface Project {
@@ -261,6 +261,116 @@ export function getShotScenesByProject(projectId: string) {
 export function deleteProject(projectId: string): void {
   const db = getDb()
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId)
+}
+
+export interface UpdateShotInput {
+  description?: string
+  first_frame_prompt?: string
+  last_frame_prompt?: string
+  video_prompt?: string
+  dialogue?: string
+}
+
+export function updateShot(shotId: string, input: UpdateShotInput): void {
+  const db = getDb()
+  const fields: string[] = []
+  const values: any[] = []
+
+  if (input.description !== undefined) {
+    fields.push('description = ?')
+    values.push(input.description)
+  }
+  if (input.first_frame_prompt !== undefined) {
+    fields.push('first_frame_prompt = ?')
+    values.push(input.first_frame_prompt)
+  }
+  if (input.last_frame_prompt !== undefined) {
+    fields.push('last_frame_prompt = ?')
+    values.push(input.last_frame_prompt)
+  }
+  if (input.video_prompt !== undefined) {
+    fields.push('video_prompt = ?')
+    values.push(input.video_prompt)
+  }
+  if (input.dialogue !== undefined) {
+    fields.push('dialogue = ?')
+    values.push(input.dialogue)
+  }
+
+  if (fields.length === 0) return
+
+  values.push(shotId)
+  db.prepare(`UPDATE shots SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+}
+
+export function addShotAssociation(
+  shotId: string,
+  type: 'character' | 'scene' | 'prop',
+  assetId: string
+): void {
+  const db = getDb()
+
+  if (type === 'character') {
+    const existing = db
+      .prepare('SELECT 1 FROM shot_characters WHERE shot_id = ? AND character_id = ?')
+      .get(shotId, assetId)
+    if (!existing) {
+      db.prepare('INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)').run(shotId, assetId)
+    }
+  } else if (type === 'scene') {
+    const existing = db
+      .prepare('SELECT 1 FROM shot_scenes WHERE shot_id = ? AND scene_id = ?')
+      .get(shotId, assetId)
+    if (!existing) {
+      db.prepare('INSERT INTO shot_scenes (shot_id, scene_id) VALUES (?, ?)').run(shotId, assetId)
+    }
+  } else if (type === 'prop') {
+    const existing = db
+      .prepare('SELECT 1 FROM shot_props WHERE shot_id = ? AND prop_id = ?')
+      .get(shotId, assetId)
+    if (!existing) {
+      db.prepare('INSERT INTO shot_props (id, shot_id, prop_id) VALUES (?, ?, ?)').run(randomUUID(), shotId, assetId)
+    }
+  }
+}
+
+export function createGenerationTask(input: {
+  projectId: string
+  shotId?: string
+  type: string
+  purpose: string
+  channel?: string
+  model?: string
+  inputParams?: string
+}): { id: string } {
+  const db = getDb()
+  const id = randomUUID()
+  db.prepare(`
+    INSERT INTO generation_tasks (
+      id, project_id, shot_id, type, purpose, channel, model, status, input_params, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))
+  `).run(
+    id,
+    input.projectId,
+    input.shotId ?? null,
+    input.type,
+    input.purpose,
+    input.channel ?? null,
+    input.model ?? null,
+    input.inputParams ?? '{}'
+  )
+  return { id }
+}
+
+export function copyImageToProject(srcPath: string, projectPath: string): string {
+  const assetsDir = join(projectPath, 'assets')
+  mkdirSync(assetsDir, { recursive: true })
+  const ext = extname(srcPath)
+  const destName = `${randomUUID()}${ext}`
+  const destPath = join(assetsDir, destName)
+  copyFileSync(srcPath, destPath)
+  return destPath
 }
 
 // ========== M1-06: 分镜查询服务层 ==========

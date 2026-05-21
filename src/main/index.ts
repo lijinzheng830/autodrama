@@ -9,7 +9,8 @@ import {
   getShotCharacters, getShotScenes,
   getShotCharactersByProject, getShotScenesByProject,
   getShotsWithAssociations, getProjectData,
-  moveShotUp, moveShotDown, deleteShot
+  moveShotUp, moveShotDown, deleteShot,
+  updateShot, addShotAssociation, createGenerationTask, copyImageToProject
 } from './services/project'
 import {
   createCharacter, updateCharacter, deleteCharacter,
@@ -196,6 +197,29 @@ app.whenReady().then(() => {
 
   ipcMain.handle('shot:delete', async (_, shotId: string) => {
     deleteShot(shotId)
+  })
+
+  ipcMain.handle('shot:update', async (_, { shotId, input }: { shotId: string; input: any }) => {
+    updateShot(shotId, input)
+  })
+
+  ipcMain.handle('shot:associate', async (_, { shotId, type, assetId }: { shotId: string; type: string; assetId: string }) => {
+    addShotAssociation(shotId, type as any, assetId)
+  })
+
+  ipcMain.handle('generationTask:create', async (_, input: any) => {
+    return createGenerationTask(input)
+  })
+
+  ipcMain.handle('dialog:selectImage', async (_, projectPath: string) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }],
+      title: '选择图片'
+    })
+    if (result.canceled) return null
+    const srcPath = result.filePaths[0]
+    return copyImageToProject(srcPath, projectPath)
   })
 
   // Asset CRUD handlers
