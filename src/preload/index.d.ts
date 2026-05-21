@@ -41,6 +41,13 @@ export interface Api {
   updateProp: (propId: string, input: any) => Promise<void>
   deleteProp: (propId: string) => Promise<void>
   getPropsByProject: (projectId: string) => Promise<unknown[]>
+
+  // Shot & project data
+  getShotsWithAssociations: (chapterId: string) => Promise<unknown[]>
+  getProjectData: (projectId: string) => Promise<unknown>
+  moveShotUp: (shotId: string) => Promise<void>
+  moveShotDown: (shotId: string) => Promise<void>
+  deleteShot: (shotId: string) => Promise<void>
 }
 
 declare global {

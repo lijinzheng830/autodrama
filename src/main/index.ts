@@ -7,7 +7,9 @@ import {
   getChaptersByProject, getShotsByChapter,
   getCharactersByProject, getScenesByProject,
   getShotCharacters, getShotScenes,
-  getShotCharactersByProject, getShotScenesByProject
+  getShotCharactersByProject, getShotScenesByProject,
+  getShotsWithAssociations, getProjectData,
+  moveShotUp, moveShotDown, deleteShot
 } from './services/project'
 import {
   createCharacter, updateCharacter, deleteCharacter,
@@ -168,6 +170,26 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:shotScenesByProject', async (_, projectId: string) => {
     return getShotScenesByProject(projectId)
+  })
+
+  ipcMain.handle('project:shotsWithAssociations', async (_, chapterId: string) => {
+    return getShotsWithAssociations(chapterId)
+  })
+
+  ipcMain.handle('project:data', async (_, projectId: string) => {
+    return getProjectData(projectId)
+  })
+
+  ipcMain.handle('shot:moveUp', async (_, shotId: string) => {
+    moveShotUp(shotId)
+  })
+
+  ipcMain.handle('shot:moveDown', async (_, shotId: string) => {
+    moveShotDown(shotId)
+  })
+
+  ipcMain.handle('shot:delete', async (_, shotId: string) => {
+    deleteShot(shotId)
   })
 
   // Asset CRUD handlers

@@ -45,7 +45,14 @@ const api = {
   createProp: (projectId: string, input: any) => ipcRenderer.invoke('asset:prop:create', { projectId, input }),
   updateProp: (propId: string, input: any) => ipcRenderer.invoke('asset:prop:update', { propId, input }),
   deleteProp: (propId: string) => ipcRenderer.invoke('asset:prop:delete', propId),
-  getPropsByProject: (projectId: string) => ipcRenderer.invoke('asset:prop:list', projectId)
+  getPropsByProject: (projectId: string) => ipcRenderer.invoke('asset:prop:list', projectId),
+
+  // Shot & project data
+  getShotsWithAssociations: (chapterId: string) => ipcRenderer.invoke('project:shotsWithAssociations', chapterId),
+  getProjectData: (projectId: string) => ipcRenderer.invoke('project:data', projectId),
+  moveShotUp: (shotId: string) => ipcRenderer.invoke('shot:moveUp', shotId),
+  moveShotDown: (shotId: string) => ipcRenderer.invoke('shot:moveDown', shotId),
+  deleteShot: (shotId: string) => ipcRenderer.invoke('shot:delete', shotId)
 }
 
 if (process.contextIsolated) {
