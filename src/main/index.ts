@@ -3,7 +3,7 @@ import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
 import {
-  createProject, getProjects, getProject,
+  createProject, getProjects, getProject, updateProject,
   getChaptersByProject, getShotsByChapter,
   getCharactersByProject, getScenesByProject,
   getShotCharacters, getShotScenes,
@@ -92,6 +92,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:get', async (_, id: string) => {
     return getProject(id)
+  })
+
+  ipcMain.handle('project:update', async (_, { projectId, input }: { projectId: string; input: any }) => {
+    updateProject(projectId, input)
   })
 
   ipcMain.handle('ai:auto-process', async (_, { projectId, script }: { projectId: string; script: string }) => {

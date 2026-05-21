@@ -7,9 +7,13 @@ export interface Api {
     stylePrompt: string
     styleNegativePrompt: string
     aspectRatio: string
+    era?: string
+    negativePrompt?: string
+    parentProjectId?: string
   }) => Promise<unknown>
   getProjects: () => Promise<unknown[]>
   getProject: (id: string) => Promise<unknown | null>
+  updateProject: (projectId: string, input: any) => Promise<void>
   autoProcess: (projectId: string, script: string) => Promise<unknown>
   onAIProgress: (callback: (data: any) => void) => () => void
   getSetting: (key: string) => Promise<string | null>

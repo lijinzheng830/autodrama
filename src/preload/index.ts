@@ -8,9 +8,13 @@ const api = {
     stylePrompt: string
     styleNegativePrompt: string
     aspectRatio: string
+    era?: string
+    negativePrompt?: string
+    parentProjectId?: string
   }) => ipcRenderer.invoke('project:create', input),
   getProjects: () => ipcRenderer.invoke('project:list'),
   getProject: (id: string) => ipcRenderer.invoke('project:get', id),
+  updateProject: (projectId: string, input: any) => ipcRenderer.invoke('project:update', { projectId, input }),
   autoProcess: (projectId: string, script: string) => ipcRenderer.invoke('ai:auto-process', { projectId, script }),
   onAIProgress: (callback: (data: any) => void) => {
     const handler = (_: any, data: any) => callback(data)
