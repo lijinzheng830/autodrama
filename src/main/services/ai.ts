@@ -3,6 +3,13 @@ import { getProvider } from './providers'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 import { updateProjectScript } from './project'
 
+export interface AutoProcessOptions {
+  promptTemplate?: string
+  era?: string
+  aspectRatio?: string
+  model?: string
+}
+
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
@@ -183,7 +190,8 @@ export async function autoProcess(
   projectId: string,
   script: string,
   onProgress: (data: ProgressData) => void,
-  sendProgress: (data: ProgressData) => void
+  sendProgress: (data: ProgressData) => void,
+  options?: AutoProcessOptions
 ): Promise<{ shotsData: any; extractData: any; assocData: any }> {
   // 保存剧本到项目
   try {
@@ -192,51 +200,76 @@ export async function autoProcess(
     // 忽略保存失败
   }
 
+  // 更新 era / aspectRatio
+  const db = getDb()
+  if (options?.era) {
+    db.prepare('UPDATE projects SET era = ? WHERE id = ?').run(options.era, projectId)
+  }
+  if (options?.aspectRatio) {
+    db.prepare('UPDATE projects SET aspect_ratio = ? WHERE id = ?').run(options.aspectRatio, projectId)
+  }
+
+  const storyboardPrompt = options?.promptTemplate || STORYBOARD_PROMPT
+  const modelOverride = options?.model
+
   // 步骤1：分镜
   onProgress({ step: 1, status: 'running', message: '正在分析剧本、拆分镜头...' })
   sendProgress({ step: 1, status: 'running', message: '正在分析剧本、拆分镜头...' })
 
-  const shotsResult = await callAI([
-    { role: 'system', content: STORYBOARD_PROMPT },
-    { role: 'user', content: script }
-  ])
+  const shotsResult = await callAI(
+    [
+      { role: 'system', content: storyboardPrompt },
+      { role: 'user', content: script }
+    ],
+    undefined,
+    modelOverride
+  )
   const shotsData = JSON.parse(extractJSON(shotsResult))
 
   onProgress({ step: 1, status: 'done', message: '分析剧本、拆分镜头 完成' })
   sendProgress({ step: 1, status: 'done', message: '分析剧本、拆分镜头 完成' })
 
-  // 步骤2：提取角色和场景
-  onProgress({ step: 2, status: 'running', message: '正在提取角色和场景...' })
-  sendProgress({ step: 2, status: 'running', message: '正在提取角色和场景...' })
+  // 步骤2：提取角色、场景和道具
+  onProgress({ step: 2, status: 'running', message: '正在提取角色、场景和道具...' })
+  sendProgress({ step: 2, status: 'running', message: '正在提取角色、场景和道具...' })
 
-  const extractResult = await callAI([
-    { role: 'system', content: EXTRACT_PROMPT },
-    { role: 'user', content: JSON.stringify(shotsData) }
-  ])
+  const extractResult = await callAI(
+    [
+      { role: 'system', content: EXTRACT_PROMPT },
+      { role: 'user', content: JSON.stringify(shotsData) }
+    ],
+    undefined,
+    modelOverride
+  )
   const extractData = JSON.parse(extractJSON(extractResult))
 
-  onProgress({ step: 2, status: 'done', message: '提取角色和场景 完成' })
-  sendProgress({ step: 2, status: 'done', message: '提取角色和场景 完成' })
+  onProgress({ step: 2, status: 'done', message: '提取角色、场景和道具 完成' })
+  sendProgress({ step: 2, status: 'done', message: '提取角色、场景和道具 完成' })
 
   // 步骤3：批量关联
-  onProgress({ step: 3, status: 'running', message: '正在关联角色和场景到分镜...' })
-  sendProgress({ step: 3, status: 'running', message: '正在关联角色和场景到分镜...' })
+  onProgress({ step: 3, status: 'running', message: '正在关联角色、场景和道具到分镜...' })
+  sendProgress({ step: 3, status: 'running', message: '正在关联角色、场景和道具到分镜...' })
 
-  const assocResult = await callAI([
-    { role: 'system', content: ASSOCIATE_PROMPT },
-    {
-      role: 'user',
-      content: JSON.stringify({
-        chapters: shotsData.chapters,
-        characters: extractData.characters,
-        scenes: extractData.scenes
-      })
-    }
-  ])
+  const assocResult = await callAI(
+    [
+      { role: 'system', content: ASSOCIATE_PROMPT },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          chapters: shotsData.chapters,
+          characters: extractData.characters,
+          scenes: extractData.scenes,
+          props: extractData.props
+        })
+      }
+    ],
+    undefined,
+    modelOverride
+  )
   const assocData = JSON.parse(extractJSON(assocResult))
 
-  onProgress({ step: 3, status: 'done', message: '关联角色和场景到分镜 完成' })
-  sendProgress({ step: 3, status: 'done', message: '关联角色和场景到分镜 完成' })
+  onProgress({ step: 3, status: 'done', message: '关联角色、场景和道具到分镜 完成' })
+  sendProgress({ step: 3, status: 'done', message: '关联角色、场景和道具到分镜 完成' })
 
   // 步骤4：保存到数据库
   onProgress({ step: 4, status: 'running', message: '正在保存项目...' })
@@ -259,9 +292,23 @@ async function saveToDatabase(
   const db = getDb()
   const crypto = await import('crypto')
 
+  // 预先查询已有资产（名称 → ID 映射），用于「只创建、不覆盖」
+  const existingChars = db.prepare('SELECT * FROM characters WHERE project_id = ?').all(projectId) as any[]
+  const existingScenes = db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as any[]
+  const existingProps = db.prepare('SELECT * FROM props WHERE project_id = ?').all(projectId) as any[]
+
+  const existingCharMap = new Map<string, string>()
+  for (const c of existingChars) existingCharMap.set(c.name.trim(), c.id)
+
+  const existingSceneMap = new Map<string, string>()
+  for (const s of existingScenes) existingSceneMap.set(s.name.trim(), s.id)
+
+  const existingPropMap = new Map<string, string>()
+  for (const p of existingProps) existingPropMap.set(p.name.trim(), p.id)
+
   db.transaction(() => {
-    // 清理旧数据
-    // 先删关联，再删shots/chapters，再删characters/scenes
+    // 1. 只删除分镜数据（shots, chapters, shot 关联）
+    // 保留 characters / scenes / props（只创建、不覆盖）
     const oldShots = db
       .prepare(
         `SELECT s.id FROM shots s JOIN chapters c ON s.chapter_id = c.id WHERE c.project_id = ?`
@@ -270,35 +317,66 @@ async function saveToDatabase(
     for (const s of oldShots) {
       db.prepare('DELETE FROM shot_characters WHERE shot_id = ?').run(s.id)
       db.prepare('DELETE FROM shot_scenes WHERE shot_id = ?').run(s.id)
+      db.prepare('DELETE FROM shot_props WHERE shot_id = ?').run(s.id)
     }
     db.prepare('DELETE FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)').run(projectId)
     db.prepare('DELETE FROM chapters WHERE project_id = ?').run(projectId)
-    db.prepare('DELETE FROM characters WHERE project_id = ?').run(projectId)
-    db.prepare('DELETE FROM scenes WHERE project_id = ?').run(projectId)
 
-    // 插入角色
+    // 2. 角色：已存在则复用 ID，不存在则新建
     const charIdMap = new Map<string, string>()
     const insertChar = db.prepare(
       'INSERT INTO characters (id, project_id, name, description) VALUES (?, ?, ?, ?)'
     )
     for (const c of extractData.characters || []) {
-      const id = crypto.randomUUID()
-      charIdMap.set(c.name, id)
-      insertChar.run(id, projectId, c.name, c.description || '')
+      const trimmedName = (c.name || '').trim()
+      if (!trimmedName) continue
+      const existingId = existingCharMap.get(trimmedName)
+      if (existingId) {
+        charIdMap.set(trimmedName, existingId)
+      } else {
+        const id = crypto.randomUUID()
+        charIdMap.set(trimmedName, id)
+        insertChar.run(id, projectId, trimmedName, c.description || '')
+      }
     }
 
-    // 插入场景
+    // 3. 场景：同上
     const sceneIdMap = new Map<string, string>()
     const insertScene = db.prepare(
       'INSERT INTO scenes (id, project_id, name, description) VALUES (?, ?, ?, ?)'
     )
     for (const s of extractData.scenes || []) {
-      const id = crypto.randomUUID()
-      sceneIdMap.set(s.name, id)
-      insertScene.run(id, projectId, s.name, s.description || '')
+      const trimmedName = (s.name || '').trim()
+      if (!trimmedName) continue
+      const existingId = existingSceneMap.get(trimmedName)
+      if (existingId) {
+        sceneIdMap.set(trimmedName, existingId)
+      } else {
+        const id = crypto.randomUUID()
+        sceneIdMap.set(trimmedName, id)
+        insertScene.run(id, projectId, trimmedName, s.description || '')
+      }
     }
 
-    // 插入章节和分镜
+    // 4. 道具：同上
+    const propIdMap = new Map<string, string>()
+    const insertProp = db.prepare(
+      'INSERT INTO props (id, project_id, name, description) VALUES (?, ?, ?, ?)'
+    )
+    for (const p of extractData.props || []) {
+      const trimmedName = (p.name || '').trim()
+      if (!trimmedName) continue
+      const existingId = existingPropMap.get(trimmedName)
+      if (existingId) {
+        propIdMap.set(trimmedName, existingId)
+      } else {
+        const id = crypto.randomUUID()
+        propIdMap.set(trimmedName, id)
+        insertProp.run(id, projectId, trimmedName, p.description || '')
+      }
+    }
+
+    // 5. 插入章节和分镜
     const insertChapter = db.prepare(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
     )
@@ -307,6 +385,7 @@ async function saveToDatabase(
     )
     const insertShotChar = db.prepare('INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)')
     const insertShotScene = db.prepare('INSERT INTO shot_scenes (shot_id, scene_id) VALUES (?, ?)')
+    const insertShotProp = db.prepare('INSERT INTO shot_props (id, shot_id, prop_id) VALUES (?, ?, ?)')
 
     const chapters: any[] = shotsData.chapters || []
     for (let ci = 0; ci < chapters.length; ci++) {
@@ -327,20 +406,26 @@ async function saveToDatabase(
           shot.video_prompt || ''
         )
 
-        // 关联角色和场景
+        // 关联角色、场景、道具
         const assoc = (assocData.associations || []).find(
           (a: any) => a.chapter_index === ci && a.shot_index === shot.shot_index
         )
         if (assoc) {
           for (const charName of assoc.character_names || []) {
-            const charId = charIdMap.get(charName)
+            const charId = charIdMap.get((charName || '').trim())
             if (charId) {
               insertShotChar.run(shotId, charId)
             }
           }
-          const sceneId = sceneIdMap.get(assoc.scene_name)
+          const sceneId = sceneIdMap.get((assoc.scene_name || '').trim())
           if (sceneId) {
             insertShotScene.run(shotId, sceneId)
+          }
+          for (const propName of assoc.prop_names || []) {
+            const propId = propIdMap.get((propName || '').trim())
+            if (propId) {
+              insertShotProp.run(crypto.randomUUID(), shotId, propId)
+            }
           }
         }
       }

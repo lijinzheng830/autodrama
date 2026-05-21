@@ -23,7 +23,7 @@ export const STORYBOARD_PROMPT = `你是专业漫剧分镜师。根据用户提�
 - 首帧/尾帧提示词用英文，包含画面风格关键词
 - 视频提示词描述镜头运动方向和速度`
 
-export const EXTRACT_PROMPT = `你是漫剧角色和场景提取专家。根据分镜结果，提取所有角色和场景。
+export const EXTRACT_PROMPT = `你是漫剧角色和场景提取专家。根据分镜结果，提取所有角色、场景和道具。
 输出纯JSON格式，不要用markdown代码块包裹：
 {
   "characters": [
@@ -39,10 +39,16 @@ export const EXTRACT_PROMPT = `你是漫剧角色和场景提取专家。根据�
       "description": "场景描述",
       "prompt": "scene description for AI image generation, detailed environment in English"
     }
+  ],
+  "props": [
+    {
+      "name": "道具名",
+      "description": "道具描述（外观、材质、功能）"
+    }
   ]
 }`
 
-export const ASSOCIATE_PROMPT = `你是漫剧分镜关联专家。根据分镜列表、角色列表和场景列表，为每个分镜关联出现的角色和场景。
+export const ASSOCIATE_PROMPT = `你是漫剧分镜关联专家。根据分镜列表、角色列表、场景列表和道具列表，为每个分镜关联出现的角色、场景和道具。
 输出纯JSON格式，不要用markdown代码块包裹：
 {
   "associations": [
@@ -50,7 +56,8 @@ export const ASSOCIATE_PROMPT = `你是漫剧分镜关联专家。根据分镜�
       "chapter_index": 0,
       "shot_index": 1,
       "character_names": ["角色A", "角色B"],
-      "scene_name": "场景1"
+      "scene_name": "场景1",
+      "prop_names": ["道具A"]
     }
   ]
 }`

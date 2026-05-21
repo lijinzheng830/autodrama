@@ -106,7 +106,7 @@ app.whenReady().then(() => {
     updateProject(projectId, input)
   })
 
-  ipcMain.handle('ai:auto-process', async (_, { projectId, script }: { projectId: string; script: string }) => {
+  ipcMain.handle('ai:auto-process', async (_, { projectId, script, options }: { projectId: string; script: string; options?: any }) => {
     if (!mainWindow) throw new Error('主窗口未就绪')
 
     const sendProgress = (data: any) => {
@@ -120,7 +120,8 @@ app.whenReady().then(() => {
         projectId,
         script,
         () => {},
-        sendProgress
+        sendProgress,
+        options
       )
       return result
     } catch (err: any) {
