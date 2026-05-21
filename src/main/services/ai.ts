@@ -8,6 +8,7 @@ export interface AutoProcessOptions {
   era?: string
   aspectRatio?: string
   model?: string
+  mode?: 'full' | 'append'
 }
 
 export interface AIMessage {
@@ -193,15 +194,23 @@ export async function autoProcess(
   sendProgress: (data: ProgressData) => void,
   options?: AutoProcessOptions
 ): Promise<{ shotsData: any; extractData: any; assocData: any }> {
+  const db = getDb()
+  const mode = options?.mode || 'full'
+
   // 保存剧本到项目
   try {
-    updateProjectScript(projectId, script)
+    if (mode === 'append') {
+      const existing = db.prepare('SELECT script_text FROM projects WHERE id = ?').get(projectId) as { script_text: string } | undefined
+      const combined = (existing?.script_text || '') + (existing?.script_text ? '\n\n' : '') + script
+      updateProjectScript(projectId, combined)
+    } else {
+      updateProjectScript(projectId, script)
+    }
   } catch {
     // 忽略保存失败
   }
 
   // 更新 era / aspectRatio
-  const db = getDb()
   if (options?.era) {
     db.prepare('UPDATE projects SET era = ? WHERE id = ?').run(options.era, projectId)
   }
@@ -275,7 +284,7 @@ export async function autoProcess(
   onProgress({ step: 4, status: 'running', message: '正在保存项目...' })
   sendProgress({ step: 4, status: 'running', message: '正在保存项目...' })
 
-  await saveToDatabase(projectId, shotsData, extractData, assocData)
+  await saveToDatabase(projectId, shotsData, extractData, assocData, mode)
 
   onProgress({ step: 4, status: 'done', message: '完成！' })
   sendProgress({ step: 4, status: 'done', message: '完成！' })
@@ -287,7 +296,8 @@ async function saveToDatabase(
   projectId: string,
   shotsData: any,
   extractData: any,
-  assocData: any
+  assocData: any,
+  mode: 'full' | 'append' = 'full'
 ): Promise<void> {
   const db = getDb()
   const crypto = await import('crypto')
@@ -306,21 +316,29 @@ async function saveToDatabase(
   const existingPropMap = new Map<string, string>()
   for (const p of existingProps) existingPropMap.set(p.name.trim(), p.id)
 
+  // append 模式：获取已有最大 chapter_index
+  let existingMaxChapterIndex = -1
+  if (mode === 'append') {
+    const row = db.prepare('SELECT MAX(chapter_index) as max FROM chapters WHERE project_id = ?').get(projectId) as { max: number } | undefined
+    existingMaxChapterIndex = row?.max ?? -1
+  }
+
   db.transaction(() => {
-    // 1. 只删除分镜数据（shots, chapters, shot 关联）
-    // 保留 characters / scenes / props（只创建、不覆盖）
-    const oldShots = db
-      .prepare(
-        `SELECT s.id FROM shots s JOIN chapters c ON s.chapter_id = c.id WHERE c.project_id = ?`
-      )
-      .all(projectId) as { id: string }[]
-    for (const s of oldShots) {
-      db.prepare('DELETE FROM shot_characters WHERE shot_id = ?').run(s.id)
-      db.prepare('DELETE FROM shot_scenes WHERE shot_id = ?').run(s.id)
-      db.prepare('DELETE FROM shot_props WHERE shot_id = ?').run(s.id)
+    // 1. full 模式：删除所有分镜数据；append 模式：保留已有
+    if (mode === 'full') {
+      const oldShots = db
+        .prepare(
+          `SELECT s.id FROM shots s JOIN chapters c ON s.chapter_id = c.id WHERE c.project_id = ?`
+        )
+        .all(projectId) as { id: string }[]
+      for (const s of oldShots) {
+        db.prepare('DELETE FROM shot_characters WHERE shot_id = ?').run(s.id)
+        db.prepare('DELETE FROM shot_scenes WHERE shot_id = ?').run(s.id)
+        db.prepare('DELETE FROM shot_props WHERE shot_id = ?').run(s.id)
+      }
+      db.prepare('DELETE FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)').run(projectId)
+      db.prepare('DELETE FROM chapters WHERE project_id = ?').run(projectId)
     }
-    db.prepare('DELETE FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)').run(projectId)
-    db.prepare('DELETE FROM chapters WHERE project_id = ?').run(projectId)
 
     // 2. 角色：已存在则复用 ID，不存在则新建
     const charIdMap = new Map<string, string>()
@@ -391,7 +409,8 @@ async function saveToDatabase(
     for (let ci = 0; ci < chapters.length; ci++) {
       const chapter = chapters[ci]
       const chapterId = crypto.randomUUID()
-      insertChapter.run(chapterId, projectId, ci, chapter.title || `第${ci + 1}章`)
+      const actualChapterIndex = mode === 'append' ? existingMaxChapterIndex + 1 + ci : ci
+      insertChapter.run(chapterId, projectId, actualChapterIndex, chapter.title || `第${actualChapterIndex + 1}章`)
 
       const shots: any[] = chapter.shots || []
       for (const shot of shots) {
