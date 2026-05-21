@@ -1,9 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
 import {
-  createProject, getProjects, getProject, updateProject,
+  createProject, getProjects, getProject, updateProject, deleteProject,
   getChaptersByProject, getShotsByChapter,
   getCharactersByProject, getScenesByProject,
   getShotCharacters, getShotScenes,
@@ -100,6 +100,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:get', async (_, id: string) => {
     return getProject(id)
+  })
+
+  ipcMain.handle('project:delete', async (_, id: string) => {
+    deleteProject(id)
   })
 
   ipcMain.handle('project:update', async (_, { projectId, input }: { projectId: string; input: any }) => {
@@ -239,6 +243,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('template:delete', async (_, templateId: string) => {
     deletePromptTemplate(templateId)
+  })
+
+  ipcMain.handle('dialog:selectDirectory', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: '选择项目目录'
+    })
+    return result.canceled ? null : result.filePaths[0]
   })
 
   createWindow()

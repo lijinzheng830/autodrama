@@ -29,6 +29,7 @@ export interface CreateProjectInput {
   era?: string
   negativePrompt?: string
   parentProjectId?: string
+  path?: string
 }
 
 export interface UpdateProjectInput {
@@ -47,7 +48,7 @@ export function createProject(input: CreateProjectInput): Project {
   const now = Date.now()
 
   const userDataPath = app.getPath('userData')
-  const projectPath = join(userDataPath, 'projects', id)
+  const projectPath = input.path || join(userDataPath, 'projects', id)
   mkdirSync(projectPath, { recursive: true })
 
   const project: Project = {
@@ -255,6 +256,11 @@ export function getShotScenesByProject(projectId: string) {
       WHERE ch.project_id = ?
     `)
     .all(projectId) as any[]
+}
+
+export function deleteProject(projectId: string): void {
+  const db = getDb()
+  db.prepare('DELETE FROM projects WHERE id = ?').run(projectId)
 }
 
 // ========== M1-06: 分镜查询服务层 ==========

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Plus, Setting } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Setting, FolderOpened, Delete } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -17,37 +17,14 @@ interface Project {
 
 const projects = ref<Project[]>([])
 const dialogVisible = ref(false)
-const selectedStyle = ref('')
-const selectedAspectRatio = ref('16:9')
 const loading = ref(false)
 
 const form = reactive({
   projectName: ''
 })
 
-const stylePresets = [
-  { name: '二次元动漫', prompt: 'Anime style, vibrant colors, detailed eyes, cel shading, clean line art, expressive characters, dynamic composition, high quality illustration', negative: 'photorealistic, 3d render, blurry, low quality, bad anatomy, deformed, ugly, duplicate, watermark, signature' },
-  { name: '写实摄影', prompt: 'Photorealistic, high detail, natural lighting, 8k uhd, cinematic shot, depth of field, professional photography, realistic textures, lifelike', negative: 'painting, illustration, cartoon, anime, 3d render, blurry, low quality, artificial, oversaturated' },
-  { name: '3D渲染', prompt: '3D render, octane render, blender, cinematic lighting, ray tracing, subsurface scattering, physically based rendering, high poly model, studio lighting', negative: '2d, flat, painting, sketch, hand drawn, low poly, blurry, low quality, cartoon' },
-  { name: '水彩插画', prompt: 'Watercolor painting, soft edges, artistic, hand-painted, flowing colors, translucent layers, delicate brushwork, paper texture, dreamy atmosphere', negative: 'photorealistic, 3d render, sharp edges, digital art, oversaturated, blurry, low quality, dark, gloomy' },
-  { name: '赛博朋克', prompt: 'Cyberpunk, neon lights, futuristic, dystopian city, holographic displays, rain-soaked streets, high tech low life, glowing accents, blade runner aesthetic', negative: 'medieval, natural landscape, pastel colors, soft lighting, cottagecore, blurry, low quality, boring, plain' },
-  { name: '中国水墨', prompt: 'Chinese ink wash painting, traditional art, brush strokes, ink splatter, monochrome, xuan paper texture, poetic composition, calligraphic lines, misty mountains', negative: 'colorful, photorealistic, 3d render, western style, oil painting, blurry, low quality, modern, digital' },
-  { name: '像素复古', prompt: 'Pixel art, retro game style, 8-bit, 16-bit, dithering, limited color palette, crisp pixels, nostalgic, arcade aesthetic', negative: 'photorealistic, 3d render, smooth gradients, anti-aliasing, blurry, low quality, modern, realistic' },
-  { name: '油画质感', prompt: 'Oil painting, rich textures, classical art, impasto, chiaroscuro, canvas texture, masterwork, museum quality, traditional techniques', negative: 'photorealistic, 3d render, digital art, flat, cartoon, anime, blurry, low quality, modern' },
-  { name: '扁平插画', prompt: 'Flat illustration, minimal design, vector art, clean lines, solid colors, geometric shapes, modern UI style, simple and elegant', negative: 'photorealistic, 3d render, gradients, textures, shadows, realistic, blurry, low quality, cluttered, complex' },
-  { name: '吉卜力', prompt: 'Studio Ghibli style, whimsical, hand-drawn, pastoral scenery, warm colors, soft clouds, detailed nature, Miyazaki aesthetic, enchanting', negative: 'photorealistic, 3d render, dark, gritty, cyberpunk, violent, blurry, low quality, modern urban, sterile' },
-  { name: '美漫风格', prompt: 'American comic style, bold lines, dynamic poses, halftone, pop art, action-packed, inked outlines, vibrant primary colors, dramatic shading', negative: 'photorealistic, 3d render, anime, manga, soft colors, realistic proportions, blurry, low quality, muted' },
-  { name: '暗黑奇幻', prompt: 'Dark fantasy, gothic atmosphere, ominous, dramatic shadows, ancient ruins, mythical creatures, epic scale, moody lighting, tormented souls', negative: 'cheerful, bright colors, modern, cute, minimalist, photorealistic, blurry, low quality, mundane, everyday' },
-  { name: '日系治愈', prompt: 'Japanese iyashikei, cozy, warm atmosphere, slice of life, soft lighting, gentle colors, peaceful scenery, comforting, slow living', negative: 'dark, violent, scary, intense, dramatic, photorealistic, 3d render, blurry, low quality, chaotic' },
-  { name: '潮流插画', prompt: 'Trendy illustration, street art, graffiti, bold colors, urban culture, hip hop aesthetic, dynamic typography, contemporary design, eye-catching', negative: 'photorealistic, 3d render, classical, traditional, muted colors, boring, blurry, low quality, corporate, sterile' },
-  { name: '复古港风', prompt: 'Retro Hong Kong style, 1980s, film grain, neon signs, nostalgic street scenes, warm tungsten lighting, cinematic color grading, vintage fashion', negative: 'modern, futuristic, clean, minimalist, photorealistic, 3d render, cold lighting, blurry, low quality, digital perfect' }
-]
-
-const aspectRatios = [
-  { label: '16:9 横屏', value: '16:9' },
-  { label: '9:16 竖屏', value: '9:16' },
-  { label: '1:1 方形', value: '1:1' }
-]
+const baseProjectId = ref('')
+const projectPath = ref('')
 
 async function loadProjects() {
   try {
@@ -59,32 +36,43 @@ async function loadProjects() {
   }
 }
 
+async function handleSelectDirectory() {
+  try {
+    const result = await window.api.selectDirectory()
+    if (result) {
+      projectPath.value = result
+    }
+  } catch (err) {
+    ElMessage.error('选择目录失败')
+    console.error(err)
+  }
+}
+
 async function handleCreate() {
   if (!form.projectName.trim()) {
     ElMessage.warning('请输入项目名称')
     return
   }
-  if (!selectedStyle.value) {
-    ElMessage.warning('请选择风格')
-    return
-  }
-
-  const style = stylePresets.find(s => s.name === selectedStyle.value)
-  if (!style) return
 
   loading.value = true
   try {
-    await window.api.createProject({
+    const newProject = await window.api.createProject({
       name: form.projectName.trim(),
-      styleName: style.name,
-      stylePrompt: style.prompt,
-      styleNegativePrompt: style.negative,
-      aspectRatio: selectedAspectRatio.value
-    })
+      styleName: '',
+      stylePrompt: '',
+      styleNegativePrompt: '',
+      aspectRatio: '16:9',
+      parentProjectId: baseProjectId.value || undefined,
+      path: projectPath.value || undefined
+    }) as Project
     ElMessage.success('项目创建成功')
     dialogVisible.value = false
     resetForm()
     await loadProjects()
+    // 自动进入编辑器
+    if (newProject?.id) {
+      router.push(`/editor/${newProject.id}`)
+    }
   } catch (err) {
     ElMessage.error('创建项目失败')
     console.error(err)
@@ -93,10 +81,29 @@ async function handleCreate() {
   }
 }
 
+async function handleDelete(projectId: string, event: MouseEvent) {
+  event.stopPropagation()
+  try {
+    await ElMessageBox.confirm('确定删除该项目吗？项目数据将被永久删除，此操作不可撤销', '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await window.api.deleteProject(projectId)
+    ElMessage.success('项目已删除')
+    await loadProjects()
+  } catch (err: any) {
+    if (err !== 'cancel' && err?.message !== 'cancel') {
+      ElMessage.error('删除失败')
+      console.error(err)
+    }
+  }
+}
+
 function resetForm() {
   form.projectName = ''
-  selectedStyle.value = ''
-  selectedAspectRatio.value = '16:9'
+  baseProjectId.value = ''
+  projectPath.value = ''
 }
 
 function openProject(id: string) {
@@ -147,6 +154,15 @@ onMounted(() => {
       </div>
 
       <div v-else class="project-grid">
+        <!-- 创建卡片 -->
+        <div class="project-card create-card" @click="dialogVisible = true">
+          <div class="create-card-content">
+            <el-icon :size="32" class="create-icon"><Plus /></el-icon>
+            <span class="create-text">新建项目</span>
+          </div>
+        </div>
+
+        <!-- 项目卡片 -->
         <div
           v-for="p in projects"
           :key="p.id"
@@ -155,10 +171,16 @@ onMounted(() => {
         >
           <div class="project-card-header">
             <h3 class="project-name">{{ p.name }}</h3>
-            <el-tag size="small" type="info">{{ p.style_name }}</el-tag>
+            <el-button
+              text
+              circle
+              size="small"
+              class="delete-btn"
+              :icon="Delete"
+              @click="handleDelete(p.id, $event)"
+            />
           </div>
           <div class="project-meta">
-            <span class="aspect-ratio">{{ p.aspect_ratio }}</span>
             <span class="project-date">{{ formatDate(p.updated_at) }}</span>
           </div>
         </div>
@@ -168,14 +190,14 @@ onMounted(() => {
     <el-dialog
       v-model="dialogVisible"
       title="创建新项目"
-      width="700px"
+      width="560px"
       :close-on-click-modal="false"
       :autofocus="false"
       class="dark-dialog"
     >
       <div class="create-form">
         <div class="form-item">
-          <label class="form-label">项目名称</label>
+          <label class="form-label">项目名称 <span class="required">*</span></label>
           <el-input
             ref="projectNameInput"
             v-model="form.projectName"
@@ -184,34 +206,41 @@ onMounted(() => {
         </div>
 
         <div class="form-item">
-          <label class="form-label">画面比例</label>
-          <el-radio-group v-model="selectedAspectRatio" size="large">
-            <el-radio-button v-for="ar in aspectRatios" :key="ar.value" :label="ar.value">
-              {{ ar.label }}
-            </el-radio-button>
-          </el-radio-group>
+          <label class="form-label">项目目录</label>
+          <el-input
+            v-model="projectPath"
+            placeholder="默认目录（自动创建）"
+            readonly
+          >
+            <template #append>
+              <el-button :icon="FolderOpened" @click="handleSelectDirectory" />
+            </template>
+          </el-input>
         </div>
 
         <div class="form-item">
-          <label class="form-label">风格选择</label>
-          <div class="style-grid">
-            <div
-              v-for="s in stylePresets"
-              :key="s.name"
-              class="style-card"
-              :class="{ active: selectedStyle === s.name }"
-              @click="selectedStyle = s.name"
-            >
-              <span class="style-name">{{ s.name }}</span>
-            </div>
-          </div>
+          <label class="form-label">基于已有项目创建</label>
+          <el-select
+            v-model="baseProjectId"
+            placeholder="不选则创建全新项目"
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="p in projects"
+              :key="p.id"
+              :label="p.name"
+              :value="p.id"
+            />
+          </el-select>
+          <div class="form-hint">选择后将复制该项目的角色、场景和道具到新项目</div>
         </div>
       </div>
 
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="loading" @click="handleCreate">
-          确认创建
+          创建
         </el-button>
       </template>
     </el-dialog>
@@ -286,7 +315,7 @@ onMounted(() => {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 20px;
 }
 
@@ -297,6 +326,7 @@ onMounted(() => {
   padding: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .project-card:hover {
@@ -305,11 +335,46 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
+.create-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  border-style: dashed;
+}
+
+.create-card:hover {
+  border-color: rgba(167, 139, 250, 0.5);
+}
+
+.create-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-icon {
+  color: #9ca3af;
+}
+
+.create-text {
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.create-card:hover .create-icon,
+.create-card:hover .create-text {
+  color: #c4b5fd;
+}
+
 .project-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+  gap: 8px;
 }
 
 .project-name {
@@ -323,6 +388,20 @@ onMounted(() => {
   flex: 1;
 }
 
+.delete-btn {
+  color: #6b7280;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.project-card:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn:hover {
+  color: #ef4444;
+}
+
 .project-meta {
   display: flex;
   align-items: center;
@@ -331,24 +410,16 @@ onMounted(() => {
   color: #6b7280;
 }
 
-.aspect-ratio {
-  background: rgba(96, 165, 250, 0.15);
-  color: #60a5fa;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
 .create-form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .form-item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .form-label {
@@ -357,58 +428,26 @@ onMounted(() => {
   color: #e5e7eb;
 }
 
-.style-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+.required {
+  color: #ef4444;
 }
 
-.style-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-align: center;
-}
-
-.style-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(167, 139, 250, 0.2);
-}
-
-.style-card.active {
-  background: rgba(167, 139, 250, 0.15);
-  border-color: #a78bfa;
-  box-shadow: 0 0 12px rgba(167, 139, 250, 0.15);
-}
-
-.style-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #d1d5db;
-}
-
-.style-card.active .style-name {
-  color: #c4b5fd;
-  font-weight: 600;
+.form-hint {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 @media (max-width: 600px) {
-  .style-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .home-header {
     padding: 16px 20px;
   }
 
   .home-main {
     padding: 20px;
+  }
+
+  .project-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }
 </style>
@@ -453,16 +492,26 @@ onMounted(() => {
   color: #9ca3af;
 }
 
-.dark-dialog .el-radio-button__inner {
+.dark-dialog .el-select .el-input__wrapper {
   background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #9ca3af;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 }
 
-.dark-dialog .el-radio-button__original-radio:checked + .el-radio-button__inner {
-  background: rgba(96, 165, 250, 0.2);
-  border-color: #60a5fa;
-  color: #60a5fa;
-  box-shadow: -1px 0 0 0 #60a5fa;
+.dark-dialog .el-select-dropdown {
+  background: #1a1a20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark-dialog .el-select-dropdown__item {
+  color: #e5e7eb;
+}
+
+.dark-dialog .el-select-dropdown__item.hover,
+.dark-dialog .el-select-dropdown__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark-dialog .el-select-dropdown__item.selected {
+  color: #a78bfa;
 }
 </style>

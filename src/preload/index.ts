@@ -11,9 +11,11 @@ const api = {
     era?: string
     negativePrompt?: string
     parentProjectId?: string
+    path?: string
   }) => ipcRenderer.invoke('project:create', input),
   getProjects: () => ipcRenderer.invoke('project:list'),
   getProject: (id: string) => ipcRenderer.invoke('project:get', id),
+  deleteProject: (id: string) => ipcRenderer.invoke('project:delete', id),
   updateProject: (projectId: string, input: any) => ipcRenderer.invoke('project:update', { projectId, input }),
   autoProcess: (projectId: string, script: string, options?: any) => ipcRenderer.invoke('ai:auto-process', { projectId, script, options }),
   onAIProgress: (callback: (data: any) => void) => {
@@ -32,6 +34,7 @@ const api = {
   getShotScenes: (shotId: string) => ipcRenderer.invoke('project:shotScenes', shotId),
   getShotCharactersByProject: (projectId: string) => ipcRenderer.invoke('project:shotCharactersByProject', projectId),
   getShotScenesByProject: (projectId: string) => ipcRenderer.invoke('project:shotScenesByProject', projectId),
+  selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
 
   // Asset CRUD
   createCharacter: (projectId: string, input: any) => ipcRenderer.invoke('asset:character:create', { projectId, input }),

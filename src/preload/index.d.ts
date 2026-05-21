@@ -10,9 +10,11 @@ export interface Api {
     era?: string
     negativePrompt?: string
     parentProjectId?: string
+    path?: string
   }) => Promise<unknown>
   getProjects: () => Promise<unknown[]>
   getProject: (id: string) => Promise<unknown | null>
+  deleteProject: (id: string) => Promise<void>
   updateProject: (projectId: string, input: any) => Promise<void>
   autoProcess: (projectId: string, script: string, options?: any) => Promise<unknown>
   onAIProgress: (callback: (data: any) => void) => () => void
@@ -27,6 +29,7 @@ export interface Api {
   getShotScenes: (shotId: string) => Promise<unknown[]>
   getShotCharactersByProject: (projectId: string) => Promise<unknown[]>
   getShotScenesByProject: (projectId: string) => Promise<unknown[]>
+  selectDirectory: () => Promise<string | null>
 
   // Asset CRUD
   createCharacter: (projectId: string, input: any) => Promise<unknown>
