@@ -1,12 +1,18 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  createProject: (input: {
+    name: string
+    styleName: string
+    stylePrompt: string
+    styleNegativePrompt: string
+    aspectRatio: string
+  }) => ipcRenderer.invoke('project:create', input),
+  getProjects: () => ipcRenderer.invoke('project:list'),
+  getProject: (id: string) => ipcRenderer.invoke('project:get', id)
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
