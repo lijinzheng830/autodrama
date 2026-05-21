@@ -279,23 +279,23 @@ async function saveToDatabase(
     // 插入角色
     const charIdMap = new Map<string, string>()
     const insertChar = db.prepare(
-      'INSERT INTO characters (id, project_id, name, description, prompt) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO characters (id, project_id, name, description) VALUES (?, ?, ?, ?)'
     )
     for (const c of extractData.characters || []) {
       const id = crypto.randomUUID()
       charIdMap.set(c.name, id)
-      insertChar.run(id, projectId, c.name, c.description || '', c.prompt || '')
+      insertChar.run(id, projectId, c.name, c.description || '')
     }
 
     // 插入场景
     const sceneIdMap = new Map<string, string>()
     const insertScene = db.prepare(
-      'INSERT INTO scenes (id, project_id, name, description, prompt) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO scenes (id, project_id, name, description) VALUES (?, ?, ?, ?)'
     )
     for (const s of extractData.scenes || []) {
       const id = crypto.randomUUID()
       sceneIdMap.set(s.name, id)
-      insertScene.run(id, projectId, s.name, s.description || '', s.prompt || '')
+      insertScene.run(id, projectId, s.name, s.description || '')
     }
 
     // 插入章节和分镜
