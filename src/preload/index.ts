@@ -47,6 +47,11 @@ const api = {
   deleteProp: (propId: string) => ipcRenderer.invoke('asset:prop:delete', propId),
   getPropsByProject: (projectId: string) => ipcRenderer.invoke('asset:prop:list', projectId),
 
+  // Template
+  getPromptTemplates: (projectId: string, usage?: string) => ipcRenderer.invoke('template:list', { projectId, usage }),
+  savePromptTemplate: (projectId: string, input: any) => ipcRenderer.invoke('template:save', { projectId, input }),
+  deletePromptTemplate: (templateId: string) => ipcRenderer.invoke('template:delete', templateId),
+
   // Shot & project data
   getShotsWithAssociations: (chapterId: string) => ipcRenderer.invoke('project:shotsWithAssociations', chapterId),
   getProjectData: (projectId: string) => ipcRenderer.invoke('project:data', projectId),

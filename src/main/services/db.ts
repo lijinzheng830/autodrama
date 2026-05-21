@@ -198,6 +198,48 @@ export function initDatabase(): Database.Database {
     insertSetting.run(s.key, s.value)
   }
 
+  // 插入官方预设模板（失败则忽略，template.ts 中有硬编码兜底）
+  try {
+    const insertTemplate = db.prepare(`
+      INSERT OR IGNORE INTO prompt_templates (id, project_id, "usage", name, content, is_default, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `)
+    insertTemplate.run(
+      'official-shot-image-standard',
+      '',
+      'shot_image',
+      '标准分镜模板',
+      '【占位】标准分镜描述模板，用于生成常规分镜图像。包含场景描述、角色动作、镜头角度等要素。',
+      1
+    )
+    insertTemplate.run(
+      'official-shot-image-detailed',
+      '',
+      'shot_image',
+      '精细镜头拆分模板',
+      '【占位】精细镜头拆分模板，用于详细拆解每个镜头的构图、角色表情、光影效果和动作细节。',
+      1
+    )
+    insertTemplate.run(
+      'official-shot-image-pure',
+      '',
+      'shot_image',
+      '纯分镜模板',
+      '【占位】纯分镜模板，不包含额外描述，仅输出分镜的基本画面信息。',
+      1
+    )
+    insertTemplate.run(
+      'official-shot-video',
+      '',
+      'shot_video',
+      '短视频制作模板',
+      '【占位】短视频制作模板，用于生成视频分镜描述，包含运镜方式、时长、转场等要素。',
+      1
+    )
+  } catch {
+    // 外键约束或其他错误，template.ts 中的硬编码常量兜底
+  }
+
   // 迁移：给已有表添加新字段（不 DROP 重建）
   const migrations = [
     { table: 'projects', column: 'script_text', type: 'TEXT' },

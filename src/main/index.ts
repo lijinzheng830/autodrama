@@ -16,6 +16,7 @@ import {
   createScene, updateScene, deleteScene,
   createProp, updateProp, deleteProp, getPropsByProject
 } from './services/asset'
+import { getPromptTemplates, savePromptTemplate, deletePromptTemplate } from './services/template'
 import { autoProcess } from './services/ai'
 import { getSetting, setSetting } from './services/settings'
 import { PROVIDERS } from './services/providers'
@@ -224,6 +225,19 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('asset:prop:list', async (_, projectId: string) => {
     return getPropsByProject(projectId)
+  })
+
+  // Template handlers
+  ipcMain.handle('template:list', async (_, { projectId, usage }: { projectId: string; usage?: string }) => {
+    return getPromptTemplates(projectId, usage)
+  })
+
+  ipcMain.handle('template:save', async (_, { projectId, input }: { projectId: string; input: any }) => {
+    return savePromptTemplate(projectId, input)
+  })
+
+  ipcMain.handle('template:delete', async (_, templateId: string) => {
+    deletePromptTemplate(templateId)
   })
 
   createWindow()

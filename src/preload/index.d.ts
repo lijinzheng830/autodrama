@@ -42,6 +42,11 @@ export interface Api {
   deleteProp: (propId: string) => Promise<void>
   getPropsByProject: (projectId: string) => Promise<unknown[]>
 
+  // Template
+  getPromptTemplates: (projectId: string, usage?: string) => Promise<unknown[]>
+  savePromptTemplate: (projectId: string, input: any) => Promise<unknown>
+  deletePromptTemplate: (templateId: string) => Promise<void>
+
   // Shot & project data
   getShotsWithAssociations: (chapterId: string) => Promise<unknown[]>
   getProjectData: (projectId: string) => Promise<unknown>

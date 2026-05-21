@@ -1,0 +1,98 @@
+import { getDb } from './db'
+import { randomUUID } from 'crypto'
+
+// 官方预设模板（硬编码，作为兜底；db.ts 中会尝试同步到数据库）
+export const OFFICIAL_TEMPLATES = [
+  {
+    id: 'official-shot-image-standard',
+    project_id: '',
+    usage: 'shot_image',
+    name: '标准分镜模板',
+    content: '【占位】标准分镜描述模板，用于生成常规分镜图像。包含场景描述、角色动作、镜头角度等要素。',
+    is_default: 1,
+    created_at: '',
+    updated_at: ''
+  },
+  {
+    id: 'official-shot-image-detailed',
+    project_id: '',
+    usage: 'shot_image',
+    name: '精细镜头拆分模板',
+    content: '【占位】精细镜头拆分模板，用于详细拆解每个镜头的构图、角色表情、光影效果和动作细节。',
+    is_default: 1,
+    created_at: '',
+    updated_at: ''
+  },
+  {
+    id: 'official-shot-image-pure',
+    project_id: '',
+    usage: 'shot_image',
+    name: '纯分镜模板',
+    content: '【占位】纯分镜模板，不包含额外描述，仅输出分镜的基本画面信息。',
+    is_default: 1,
+    created_at: '',
+    updated_at: ''
+  },
+  {
+    id: 'official-shot-video',
+    project_id: '',
+    usage: 'shot_video',
+    name: '短视频制作模板',
+    content: '【占位】短视频制作模板，用于生成视频分镜描述，包含运镜方式、时长、转场等要素。',
+    is_default: 1,
+    created_at: '',
+    updated_at: ''
+  }
+]
+
+export function getPromptTemplates(projectId: string, usage?: string) {
+  const db = getDb()
+
+  let sql = 'SELECT * FROM prompt_templates WHERE project_id = ? AND is_default = 0'
+  const params: any[] = [projectId]
+
+  if (usage) {
+    sql += ' AND "usage" = ?'
+    params.push(usage)
+  }
+
+  const customTemplates = db.prepare(sql).all(...params) as any[]
+
+  // 合并官方模板
+  let officialTemplates = OFFICIAL_TEMPLATES.map((t) => ({ ...t }))
+  if (usage) {
+    officialTemplates = officialTemplates.filter((t) => t.usage === usage)
+  }
+
+  return [...officialTemplates, ...customTemplates]
+}
+
+export function savePromptTemplate(
+  projectId: string,
+  input: { usage: string; name: string; content: string }
+) {
+  const db = getDb()
+  const id = randomUUID()
+
+  db.prepare(`
+    INSERT INTO prompt_templates (id, project_id, "usage", name, content, is_default, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 0, datetime('now'), datetime('now'))
+  `).run(id, projectId, input.usage, input.name, input.content)
+
+  return { id, project_id: projectId, ...input, is_default: 0 }
+}
+
+export function deletePromptTemplate(templateId: string): void {
+  const db = getDb()
+
+  const template = db
+    .prepare('SELECT is_default FROM prompt_templates WHERE id = ?')
+    .get(templateId) as any
+  if (!template) return
+
+  if (template.is_default === 1) {
+    throw new Error('官方模板不能删除')
+  }
+
+  db.prepare('DELETE FROM prompt_templates WHERE id = ?').run(templateId)
+}
