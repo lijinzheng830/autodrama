@@ -27,6 +27,20 @@ export interface Api {
   getShotScenes: (shotId: string) => Promise<unknown[]>
   getShotCharactersByProject: (projectId: string) => Promise<unknown[]>
   getShotScenesByProject: (projectId: string) => Promise<unknown[]>
+
+  // Asset CRUD
+  createCharacter: (projectId: string, input: any) => Promise<unknown>
+  updateCharacter: (characterId: string, input: any) => Promise<void>
+  deleteCharacter: (characterId: string) => Promise<void>
+
+  createScene: (projectId: string, input: any) => Promise<unknown>
+  updateScene: (sceneId: string, input: any) => Promise<void>
+  deleteScene: (sceneId: string) => Promise<void>
+
+  createProp: (projectId: string, input: any) => Promise<unknown>
+  updateProp: (propId: string, input: any) => Promise<void>
+  deleteProp: (propId: string) => Promise<void>
+  getPropsByProject: (projectId: string) => Promise<unknown[]>
 }
 
 declare global {

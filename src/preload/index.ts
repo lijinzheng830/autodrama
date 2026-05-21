@@ -31,7 +31,21 @@ const api = {
   getShotCharacters: (shotId: string) => ipcRenderer.invoke('project:shotCharacters', shotId),
   getShotScenes: (shotId: string) => ipcRenderer.invoke('project:shotScenes', shotId),
   getShotCharactersByProject: (projectId: string) => ipcRenderer.invoke('project:shotCharactersByProject', projectId),
-  getShotScenesByProject: (projectId: string) => ipcRenderer.invoke('project:shotScenesByProject', projectId)
+  getShotScenesByProject: (projectId: string) => ipcRenderer.invoke('project:shotScenesByProject', projectId),
+
+  // Asset CRUD
+  createCharacter: (projectId: string, input: any) => ipcRenderer.invoke('asset:character:create', { projectId, input }),
+  updateCharacter: (characterId: string, input: any) => ipcRenderer.invoke('asset:character:update', { characterId, input }),
+  deleteCharacter: (characterId: string) => ipcRenderer.invoke('asset:character:delete', characterId),
+
+  createScene: (projectId: string, input: any) => ipcRenderer.invoke('asset:scene:create', { projectId, input }),
+  updateScene: (sceneId: string, input: any) => ipcRenderer.invoke('asset:scene:update', { sceneId, input }),
+  deleteScene: (sceneId: string) => ipcRenderer.invoke('asset:scene:delete', sceneId),
+
+  createProp: (projectId: string, input: any) => ipcRenderer.invoke('asset:prop:create', { projectId, input }),
+  updateProp: (propId: string, input: any) => ipcRenderer.invoke('asset:prop:update', { propId, input }),
+  deleteProp: (propId: string) => ipcRenderer.invoke('asset:prop:delete', propId),
+  getPropsByProject: (projectId: string) => ipcRenderer.invoke('asset:prop:list', projectId)
 }
 
 if (process.contextIsolated) {

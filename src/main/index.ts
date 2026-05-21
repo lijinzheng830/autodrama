@@ -9,6 +9,11 @@ import {
   getShotCharacters, getShotScenes,
   getShotCharactersByProject, getShotScenesByProject
 } from './services/project'
+import {
+  createCharacter, updateCharacter, deleteCharacter,
+  createScene, updateScene, deleteScene,
+  createProp, updateProp, deleteProp, getPropsByProject
+} from './services/asset'
 import { autoProcess } from './services/ai'
 import { getSetting, setSetting } from './services/settings'
 import { PROVIDERS } from './services/providers'
@@ -163,6 +168,40 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:shotScenesByProject', async (_, projectId: string) => {
     return getShotScenesByProject(projectId)
+  })
+
+  // Asset CRUD handlers
+  ipcMain.handle('asset:character:create', async (_, { projectId, input }: { projectId: string; input: any }) => {
+    return createCharacter(projectId, input)
+  })
+  ipcMain.handle('asset:character:update', async (_, { characterId, input }: { characterId: string; input: any }) => {
+    updateCharacter(characterId, input)
+  })
+  ipcMain.handle('asset:character:delete', async (_, characterId: string) => {
+    deleteCharacter(characterId)
+  })
+
+  ipcMain.handle('asset:scene:create', async (_, { projectId, input }: { projectId: string; input: any }) => {
+    return createScene(projectId, input)
+  })
+  ipcMain.handle('asset:scene:update', async (_, { sceneId, input }: { sceneId: string; input: any }) => {
+    updateScene(sceneId, input)
+  })
+  ipcMain.handle('asset:scene:delete', async (_, sceneId: string) => {
+    deleteScene(sceneId)
+  })
+
+  ipcMain.handle('asset:prop:create', async (_, { projectId, input }: { projectId: string; input: any }) => {
+    return createProp(projectId, input)
+  })
+  ipcMain.handle('asset:prop:update', async (_, { propId, input }: { propId: string; input: any }) => {
+    updateProp(propId, input)
+  })
+  ipcMain.handle('asset:prop:delete', async (_, propId: string) => {
+    deleteProp(propId)
+  })
+  ipcMain.handle('asset:prop:list', async (_, projectId: string) => {
+    return getPropsByProject(projectId)
   })
 
   createWindow()
