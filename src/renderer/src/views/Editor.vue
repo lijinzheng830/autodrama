@@ -233,6 +233,8 @@ function countShots(data: any): number {
 }
 
 onMounted(() => {
+  store.resetResult()
+  store.scriptText = ''
   loadProject().then(() => loadExistingData())
   loadModelName()
 })
