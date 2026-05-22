@@ -360,12 +360,43 @@ function toggleShotSelect(shotId: string) {
   else selectedShots.value.add(shotId)
 }
 
+let docClickHandler: ((e: MouseEvent) => void) | null = null
+
+function cleanupDocClick() {
+  if (docClickHandler) {
+    document.removeEventListener('click', docClickHandler)
+    docClickHandler = null
+  }
+}
+
 function startEdit(shotId: string, field: string, currentText: string) {
+  cleanupDocClick()
   editingCell.value = { shotId, field }
   editText.value = currentText
+  // 延迟添加点击监听，避免当前双击/点击立即触发
+  setTimeout(() => {
+    docClickHandler = (e: MouseEvent) => {
+      if (!editingCell.value) {
+        cleanupDocClick()
+        return
+      }
+      const target = e.target as HTMLElement
+      if (target.closest('.edit-cell')) return
+      // 点击外部，触发 blur 保存
+      const textarea = document.querySelector('.edit-cell textarea') as HTMLTextAreaElement | null
+      if (textarea) textarea.blur()
+    }
+    document.addEventListener('click', docClickHandler)
+  }, 0)
+}
+
+function cancelEdit() {
+  cleanupDocClick()
+  editingCell.value = null
 }
 
 async function saveEdit(shotId: string, field: string) {
+  cleanupDocClick()
   if (!editingCell.value) return
   try {
     const update: any = {}
@@ -1109,8 +1140,8 @@ onUnmounted(() => {
                           v-model="editText"
                           type="textarea"
                           :rows="3"
-                          @blur="saveEdit(shot.id, 'description')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'description')"
+                          @keydown.esc.prevent="cancelEdit"
                         />
                       </div>
                       <div
@@ -1199,8 +1230,8 @@ onUnmounted(() => {
                           v-model="editText"
                           type="textarea"
                           :rows="3"
-                          @blur="saveEdit(shot.id, 'first_frame_prompt')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'first_frame_prompt')"
+                          @keydown.esc.prevent="cancelEdit"
                         />
                       </div>
                       <div
@@ -1236,8 +1267,8 @@ onUnmounted(() => {
                           v-model="editText"
                           type="textarea"
                           :rows="3"
-                          @blur="saveEdit(shot.id, 'last_frame_prompt')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'last_frame_prompt')"
+                          @keydown.esc.prevent="cancelEdit"
                         />
                       </div>
                       <div
