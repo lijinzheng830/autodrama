@@ -3814,8 +3814,8 @@ onUnmounted(() => {
 }
 
 .gen-record-status-tag.running {
-  background: rgba(167, 139, 250, 0.12);
-  color: #c4b5fd;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
 }
 
 .gen-record-status-tag.completed {
