@@ -66,6 +66,9 @@ const viewMode = ref<'table' | 'canvas'>('table')
 // 生成记录弹窗
 const genRecordVisible = ref(false)
 const genRecords = ref<any[]>([])
+const genRecordTab = ref<'video' | 'image' | 'other'>('image')
+const genRecordStatusFilter = ref<'all' | 'pending' | 'running' | 'completed' | 'failed'>('all')
+const genRecordTypeFilter = ref<'all' | 'character_reference' | 'scene_reference' | 'prop_reference' | 'first_frame' | 'last_frame'>('all')
 
 // 项目名称编辑
 const editingProjectName = ref(false)
@@ -917,12 +920,102 @@ async function loadGenerationRecords() {
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
-    pending: '等待中',
+    pending: '排队中',
     running: '生成中',
     completed: '已完成',
     failed: '失败'
   }
   return map[status] || status
+}
+
+const purposeLabels: Record<string, string> = {
+  character_reference: '角色定妆照',
+  scene_reference: '场景图',
+  prop_reference: '道具图',
+  first_frame: '首帧',
+  last_frame: '尾帧',
+  video: '视频',
+  voice: '配音'
+}
+
+function purposeLabel(purpose: string): string {
+  return purposeLabels[purpose] || purpose
+}
+
+function formatTime(ts: number): string {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  const hour = d.getHours().toString().padStart(2, '0')
+  const minute = d.getMinutes().toString().padStart(2, '0')
+  return `${month}/${day} ${hour}:${minute}`
+}
+
+function formatWaitTime(record: any): string {
+  if (record.status === 'pending' || record.status === 'completed' || record.status === 'failed') return '-'
+  if (!record.started_at || !record.created_at) return '-'
+  const ms = record.started_at - record.created_at
+  if (ms < 0) return '-'
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return `${sec}秒`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}分${sec % 60}秒`
+  const hr = Math.floor(min / 60)
+  return `${hr}时${min % 60}分`
+}
+
+function getShotDesc(shotId: string | null): string {
+  if (!shotId) return '项目全局'
+  const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
+  if (shot?.description) {
+    const desc = shot.description.replace(/\n/g, ' ')
+    return desc.length > 20 ? desc.slice(0, 20) + '…' : desc
+  }
+  return `分镜 ${shotId.slice(0, 6)}…`
+}
+
+const filteredRecords = computed(() => {
+  const now = Date.now()
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+
+  // Tab对应的purpose分组
+  const tabPurposeMap: Record<string, string[]> = {
+    video: ['video'],
+    image: ['character_reference', 'scene_reference', 'prop_reference', 'first_frame', 'last_frame'],
+    other: ['voice']
+  }
+  const allowedPurposes = tabPurposeMap[genRecordTab.value] || []
+
+  return genRecords.value.filter((r: any) => {
+    // 时间过滤：最近7天
+    if (!r.created_at || r.created_at < sevenDaysAgo) return false
+    // Tab过滤
+    if (!allowedPurposes.includes(r.purpose)) return false
+    // 状态过滤
+    if (genRecordStatusFilter.value !== 'all' && r.status !== genRecordStatusFilter.value) return false
+    // 类型过滤（仅图片Tab）
+    if (genRecordTab.value === 'image' && genRecordTypeFilter.value !== 'all' && r.purpose !== genRecordTypeFilter.value) return false
+    return true
+  })
+})
+
+async function retryTask(record: any) {
+  try {
+    await window.api.createGenerationTask({
+      projectId: record.project_id,
+      shotId: record.shot_id,
+      type: record.type || 'image',
+      purpose: record.purpose,
+      model: record.model,
+      inputParams: record.input_params
+    })
+    ElMessage.success('已创建重试任务')
+    await loadGenerationRecords()
+  } catch (err) {
+    ElMessage.error('重试失败')
+    console.error(err)
+  }
 }
 
 function handleUndo() {
@@ -1277,7 +1370,7 @@ onUnmounted(() => {
 
             <!-- 右侧区域 -->
             <div class="toolbar-right">
-              <el-button text size="small" :icon="DocumentAdd" title="生成记录" class="toolbar-icon-btn" @click="ElMessage.info('生成记录将在M1-20实现')" />
+              <el-button text size="small" :icon="DocumentAdd" title="生成记录" class="toolbar-icon-btn" @click="openGenRecord" />
               <el-button text size="small" :icon="RefreshLeft" title="撤销" class="toolbar-icon-btn" disabled @click="handleUndo" />
               <el-button text size="small" :icon="RefreshRight" title="重做" class="toolbar-icon-btn" disabled @click="handleRedo" />
               <el-dropdown trigger="click" popper-class="dark-dropdown">
@@ -1798,24 +1891,124 @@ onUnmounted(() => {
     <el-dialog
       v-model="genRecordVisible"
       title="生成记录"
-      width="600px"
+      width="860px"
       class="dark-dialog gen-record-dialog"
+      :close-on-click-modal="true"
     >
-      <div v-if="!genRecords.length" class="gen-record-empty">暂无生成记录</div>
-      <div v-else class="gen-record-list">
-        <div v-for="r in genRecords" :key="r.id" class="gen-record-item">
-          <div class="gen-record-header">
-            <span class="gen-record-type">{{ r.type === 'image' ? '图片' : r.type === 'video' ? '视频' : r.type }}</span>
-            <span class="gen-record-purpose">{{ r.purpose }}</span>
-            <span class="gen-record-status" :class="r.status">{{ statusLabel(r.status) }}</span>
+      <div class="gen-record-body">
+        <!-- Tab 切换 -->
+        <div class="gen-record-tabs">
+          <div
+            class="gen-record-tab"
+            :class="{ active: genRecordTab === 'video' }"
+            @click="genRecordTab = 'video'; genRecordTypeFilter = 'all'"
+          >视频</div>
+          <div
+            class="gen-record-tab"
+            :class="{ active: genRecordTab === 'image' }"
+            @click="genRecordTab = 'image'; genRecordTypeFilter = 'all'"
+          >图片</div>
+          <div
+            class="gen-record-tab"
+            :class="{ active: genRecordTab === 'other' }"
+            @click="genRecordTab = 'other'; genRecordTypeFilter = 'all'"
+          >其他</div>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="gen-record-filters">
+          <div class="gen-record-status-filters">
+            <span
+              v-for="s in [{k:'all',l:'全部'},{k:'pending',l:'排队中'},{k:'running',l:'生成中'},{k:'completed',l:'完成'},{k:'failed',l:'失败'}]"
+              :key="s.k"
+              class="gen-record-filter-btn"
+              :class="{ active: genRecordStatusFilter === s.k }"
+              @click="genRecordStatusFilter = s.k as any"
+            >{{ s.l }}</span>
           </div>
-          <div class="gen-record-meta">
-            <span>{{ r.model || '默认模型' }}</span>
-            <span>{{ r.created_at }}</span>
-          </div>
-          <div v-if="r.error_message" class="gen-record-error">{{ r.error_message }}</div>
+          <el-select
+            v-if="genRecordTab === 'image'"
+            v-model="genRecordTypeFilter"
+            size="small"
+            class="gen-record-type-select dark-select"
+          >
+            <el-option label="全部类型" value="all" />
+            <el-option label="角色定妆照" value="character_reference" />
+            <el-option label="场景图" value="scene_reference" />
+            <el-option label="道具图" value="prop_reference" />
+            <el-option label="首帧" value="first_frame" />
+            <el-option label="尾帧" value="last_frame" />
+          </el-select>
+        </div>
+
+        <!-- 表格区域 -->
+        <div class="gen-record-table-wrap">
+          <div v-if="!filteredRecords.length" class="gen-record-empty">暂无生成记录</div>
+          <table v-else class="gen-record-table">
+            <thead>
+              <tr>
+                <th class="col-num">编号</th>
+                <th class="col-shot">所属分镜/素材</th>
+                <th class="col-type">类型</th>
+                <th class="col-model">模型</th>
+                <th class="col-channel">渠道</th>
+                <th class="col-time">创建时间</th>
+                <th class="col-wait">等待时间</th>
+                <th class="col-status">状态</th>
+                <th class="col-action">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(r, idx) in filteredRecords"
+                :key="r.id"
+                class="gen-record-row"
+                :class="{ failed: r.status === 'failed' }"
+              >
+                <td class="col-num">{{ idx + 1 }}</td>
+                <td class="col-shot" :title="getShotDesc(r.shot_id)">
+                  {{ getShotDesc(r.shot_id) }}
+                </td>
+                <td class="col-type">{{ purposeLabel(r.purpose) }}</td>
+                <td class="col-model">{{ r.model || '-' }}</td>
+                <td class="col-channel">{{ r.channel || '-' }}</td>
+                <td class="col-time">{{ formatTime(r.created_at) }}</td>
+                <td class="col-wait">{{ formatWaitTime(r) }}</td>
+                <td class="col-status">
+                  <span class="gen-record-status-tag" :class="r.status">
+                    <template v-if="r.status === 'pending'">🔄</template>
+                    <template v-if="r.status === 'running'">🔄</template>
+                    <template v-if="r.status === 'completed'">✅</template>
+                    <template v-if="r.status === 'failed'">❌</template>
+                    {{ statusLabel(r.status) }}
+                  </span>
+                </td>
+                <td class="col-action">
+                  <el-button
+                    v-if="r.status === 'failed'"
+                    text
+                    size="small"
+                    type="primary"
+                    @click="retryTask(r)"
+                  >重试</el-button>
+                  <el-tooltip
+                    v-if="r.error_message"
+                    :content="r.error_message"
+                    placement="top"
+                    :show-after="200"
+                  >
+                    <el-button text size="small">详情</el-button>
+                  </el-tooltip>
+                  <span v-else-if="r.status !== 'failed'" class="action-placeholder">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
+      <template #footer>
+        <el-button @click="genRecordVisible = false">关闭</el-button>
+      </template>
     </el-dialog>
 
     <!-- 模型配置弹窗 -->
@@ -3466,6 +3659,84 @@ onUnmounted(() => {
 }
 
 /* 生成记录弹窗 */
+.gen-record-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gen-record-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 8px;
+}
+
+.gen-record-tab {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.gen-record-tab:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gen-record-tab.active {
+  color: #fff;
+  background: rgba(167, 139, 250, 0.15);
+  font-weight: 500;
+}
+
+.gen-record-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gen-record-status-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.gen-record-filter-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.gen-record-filter-btn:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gen-record-filter-btn.active {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.25);
+  font-weight: 500;
+}
+
+.gen-record-type-select {
+  width: 120px;
+}
+
+.gen-record-table-wrap {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .gen-record-empty {
   text-align: center;
   padding: 40px;
@@ -3473,85 +3744,93 @@ onUnmounted(() => {
   color: #9ca3af;
 }
 
-.gen-record-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 480px;
-  overflow-y: auto;
-}
-
-.gen-record-item {
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.gen-record-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.gen-record-type {
+.gen-record-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 12px;
-  font-weight: 600;
-  color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.12);
-  padding: 2px 8px;
-  border-radius: 4px;
 }
 
-.gen-record-purpose {
-  font-size: 13px;
-  color: #e5e7eb;
-  flex: 1;
+.gen-record-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-.gen-record-status {
+.gen-record-table th {
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 500;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.gen-record-table td {
+  padding: 10px 8px;
+  color: #d1d5db;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.gen-record-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.gen-record-row.failed:hover {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.col-num { width: 40px; text-align: center; }
+.col-shot { min-width: 120px; max-width: 160px; }
+.col-type { width: 80px; white-space: nowrap; }
+.col-model { width: 80px; }
+.col-channel { width: 60px; }
+.col-time { width: 90px; white-space: nowrap; }
+.col-wait { width: 70px; text-align: center; }
+.col-status { width: 80px; }
+.col-action { width: 90px; text-align: center; }
+
+.col-shot {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gen-record-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 10px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
-.gen-record-status.pending {
+.gen-record-status-tag.pending {
   background: rgba(251, 191, 36, 0.12);
   color: #fbbf24;
 }
 
-.gen-record-status.running {
+.gen-record-status-tag.running {
   background: rgba(167, 139, 250, 0.12);
   color: #c4b5fd;
 }
 
-.gen-record-status.completed {
+.gen-record-status-tag.completed {
   background: rgba(52, 211, 153, 0.12);
   color: #34d399;
 }
 
-.gen-record-status.failed {
+.gen-record-status-tag.failed {
   background: rgba(239, 68, 68, 0.12);
   color: #f87171;
 }
 
-.gen-record-meta {
-  display: flex;
-  gap: 12px;
+.action-placeholder {
+  color: #6b7280;
   font-size: 12px;
-  color: #9ca3af;
-}
-
-.gen-record-error {
-  font-size: 12px;
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.06);
-  padding: 6px 10px;
-  border-radius: 4px;
 }
 </style>
 
