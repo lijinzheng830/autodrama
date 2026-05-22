@@ -98,6 +98,7 @@ export function initDatabase(): Database.Database {
       description TEXT DEFAULT '',
       reference_image TEXT,
       created_at TEXT DEFAULT (datetime('now')),
+      started_at TEXT DEFAULT NULL,
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
@@ -287,7 +288,8 @@ export function initDatabase(): Database.Database {
     { table: 'shots', column: 'last_frame_image_path', type: 'TEXT' },
     { table: 'shots', column: 'video_path', type: 'TEXT' },
     { table: 'shots', column: 'voice_path', type: 'TEXT' },
-    { table: 'characters', column: 'skin_images', type: 'TEXT' }
+    { table: 'characters', column: 'skin_images', type: 'TEXT' },
+    { table: 'generation_tasks', column: 'started_at', type: 'TEXT' }
   ]
 
   for (const m of migrations) {

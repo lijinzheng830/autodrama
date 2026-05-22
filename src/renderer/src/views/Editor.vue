@@ -324,6 +324,8 @@ async function loadProject(): Promise<void> {
     }
     const stats = await window.api.getProjectStats(projectId)
     projectStats.value = stats as { scenes: number; props: number; chapters: number; shots: number }
+    const savedDir = await window.api.getSetting('last_export_dir')
+    if (savedDir) lastExportDir.value = savedDir
   } catch (err) {
     ElMessage.error('加载项目失败')
     console.error(err)
@@ -1256,6 +1258,7 @@ async function handleAssetExportConfirm(): Promise<void> {
   const dir = await window.api.selectExportDirectory(lastExportDir.value || undefined)
   if (!dir) return
   lastExportDir.value = dir
+  await window.api.setSetting('last_export_dir', dir)
 
   exportProgressVisible.value = true
   exportProgressTotal.value = assets.length
@@ -1269,7 +1272,7 @@ async function handleAssetExportConfirm(): Promise<void> {
   for (let i = 0; i < assets.length; i++) {
     const asset = assets[i]
     const ext = asset.reference_image.split('.').pop() || 'png'
-    const destName = `${asset.name}_${projectName}_${timestamp}.${ext}`
+    const destName = `${i + 1}_${projectName}_${timestamp}.${ext}`
     const destPath = `${dir}/${destName}`
     const ok = await window.api.copyExportFile(asset.reference_image, destPath)
     if (ok) successCount++
@@ -1305,6 +1308,7 @@ async function handleVideoExport(): Promise<void> {
   const dir = await window.api.selectExportDirectory(lastExportDir.value || undefined)
   if (!dir) return
   lastExportDir.value = dir
+  await window.api.setSetting('last_export_dir', dir)
 
   exportProgressVisible.value = true
   exportProgressTotal.value = shots.length
@@ -1318,7 +1322,7 @@ async function handleVideoExport(): Promise<void> {
   for (let i = 0; i < shots.length; i++) {
     const shot = shots[i]
     const ext = shot.video_path.split('.').pop() || 'mp4'
-    const destName = `${shot.shot_index}_${projectName}_${timestamp}.${ext}`
+    const destName = `${i + 1}_${projectName}_${timestamp}.${ext}`
     const destPath = `${dir}/${destName}`
     const ok = await window.api.copyExportFile(shot.video_path, destPath)
     if (ok) successCount++
