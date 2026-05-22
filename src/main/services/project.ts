@@ -363,6 +363,18 @@ export function createGenerationTask(input: {
   return { id }
 }
 
+export function getGenerationTasks(projectId: string): any[] {
+  const db = getDb()
+  return db.prepare(`
+    SELECT
+      id, project_id, shot_id, type, purpose, channel, model, status,
+      input_params, output_path, error_message, created_at, updated_at
+    FROM generation_tasks
+    WHERE project_id = ?
+    ORDER BY created_at DESC
+  `).all(projectId)
+}
+
 export function copyImageToProject(srcPath: string, projectPath: string): string {
   const assetsDir = join(projectPath, 'assets')
   mkdirSync(assetsDir, { recursive: true })

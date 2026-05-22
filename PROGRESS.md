@@ -1,14 +1,15 @@
 # AutoDrama 开发进度记忆
 
-> 最后更新：2026-05-21
-> 当前 commit：`82ca6dc`
-> 已完成：M1-01 ~ M1-15
+> 最后更新：2026-05-22
+> 当前 commit：`d0a9f97`
+> 已完成：M1-01 ~ M1-16
 
 ---
 
 ## 一、Git 提交历史（最近15条）
 
 ```
+d0a9f97 M1-16: 顶部工具栏完整实现——编辑器/画布切换+生成记录+撤销重做+导出+设置
 82ca6dc M1-11~15: 剧集结构页完整实现——列表+右侧面板+编辑+关联
 0ddb65b M1-09b+10: 总览页改造+AI解析弹窗+追加解析
 5329671 M1-09: Home.vue改造——项目列表+创建弹窗
@@ -59,7 +60,7 @@ prompt_templates  ← 提示词模板（M1-02）
 | 文件 | 功能 | 行数 |
 |------|------|------|
 | `src/main/services/db.ts` | SQLite 初始化 + 迁移 | 362 |
-| `src/main/services/project.ts` | 项目 CRUD + 分镜查询/移动/删除 | 560 |
+| `src/main/services/project.ts` | 项目 CRUD + 分镜查询/移动/删除 + 生成任务 | 580 |
 | `src/main/services/asset.ts` | 角色/场景/道具 CRUD + 改名全局联动 | 248 |
 | `src/main/services/ai.ts` | AI 调用 + autoProcess + 保存数据库 | 456 |
 | `src/main/services/template.ts` | 提示词模板 CRUD + 官方预设 | 98 |
@@ -83,7 +84,7 @@ asset:scene:create/update/delete
 asset:prop:create/update/delete/list
 template:list/save/delete
 shot:moveUp/moveDown/delete/update/associate
-generationTask:create
+generationTask:create/list
 dialog:selectDirectory/selectImage
 ```
 
@@ -113,10 +114,11 @@ dialog:selectDirectory/selectImage
 - 支持 full（清空重来）/ append（追加）模式
 
 **剧集结构页：**
-- 顶部工具栏（占位）
+- 顶部工具栏：编辑器/画布切换 + 撤销重做 + 生成记录 + 导出 + 设置
 - 横向分镜列表（12列）：序号/剧本/人物/场景/道具/配音/首帧/首帧提示词/尾帧/尾帧提示词/视频/操作
 - 右侧面板常驻：角色/场景/道具 Tab + 搜索 + 作品中/全部可用分组
 - 右侧面板详情：名称可编辑（全局联动）/ 描述可编辑 / 图片上传 / 生图控制栏（MVP1占位）
+- 画布视图占位（MVP2）
 
 ---
 
@@ -135,7 +137,7 @@ dialog:selectDirectory/selectImage
 
 | # | 事项 | 优先级 |
 |---|------|--------|
-| 1 | M1-16：顶部工具栏（编辑器按钮/画布按钮/生成记录/撤销重做/导出/设置） | 高 |
+| 1 | ~~M1-16：顶部工具栏~~ ✅ 已完成 | 高 |
 | 2 | M1-17：批量生成占位改为真实逻辑 | 中 |
 | 3 | M1-18：生图控制栏从占位改为真实调用（generation_tasks → 真实 AI 调用） | 中 |
 | 4 | M1-19：批量操作（批量生图/生视频） | 中 |
@@ -159,7 +161,7 @@ dialog:selectDirectory/selectImage
 
 根据 `开发步骤清单`，剩余步骤：
 
-- M1-16：顶部工具栏完整实现
+- ~~M1-16：顶部工具栏完整实现~~ ✅
 - M1-17：批量生成功能
 - M1-18：真实生图调用（替换 MVP1 占位）
 - M1-19：批量操作

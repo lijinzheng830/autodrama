@@ -59,6 +59,7 @@ export interface Api {
   updateShot: (shotId: string, input: any) => Promise<void>
   addShotAssociation: (shotId: string, type: string, assetId: string) => Promise<void>
   createGenerationTask: (input: any) => Promise<unknown>
+  getGenerationTasks: (projectId: string) => Promise<unknown[]>
   selectImage: (projectPath: string) => Promise<string | null>
 }
 

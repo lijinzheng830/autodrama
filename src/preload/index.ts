@@ -64,6 +64,7 @@ const api = {
   updateShot: (shotId: string, input: any) => ipcRenderer.invoke('shot:update', { shotId, input }),
   addShotAssociation: (shotId: string, type: string, assetId: string) => ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
   createGenerationTask: (input: any) => ipcRenderer.invoke('generationTask:create', input),
+  getGenerationTasks: (projectId: string) => ipcRenderer.invoke('generationTask:list', projectId),
   selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath)
 }
 

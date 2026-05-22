@@ -5,7 +5,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Setting, Plus, VideoPlay, DocumentAdd,
   ArrowUp, ArrowDown, Delete, Search, Back,
-  Tools, Minus, Upload, Grid
+  Tools, Minus, Upload, Grid,
+  Document, RefreshLeft, RefreshRight, Clock, Download
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 
@@ -58,6 +59,13 @@ const searchKeyword = ref('')
 // 编辑状态
 const editingCell = ref<{ shotId: string; field: string } | null>(null)
 const editText = ref('')
+
+// 视图模式
+const viewMode = ref<'table' | 'canvas'>('table')
+
+// 生成记录弹窗
+const genRecordVisible = ref(false)
+const genRecords = ref<any[]>([])
 
 // 生图控制（详情面板）
 const genCount = ref(1)
@@ -601,6 +609,63 @@ function goSettings() {
   router.push('/settings')
 }
 
+// ===== 顶部工具栏 =====
+
+async function openGenRecord() {
+  genRecordVisible.value = true
+  await loadGenerationRecords()
+}
+
+async function loadGenerationRecords() {
+  try {
+    genRecords.value = await window.api.getGenerationTasks(projectId)
+  } catch (err) {
+    ElMessage.error('加载生成记录失败')
+    console.error(err)
+  }
+}
+
+function statusLabel(status: string) {
+  const map: Record<string, string> = {
+    pending: '等待中',
+    running: '生成中',
+    completed: '已完成',
+    failed: '失败'
+  }
+  return map[status] || status
+}
+
+function handleUndo() {
+  ElMessage.info('撤销功能后续版本开放')
+}
+
+function handleRedo() {
+  ElMessage.info('重做功能后续版本开放')
+}
+
+function handleExport() {
+  if (!projectData.value) return
+  const exportData = {
+    projectName: project.value?.name,
+    chapters: projectData.value.chapters,
+    shots: projectData.value.shots,
+    characters: projectData.value.characters,
+    scenes: projectData.value.scenes,
+    props: projectData.value.props,
+    exportedAt: new Date().toISOString()
+  }
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${project.value?.name || 'project'}_export.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  ElMessage.success('导出成功')
+}
+
 const scriptCharCount = computed(() => parseScriptText.value.length)
 
 onMounted(() => {
@@ -697,13 +762,56 @@ onUnmounted(() => {
 
         <!-- 剧集结构页 -->
         <div v-else-if="activeNav === 'episodes'" class="episodes-layout">
-          <!-- 顶部工具栏占位 -->
-          <div class="toolbar-placeholder">
-            <span class="toolbar-text">顶部工具栏占位</span>
+          <!-- 顶部工具栏 -->
+          <div class="episodes-toolbar">
+            <div class="toolbar-group">
+              <el-button
+                text
+                size="small"
+                :icon="Document"
+                :class="{ active: viewMode === 'table' }"
+                @click="viewMode = 'table'"
+              >
+                编辑器
+              </el-button>
+              <el-button
+                text
+                size="small"
+                :icon="Grid"
+                :class="{ active: viewMode === 'canvas' }"
+                @click="viewMode = 'canvas'"
+              >
+                画布
+              </el-button>
+            </div>
+            <div class="toolbar-divider" />
+            <div class="toolbar-group">
+              <el-button text size="small" :icon="RefreshLeft" @click="handleUndo">
+                撤销
+              </el-button>
+              <el-button text size="small" :icon="RefreshRight" @click="handleRedo">
+                重做
+              </el-button>
+            </div>
+            <div class="toolbar-divider" />
+            <div class="toolbar-group">
+              <el-button text size="small" :icon="Clock" @click="openGenRecord">
+                生成记录
+              </el-button>
+            </div>
+            <div class="toolbar-spacer" />
+            <div class="toolbar-group">
+              <el-button text size="small" :icon="Download" @click="handleExport">
+                导出
+              </el-button>
+              <el-button text size="small" :icon="Setting" @click="goSettings">
+                设置
+              </el-button>
+            </div>
           </div>
 
-          <!-- 分镜列表 + 右侧面板 -->
-          <div class="episodes-body">
+          <!-- 表格视图 -->
+          <div v-if="viewMode === 'table'" class="episodes-body">
             <!-- 横向分镜列表 -->
             <div class="shot-table-wrapper">
               <div v-if="episodesLoading" class="loading-mask">加载中...</div>
@@ -1184,9 +1292,42 @@ onUnmounted(() => {
               </div>
             </aside>
           </div>
+
+          <!-- 画布视图 -->
+          <div v-else class="canvas-view">
+            <div class="canvas-placeholder">
+              <el-icon :size="48" color="#4b5563"><Grid /></el-icon>
+              <p>画布视图开发中，后续版本开放</p>
+              <el-button type="primary" @click="viewMode = 'table'">返回编辑器</el-button>
+            </div>
+          </div>
         </div>
       </main>
     </div>
+
+    <!-- 生成记录弹窗 -->
+    <el-dialog
+      v-model="genRecordVisible"
+      title="生成记录"
+      width="600px"
+      class="dark-dialog gen-record-dialog"
+    >
+      <div v-if="!genRecords.length" class="gen-record-empty">暂无生成记录</div>
+      <div v-else class="gen-record-list">
+        <div v-for="r in genRecords" :key="r.id" class="gen-record-item">
+          <div class="gen-record-header">
+            <span class="gen-record-type">{{ r.type === 'image' ? '图片' : r.type === 'video' ? '视频' : r.type }}</span>
+            <span class="gen-record-purpose">{{ r.purpose }}</span>
+            <span class="gen-record-status" :class="r.status">{{ statusLabel(r.status) }}</span>
+          </div>
+          <div class="gen-record-meta">
+            <span>{{ r.model || '默认模型' }}</span>
+            <span>{{ r.created_at }}</span>
+          </div>
+          <div v-if="r.error_message" class="gen-record-error">{{ r.error_message }}</div>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- AI解析弹窗 -->
     <el-dialog
@@ -1583,19 +1724,49 @@ onUnmounted(() => {
   height: 100%;
 }
 
-.toolbar-placeholder {
+.episodes-toolbar {
   height: 40px;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.01);
   flex-shrink: 0;
+  gap: 4px;
 }
 
-.toolbar-text {
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolbar-group .el-button {
+  color: #9ca3af;
   font-size: 12px;
-  color: #4b5563;
+  padding: 5px 10px;
+}
+
+.toolbar-group .el-button:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-group .el-button.active {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.12);
+  font-weight: 500;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 4px;
+}
+
+.toolbar-spacer {
+  flex: 1;
 }
 
 .episodes-body {
@@ -2289,6 +2460,117 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 画布视图 */
+.canvas-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.canvas-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #6b7280;
+}
+
+.canvas-placeholder p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* 生成记录弹窗 */
+.gen-record-empty {
+  text-align: center;
+  padding: 40px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.gen-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.gen-record-item {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gen-record-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gen-record-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.gen-record-purpose {
+  font-size: 13px;
+  color: #e5e7eb;
+  flex: 1;
+}
+
+.gen-record-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.gen-record-status.pending {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+.gen-record-status.running {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+}
+
+.gen-record-status.completed {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+}
+
+.gen-record-status.failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.gen-record-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.gen-record-error {
+  font-size: 12px;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.06);
+  padding: 6px 10px;
+  border-radius: 4px;
 }
 </style>
 

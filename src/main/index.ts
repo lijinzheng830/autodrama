@@ -10,7 +10,7 @@ import {
   getShotCharactersByProject, getShotScenesByProject,
   getShotsWithAssociations, getProjectData,
   moveShotUp, moveShotDown, deleteShot,
-  updateShot, addShotAssociation, createGenerationTask, copyImageToProject
+  updateShot, addShotAssociation, createGenerationTask, getGenerationTasks, copyImageToProject
 } from './services/project'
 import {
   createCharacter, updateCharacter, deleteCharacter,
@@ -209,6 +209,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('generationTask:create', async (_, input: any) => {
     return createGenerationTask(input)
+  })
+
+  ipcMain.handle('generationTask:list', async (_, projectId: string) => {
+    return getGenerationTasks(projectId)
   })
 
   ipcMain.handle('dialog:selectImage', async (_, projectPath: string) => {
