@@ -65,7 +65,9 @@ const api = {
   addShotAssociation: (shotId: string, type: string, assetId: string) => ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
   createGenerationTask: (input: any) => ipcRenderer.invoke('generationTask:create', input),
   getGenerationTasks: (projectId: string) => ipcRenderer.invoke('generationTask:list', projectId),
-  selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath)
+  selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath),
+  selectExportDirectory: (defaultPath?: string) => ipcRenderer.invoke('export:selectDirectory', defaultPath),
+  copyExportFile: (src: string, dest: string) => ipcRenderer.invoke('export:copyFile', { src, dest })
 }
 
 if (process.contextIsolated) {

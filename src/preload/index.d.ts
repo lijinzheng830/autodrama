@@ -61,6 +61,8 @@ export interface Api {
   createGenerationTask: (input: any) => Promise<unknown>
   getGenerationTasks: (projectId: string) => Promise<unknown[]>
   selectImage: (projectPath: string) => Promise<string | null>
+  selectExportDirectory: (defaultPath?: string) => Promise<string | null>
+  copyExportFile: (src: string, dest: string) => Promise<boolean>
 }
 
 declare global {

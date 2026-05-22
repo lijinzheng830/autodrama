@@ -281,6 +281,29 @@ app.whenReady().then(() => {
     return result.canceled ? null : result.filePaths[0]
   })
 
+  ipcMain.handle('export:selectDirectory', async (_, defaultPath?: string) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: '选择导出目录',
+      defaultPath: defaultPath || undefined
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle('export:copyFile', async (_, { src, dest }: { src: string; dest: string }) => {
+    try {
+      const { copyFileSync, mkdirSync, existsSync } = await import('fs')
+      const { dirname } = await import('path')
+      const dir = dirname(dest)
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      copyFileSync(src, dest)
+      return true
+    } catch (err) {
+      console.error('Copy file failed:', src, '->', dest, err)
+      return false
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

@@ -111,6 +111,16 @@ const batchCount = ref(1)
 const batchMissingCount = ref(0)
 const batchTotalAssets = ref(0)
 
+// 导出功能
+const exportAssetMode = ref(false)
+const exportAssetType = ref<'characters' | 'scenes' | 'props'>('characters')
+const exportAssetIds = ref<Set<string>>(new Set())
+const exportProgressVisible = ref(false)
+const exportProgressCurrent = ref(0)
+const exportProgressTotal = ref(0)
+const exportProgressMsg = ref('')
+const lastExportDir = ref('')
+
 const batchTypeLabels: Record<string, string> = {
   '人物': '批量生成角色定妆照',
   '场景': '批量生成场景定妆照',
@@ -1026,8 +1036,125 @@ function handleRedo() {
   ElMessage.info('重做功能后续版本开放')
 }
 
-function handleExportPlaceholder(type: string) {
-  ElMessage.info(`${type}导出功能将在M1-21实现`)
+function handleExport(type: string) {
+  if (type === '视频') {
+    handleVideoExport()
+  } else if (type === '角色') {
+    startAssetExport('characters')
+  } else if (type === '场景') {
+    startAssetExport('scenes')
+  } else if (type === '道具') {
+    startAssetExport('props')
+  }
+}
+
+function startAssetExport(type: 'characters' | 'scenes' | 'props') {
+  exportAssetMode.value = true
+  exportAssetType.value = type
+  exportAssetIds.value = new Set()
+  residentTab.value = type
+  panelMode.value = 'resident'
+}
+
+function cancelAssetExport() {
+  exportAssetMode.value = false
+  exportAssetIds.value = new Set()
+}
+
+function toggleExportAsset(assetId: string) {
+  if (exportAssetIds.value.has(assetId)) {
+    exportAssetIds.value.delete(assetId)
+  } else {
+    exportAssetIds.value.add(assetId)
+  }
+}
+
+async function handleAssetExportConfirm() {
+  const assetType = exportAssetType.value === 'characters' ? 'characters' : exportAssetType.value === 'scenes' ? 'scenes' : 'props'
+  const assets = projectData.value?.[assetType]?.filter((a: any) => exportAssetIds.value.has(a.id) && a.reference_image) || []
+  const skipped = exportAssetIds.value.size - assets.length
+
+  if (assets.length === 0) {
+    ElMessage.warning('选中的资产均未生成图片，无需导出')
+    return
+  }
+
+  const dir = await window.api.selectExportDirectory(lastExportDir.value || undefined)
+  if (!dir) return
+  lastExportDir.value = dir
+
+  exportProgressVisible.value = true
+  exportProgressTotal.value = assets.length
+  exportProgressCurrent.value = 0
+  exportProgressMsg.value = '正在导出...'
+
+  const projectName = project.value?.name || 'project'
+  const timestamp = Date.now()
+  let successCount = 0
+
+  for (let i = 0; i < assets.length; i++) {
+    const asset = assets[i]
+    const ext = asset.reference_image.split('.').pop() || 'png'
+    const destName = `${asset.name}_${projectName}_${timestamp}.${ext}`
+    const destPath = `${dir}/${destName}`
+    const ok = await window.api.copyExportFile(asset.reference_image, destPath)
+    if (ok) successCount++
+    exportProgressCurrent.value = i + 1
+  }
+
+  exportProgressVisible.value = false
+  exportAssetMode.value = false
+  exportAssetIds.value = new Set()
+
+  let msg = `成功导出 ${successCount} 个文件到 ${dir}`
+  if (skipped > 0) msg += `，${skipped} 个文件因未生成已跳过`
+  if (successCount < assets.length) msg += `，${assets.length - successCount} 个复制失败`
+  ElMessage.success(msg)
+}
+
+async function handleVideoExport() {
+  if (selectedShots.value.size === 0) {
+    ElMessage.warning('请先勾选分镜')
+    return
+  }
+
+  const shots = projectData.value?.shots?.filter((s: any) => selectedShots.value.has(s.id) && s.video_path) || []
+  const skipped = selectedShots.value.size - shots.length
+
+  if (shots.length === 0) {
+    ElMessage.warning('勾选的分镜均未生成视频，无需导出')
+    return
+  }
+
+  const dir = await window.api.selectExportDirectory(lastExportDir.value || undefined)
+  if (!dir) return
+  lastExportDir.value = dir
+
+  exportProgressVisible.value = true
+  exportProgressTotal.value = shots.length
+  exportProgressCurrent.value = 0
+  exportProgressMsg.value = '正在导出视频...'
+
+  const projectName = project.value?.name || 'project'
+  const timestamp = Date.now()
+  let successCount = 0
+
+  for (let i = 0; i < shots.length; i++) {
+    const shot = shots[i]
+    const ext = shot.video_path.split('.').pop() || 'mp4'
+    const destName = `${shot.shot_index}_${projectName}_${timestamp}.${ext}`
+    const destPath = `${dir}/${destName}`
+    const ok = await window.api.copyExportFile(shot.video_path, destPath)
+    if (ok) successCount++
+    exportProgressCurrent.value = i + 1
+  }
+
+  exportProgressVisible.value = false
+
+  let msg = `成功导出 ${successCount} 个视频到 ${dir}`
+  if (skipped > 0) msg += `，${skipped} 个分镜因未生成视频已跳过`
+  if (successCount < shots.length) msg += `，${shots.length - successCount} 个复制失败`
+  ElMessage.success(msg)
 }
 
 // ===== 工具栏左侧交互 =====
@@ -1377,10 +1504,10 @@ onUnmounted(() => {
                 <el-button text size="small" :icon="Upload" title="导出" class="toolbar-icon-btn" />
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="handleExportPlaceholder('视频')">视频导出</el-dropdown-item>
-                    <el-dropdown-item @click="handleExportPlaceholder('场景')">场景导出</el-dropdown-item>
-                    <el-dropdown-item @click="handleExportPlaceholder('角色')">角色导出</el-dropdown-item>
-                    <el-dropdown-item @click="handleExportPlaceholder('道具')">道具导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExport('视频')">视频导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExport('场景')">场景导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExport('角色')">角色导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExport('道具')">道具导出</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -1652,8 +1779,15 @@ onUnmounted(() => {
                 </div>
 
                 <div class="panel-search">
-                  <el-input v-model="searchKeyword" placeholder="搜索..." :prefix-icon="Search" size="small" />
-                  <el-button text size="small" @click="handleBatchGenerate('批量')">批量生成</el-button>
+                  <template v-if="exportAssetMode">
+                    <span class="export-mode-label">导出模式</span>
+                    <el-button type="primary" size="small" :disabled="exportAssetIds.size === 0" @click="handleAssetExportConfirm">导出选中 ({{ exportAssetIds.size }})</el-button>
+                    <el-button text size="small" @click="cancelAssetExport">取消</el-button>
+                  </template>
+                  <template v-else>
+                    <el-input v-model="searchKeyword" placeholder="搜索..." :prefix-icon="Search" size="small" />
+                    <el-button text size="small" @click="handleBatchGenerate('批量')">批量生成</el-button>
+                  </template>
                 </div>
 
                 <!-- 作品中 -->
@@ -1666,12 +1800,18 @@ onUnmounted(() => {
                       v-for="asset in filteredAssets"
                       :key="asset.id"
                       class="asset-card"
-                      :class="{ unused: !isAssetUsed(asset.id) }"
-                      @click="showDetail(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset)"
+                      :class="{ unused: !isAssetUsed(asset.id), 'export-selected': exportAssetMode && exportAssetIds.has(asset.id) }"
+                      @click="exportAssetMode ? toggleExportAsset(asset.id) : showDetail(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset)"
                     >
                       <img v-if="asset.reference_image" :src="asset.reference_image" class="asset-img" />
                       <div v-else class="asset-placeholder">{{ asset.name }}</div>
+                      <div v-if="exportAssetMode" class="asset-checkbox" @click.stop="toggleExportAsset(asset.id)">
+                        <div class="asset-check-indicator" :class="{ checked: exportAssetIds.has(asset.id) }">
+                          <span v-if="exportAssetIds.has(asset.id)">✓</span>
+                        </div>
+                      </div>
                       <el-button
+                        v-else
                         text
                         circle
                         size="small"
@@ -1684,7 +1824,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 全部可用 -->
-                <div class="panel-section">
+                <div v-if="!exportAssetMode" class="panel-section">
                   <div class="panel-section-title">
                     全部可用 ({{ filteredAssets.filter((a:any) => isAssetUsed(a.id)).length }}/{{ filteredAssets.length }})
                   </div>
@@ -1704,7 +1844,7 @@ onUnmounted(() => {
                   </div>
                 </div>
 
-                <div class="panel-footer">
+                <div v-if="!exportAssetMode" class="panel-footer">
                   <el-button :icon="Plus" @click="handleCreateAsset">创建</el-button>
                   <el-button text @click="handleImportAsset">从其他项目导入</el-button>
                 </div>
@@ -2009,6 +2149,26 @@ onUnmounted(() => {
       <template #footer>
         <el-button @click="genRecordVisible = false">关闭</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 导出进度弹窗 -->
+    <el-dialog
+      v-model="exportProgressVisible"
+      title="正在导出"
+      width="400px"
+      class="dark-dialog export-progress-dialog"
+      :close-on-click-modal="false"
+      :show-close="false"
+    >
+      <div class="export-progress-body">
+        <p class="export-progress-msg">{{ exportProgressMsg }}</p>
+        <el-progress
+          :percentage="Math.round((exportProgressCurrent / exportProgressTotal) * 100)"
+          :stroke-width="10"
+          class="export-progress-bar"
+        />
+        <p class="export-progress-count">{{ exportProgressCurrent }} / {{ exportProgressTotal }}</p>
+      </div>
     </el-dialog>
 
     <!-- 模型配置弹窗 -->
@@ -3831,6 +3991,88 @@ onUnmounted(() => {
 .action-placeholder {
   color: #6b7280;
   font-size: 12px;
+}
+
+/* 导出功能 */
+.export-mode-label {
+  font-size: 13px;
+  color: #c4b5fd;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.asset-checkbox {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.asset-check-indicator {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  transition: all 0.15s;
+}
+
+.asset-check-indicator.checked {
+  background: #60a5fa;
+  border-color: #60a5fa;
+}
+
+.asset-card.export-selected {
+  outline: 2px solid #60a5fa;
+  outline-offset: -2px;
+}
+
+.export-progress-body {
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.export-progress-msg {
+  font-size: 14px;
+  color: #e5e7eb;
+  margin: 0;
+}
+
+.export-progress-count {
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.export-progress-bar {
+  width: 100%;
+}
+
+.export-progress-bar .el-progress-bar__outer {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.export-progress-bar .el-progress-bar__inner {
+  background: #60a5fa;
+}
+
+.export-progress-bar .el-progress__text {
+  color: #9ca3af;
 }
 </style>
 
