@@ -268,6 +268,7 @@ async function handleImportConfig() {
 
 // ===== Model Routes =====
 const routePurposes = [
+  { key: 'language_model', label: '剧本解析 & 提示词推理' },
   { key: 'character_image', label: '角色定妆照' },
   { key: 'scene_image', label: '场景图' },
   { key: 'prop_image', label: '道具图' },
