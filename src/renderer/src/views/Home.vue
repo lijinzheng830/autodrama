@@ -28,7 +28,7 @@ const projectPath = ref('')
 
 async function loadProjects() {
   try {
-    const list = await window.api.getProjects() as Project[]
+    const list = (await window.api.getProjects()) as Project[]
     projects.value = list
   } catch (err) {
     ElMessage.error('加载项目列表失败')
@@ -56,7 +56,7 @@ async function handleCreate() {
 
   loading.value = true
   try {
-    const newProject = await window.api.createProject({
+    const newProject = (await window.api.createProject({
       name: form.projectName.trim(),
       styleName: '',
       stylePrompt: '',
@@ -64,7 +64,7 @@ async function handleCreate() {
       aspectRatio: '16:9',
       parentProjectId: baseProjectId.value || undefined,
       path: projectPath.value || undefined
-    }) as Project
+    })) as Project
     ElMessage.success('项目创建成功')
     dialogVisible.value = false
     resetForm()
@@ -84,11 +84,15 @@ async function handleCreate() {
 async function handleDelete(projectId: string, event: MouseEvent) {
   event.stopPropagation()
   try {
-    await ElMessageBox.confirm('确定删除该项目吗？项目数据将被永久删除，此操作不可撤销', '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
+    await ElMessageBox.confirm(
+      '确定删除该项目吗？项目数据将被永久删除，此操作不可撤销',
+      '删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
     await window.api.deleteProject(projectId)
     ElMessage.success('项目已删除')
     await loadProjects()
@@ -163,12 +167,7 @@ onMounted(() => {
         </div>
 
         <!-- 项目卡片 -->
-        <div
-          v-for="p in projects"
-          :key="p.id"
-          class="project-card"
-          @click="openProject(p.id)"
-        >
+        <div v-for="p in projects" :key="p.id" class="project-card" @click="openProject(p.id)">
           <div class="project-card-header">
             <h3 class="project-name">{{ p.name }}</h3>
             <el-button
@@ -198,20 +197,12 @@ onMounted(() => {
       <div class="create-form">
         <div class="form-item">
           <label class="form-label">项目名称 <span class="required">*</span></label>
-          <el-input
-            ref="projectNameInput"
-            v-model="form.projectName"
-            placeholder="输入项目名称"
-          />
+          <el-input ref="projectNameInput" v-model="form.projectName" placeholder="输入项目名称" />
         </div>
 
         <div class="form-item">
           <label class="form-label">项目目录</label>
-          <el-input
-            v-model="projectPath"
-            placeholder="默认目录（自动创建）"
-            readonly
-          >
+          <el-input v-model="projectPath" placeholder="默认目录（自动创建）" readonly>
             <template #append>
               <el-button :icon="FolderOpened" @click="handleSelectDirectory" />
             </template>
@@ -226,12 +217,7 @@ onMounted(() => {
             clearable
             style="width: 100%"
           >
-            <el-option
-              v-for="p in projects"
-              :key="p.id"
-              :label="p.name"
-              :value="p.id"
-            />
+            <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
           <div class="form-hint">选择后将复制该项目的角色、场景和道具到新项目</div>
         </div>
@@ -239,9 +225,7 @@ onMounted(() => {
 
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="loading" @click="handleCreate">
-          创建
-        </el-button>
+        <el-button type="primary" :loading="loading" @click="handleCreate"> 创建 </el-button>
       </template>
     </el-dialog>
   </div>

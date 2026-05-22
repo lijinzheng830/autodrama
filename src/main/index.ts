@@ -3,23 +3,59 @@ import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
 import {
-  createProject, getProjects, getProject, updateProject, deleteProject,
-  getChaptersByProject, getShotsByChapter,
-  getCharactersByProject, getScenesByProject,
-  getShotCharacters, getShotScenes,
-  getShotCharactersByProject, getShotScenesByProject,
-  getShotsWithAssociations, getProjectData,
-  moveShotUp, moveShotDown, deleteShot,
-  updateShot, addShotAssociation, createGenerationTask, getGenerationTasks, copyImageToProject
+  createProject,
+  getProjects,
+  getProject,
+  updateProject,
+  deleteProject,
+  getChaptersByProject,
+  getShotsByChapter,
+  getCharactersByProject,
+  getScenesByProject,
+  getShotCharacters,
+  getShotScenes,
+  getShotCharactersByProject,
+  getShotScenesByProject,
+  getShotsWithAssociations,
+  getProjectData,
+  moveShotUp,
+  moveShotDown,
+  deleteShot,
+  updateShot,
+  addShotAssociation,
+  createGenerationTask,
+  getGenerationTasks,
+  copyImageToProject
 } from './services/project'
 import {
-  createCharacter, updateCharacter, deleteCharacter,
-  createScene, updateScene, deleteScene,
-  createProp, updateProp, deleteProp, getPropsByProject
+  createCharacter,
+  updateCharacter,
+  deleteCharacter,
+  createScene,
+  updateScene,
+  deleteScene,
+  createProp,
+  updateProp,
+  deleteProp,
+  getPropsByProject
 } from './services/asset'
-import { getPromptTemplates, savePromptTemplate, deletePromptTemplate, updatePromptTemplate } from './services/template'
+import {
+  getPromptTemplates,
+  savePromptTemplate,
+  deletePromptTemplate,
+  updatePromptTemplate
+} from './services/template'
 import { autoProcess } from './services/ai'
-import { getSetting, setSetting, getProviders, addProvider, updateProvider, deleteProvider, getSystemPrompt, setSystemPrompt } from './services/settings'
+import {
+  getSetting,
+  setSetting,
+  getProviders,
+  addProvider,
+  updateProvider,
+  deleteProvider,
+  getSystemPrompt,
+  setSystemPrompt
+} from './services/settings'
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
@@ -41,7 +77,10 @@ function watchWindowShortcuts(window: BrowserWindow): void {
         if (input.code === 'KeyR' && (input.control || input.meta)) {
           event.preventDefault()
         }
-        if (input.code === 'KeyI' && (input.alt && input.meta || input.control && input.shift)) {
+        if (
+          input.code === 'KeyI' &&
+          ((input.alt && input.meta) || (input.control && input.shift))
+        ) {
           event.preventDefault()
         }
       }
@@ -109,33 +148,36 @@ app.whenReady().then(() => {
     deleteProject(id)
   })
 
-  ipcMain.handle('project:update', async (_, { projectId, input }: { projectId: string; input: any }) => {
-    updateProject(projectId, input)
-  })
+  ipcMain.handle(
+    'project:update',
+    async (_, { projectId, input }: { projectId: string; input: any }) => {
+      updateProject(projectId, input)
+    }
+  )
 
-  ipcMain.handle('ai:auto-process', async (_, { projectId, script, options }: { projectId: string; script: string; options?: any }) => {
-    if (!mainWindow) throw new Error('主窗口未就绪')
+  ipcMain.handle(
+    'ai:auto-process',
+    async (
+      _,
+      { projectId, script, options }: { projectId: string; script: string; options?: any }
+    ) => {
+      if (!mainWindow) throw new Error('主窗口未就绪')
 
-    const sendProgress = (data: any) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send('ai:progress', data)
+      const sendProgress = (data: any) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send('ai:progress', data)
+        }
+      }
+
+      try {
+        const result = await autoProcess(projectId, script, () => {}, sendProgress, options)
+        return result
+      } catch (err: any) {
+        sendProgress({ step: 0, status: 'error', message: err.message || '生成失败' })
+        throw err
       }
     }
-
-    try {
-      const result = await autoProcess(
-        projectId,
-        script,
-        () => {},
-        sendProgress,
-        options
-      )
-      return result
-    } catch (err: any) {
-      sendProgress({ step: 0, status: 'error', message: err.message || '生成失败' })
-      throw err
-    }
-  })
+  )
 
   ipcMain.handle('settings:get', async (_, key: string) => {
     return getSetting(key)
@@ -205,9 +247,12 @@ app.whenReady().then(() => {
     updateShot(shotId, input)
   })
 
-  ipcMain.handle('shot:associate', async (_, { shotId, type, assetId }: { shotId: string; type: string; assetId: string }) => {
-    addShotAssociation(shotId, type as any, assetId)
-  })
+  ipcMain.handle(
+    'shot:associate',
+    async (_, { shotId, type, assetId }: { shotId: string; type: string; assetId: string }) => {
+      addShotAssociation(shotId, type as any, assetId)
+    }
+  )
 
   ipcMain.handle('generationTask:create', async (_, input: any) => {
     return createGenerationTask(input)
@@ -229,32 +274,50 @@ app.whenReady().then(() => {
   })
 
   // Asset CRUD handlers
-  ipcMain.handle('asset:character:create', async (_, { projectId, input }: { projectId: string; input: any }) => {
-    return createCharacter(projectId, input)
-  })
-  ipcMain.handle('asset:character:update', async (_, { characterId, input }: { characterId: string; input: any }) => {
-    updateCharacter(characterId, input)
-  })
+  ipcMain.handle(
+    'asset:character:create',
+    async (_, { projectId, input }: { projectId: string; input: any }) => {
+      return createCharacter(projectId, input)
+    }
+  )
+  ipcMain.handle(
+    'asset:character:update',
+    async (_, { characterId, input }: { characterId: string; input: any }) => {
+      updateCharacter(characterId, input)
+    }
+  )
   ipcMain.handle('asset:character:delete', async (_, characterId: string) => {
     deleteCharacter(characterId)
   })
 
-  ipcMain.handle('asset:scene:create', async (_, { projectId, input }: { projectId: string; input: any }) => {
-    return createScene(projectId, input)
-  })
-  ipcMain.handle('asset:scene:update', async (_, { sceneId, input }: { sceneId: string; input: any }) => {
-    updateScene(sceneId, input)
-  })
+  ipcMain.handle(
+    'asset:scene:create',
+    async (_, { projectId, input }: { projectId: string; input: any }) => {
+      return createScene(projectId, input)
+    }
+  )
+  ipcMain.handle(
+    'asset:scene:update',
+    async (_, { sceneId, input }: { sceneId: string; input: any }) => {
+      updateScene(sceneId, input)
+    }
+  )
   ipcMain.handle('asset:scene:delete', async (_, sceneId: string) => {
     deleteScene(sceneId)
   })
 
-  ipcMain.handle('asset:prop:create', async (_, { projectId, input }: { projectId: string; input: any }) => {
-    return createProp(projectId, input)
-  })
-  ipcMain.handle('asset:prop:update', async (_, { propId, input }: { propId: string; input: any }) => {
-    updateProp(propId, input)
-  })
+  ipcMain.handle(
+    'asset:prop:create',
+    async (_, { projectId, input }: { projectId: string; input: any }) => {
+      return createProp(projectId, input)
+    }
+  )
+  ipcMain.handle(
+    'asset:prop:update',
+    async (_, { propId, input }: { propId: string; input: any }) => {
+      updateProp(propId, input)
+    }
+  )
   ipcMain.handle('asset:prop:delete', async (_, propId: string) => {
     deleteProp(propId)
   })
@@ -263,13 +326,19 @@ app.whenReady().then(() => {
   })
 
   // Template handlers
-  ipcMain.handle('template:list', async (_, { projectId, usage }: { projectId: string; usage?: string }) => {
-    return getPromptTemplates(projectId, usage)
-  })
+  ipcMain.handle(
+    'template:list',
+    async (_, { projectId, usage }: { projectId: string; usage?: string }) => {
+      return getPromptTemplates(projectId, usage)
+    }
+  )
 
-  ipcMain.handle('template:save', async (_, { projectId, input }: { projectId: string; input: any }) => {
-    return savePromptTemplate(projectId, input)
-  })
+  ipcMain.handle(
+    'template:save',
+    async (_, { projectId, input }: { projectId: string; input: any }) => {
+      return savePromptTemplate(projectId, input)
+    }
+  )
 
   ipcMain.handle('template:delete', async (_, templateId: string) => {
     deletePromptTemplate(templateId)
@@ -313,7 +382,9 @@ app.whenReady().then(() => {
   // ===== Settings: Providers =====
   ipcMain.handle('settings:getProviders', async () => getProviders())
   ipcMain.handle('settings:addProvider', async (_, provider: any) => addProvider(provider))
-  ipcMain.handle('settings:updateProvider', async (_, { id, data }: { id: string; data: any }) => updateProvider(id, data))
+  ipcMain.handle('settings:updateProvider', async (_, { id, data }: { id: string; data: any }) =>
+    updateProvider(id, data)
+  )
   ipcMain.handle('settings:deleteProvider', async (_, id: string) => deleteProvider(id))
 
   // ===== Settings: System Prompt =====
@@ -321,15 +392,21 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:setSystemPrompt', async (_, prompt: string) => setSystemPrompt(prompt))
 
   // ===== Template: Update =====
-  ipcMain.handle('template:update', async (_, { templateId, input }: { templateId: string; input: any }) => {
-    updatePromptTemplate(templateId, input)
-  })
+  ipcMain.handle(
+    'template:update',
+    async (_, { templateId, input }: { templateId: string; input: any }) => {
+      updatePromptTemplate(templateId, input)
+    }
+  )
 
   // ===== Config Export / Import =====
-  ipcMain.handle('config:export', async (_, data: { systemPrompt: string; templates: any[]; modelRoutes: any }) => {
-    const json = JSON.stringify(data, null, 2)
-    return encrypt(json)
-  })
+  ipcMain.handle(
+    'config:export',
+    async (_, data: { systemPrompt: string; templates: any[]; modelRoutes: any }) => {
+      const json = JSON.stringify(data, null, 2)
+      return encrypt(json)
+    }
+  )
 
   ipcMain.handle('config:import', async (_, cipherText: string) => {
     const json = decrypt(cipherText)
@@ -356,16 +433,19 @@ app.whenReady().then(() => {
   })
 
   // Config file read/write helpers
-  ipcMain.handle('config:writeFile', async (_, { filePath, content }: { filePath: string; content: string }) => {
-    try {
-      const fs = await import('fs')
-      fs.writeFileSync(filePath, content, 'utf8')
-      return true
-    } catch (err) {
-      console.error('Write file failed:', err)
-      return false
+  ipcMain.handle(
+    'config:writeFile',
+    async (_, { filePath, content }: { filePath: string; content: string }) => {
+      try {
+        const fs = await import('fs')
+        fs.writeFileSync(filePath, content, 'utf8')
+        return true
+      } catch (err) {
+        console.error('Write file failed:', err)
+        return false
+      }
     }
-  })
+  )
 
   ipcMain.handle('config:readFile', async (_, filePath: string) => {
     try {
@@ -380,6 +460,11 @@ app.whenReady().then(() => {
   ipcMain.handle('dialog:showSaveDialog', async (_, options: any) => {
     const result = await dialog.showSaveDialog(options)
     return result.canceled ? null : result.filePath
+  })
+
+  ipcMain.handle('dialog:showOpenDialog', async (_, options: any) => {
+    const result = await dialog.showOpenDialog({ ...options, properties: ['openFile'] })
+    return result.canceled ? null : result.filePaths[0]
   })
 
   // LICENSE CHECK

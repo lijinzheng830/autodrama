@@ -3,10 +3,25 @@ import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowLeft, Setting, Plus, VideoPlay, DocumentAdd,
-  ArrowUp, ArrowDown, Delete, Search, Back,
-  Tools, Minus, Upload, Grid,
-  Document, RefreshLeft, RefreshRight, Clock, Download
+  ArrowLeft,
+  Setting,
+  Plus,
+  VideoPlay,
+  DocumentAdd,
+  ArrowUp,
+  ArrowDown,
+  Delete,
+  Search,
+  Back,
+  Tools,
+  Minus,
+  Upload,
+  Grid,
+  Document,
+  RefreshLeft,
+  RefreshRight,
+  Clock,
+  Download
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 
@@ -47,7 +62,9 @@ const allShotIds = computed(() => {
   for (const shot of projectData.value?.shots || []) ids.push(shot.id)
   return ids
 })
-const isAllSelected = computed(() => allShotIds.value.length > 0 && allShotIds.value.every(id => selectedShots.value.has(id)))
+const isAllSelected = computed(
+  () => allShotIds.value.length > 0 && allShotIds.value.every((id) => selectedShots.value.has(id))
+)
 
 // 右侧面板
 const panelMode = ref<'resident' | 'detail'>('resident')
@@ -68,7 +85,14 @@ const genRecordVisible = ref(false)
 const genRecords = ref<any[]>([])
 const genRecordTab = ref<'video' | 'image' | 'other'>('image')
 const genRecordStatusFilter = ref<'all' | 'pending' | 'running' | 'completed' | 'failed'>('all')
-const genRecordTypeFilter = ref<'all' | 'character_reference' | 'scene_reference' | 'prop_reference' | 'first_frame' | 'last_frame'>('all')
+const genRecordTypeFilter = ref<
+  | 'all'
+  | 'character_reference'
+  | 'scene_reference'
+  | 'prop_reference'
+  | 'first_frame'
+  | 'last_frame'
+>('all')
 
 // 项目名称编辑
 const editingProjectName = ref(false)
@@ -122,13 +146,13 @@ const exportProgressMsg = ref('')
 const lastExportDir = ref('')
 
 const batchTypeLabels: Record<string, string> = {
-  '人物': '批量生成角色定妆照',
-  '场景': '批量生成场景定妆照',
-  '道具': '批量生成道具定妆照',
-  '首帧': '批量生成首帧图',
-  '尾帧': '批量生成尾帧图',
-  '视频': '批量生成视频',
-  '批量': '批量生成'
+  人物: '批量生成角色定妆照',
+  场景: '批量生成场景定妆照',
+  道具: '批量生成道具定妆照',
+  首帧: '批量生成首帧图',
+  尾帧: '批量生成尾帧图',
+  视频: '批量生成视频',
+  批量: '批量生成'
 }
 
 // AI解析弹窗（保留）
@@ -161,19 +185,109 @@ const navItems = computed(() => {
 
 // 风格预设（保留）
 const stylePresets = [
-  { name: '二次元动漫', prompt: 'Anime style, vibrant colors, detailed eyes, cel shading, clean line art, expressive characters, dynamic composition, high quality illustration', negative: 'photorealistic, 3d render, blurry, low quality, bad anatomy, deformed, ugly, duplicate, watermark, signature', color: '#ff6b9d' },
-  { name: '写实摄影', prompt: 'Photorealistic, high detail, natural lighting, 8k uhd, cinematic shot, depth of field, professional photography, realistic textures, lifelike', negative: 'painting, illustration, cartoon, anime, 3d render, blurry, low quality, artificial, oversaturated', color: '#4ecdc4' },
-  { name: '3D渲染', prompt: '3D render, octane render, blender, cinematic lighting, ray tracing, subsurface scattering, physically based rendering, high poly model, studio lighting', negative: '2d, flat, painting, sketch, hand drawn, low poly, blurry, low quality, cartoon', color: '#a78bfa' },
-  { name: '水彩插画', prompt: 'Watercolor painting, soft edges, artistic, hand-painted, flowing colors, translucent layers, delicate brushwork, paper texture, dreamy atmosphere', negative: 'photorealistic, 3d render, sharp edges, digital art, oversaturated, blurry, low quality, dark, gloomy', color: '#67e8f9' },
-  { name: '赛博朋克', prompt: 'Cyberpunk, neon lights, futuristic, dystopian city, holographic displays, rain-soaked streets, high tech low life, glowing accents, blade runner aesthetic', negative: 'medieval, natural landscape, pastel colors, soft lighting, cottagecore, blurry, low quality, boring, plain', color: '#f472b6' },
-  { name: '中国水墨', prompt: 'Chinese ink wash painting, traditional art, brush strokes, ink splatter, monochrome, xuan paper texture, poetic composition, calligraphic lines, misty mountains', negative: 'colorful, photorealistic, 3d render, western style, oil painting, blurry, low quality, modern, digital', color: '#9ca3af' },
-  { name: '像素复古', prompt: 'Pixel art, retro game style, 8-bit, 16-bit, dithering, limited color palette, crisp pixels, nostalgic, arcade aesthetic', negative: 'photorealistic, 3d render, smooth gradients, anti-aliasing, blurry, low quality, modern, realistic', color: '#fbbf24' },
-  { name: '油画质感', prompt: 'Oil painting, rich textures, classical art, impasto, chiaroscuro, canvas texture, masterwork, museum quality, traditional techniques', negative: 'photorealistic, 3d render, digital art, flat, cartoon, anime, blurry, low quality, modern', color: '#f97316' },
-  { name: '扁平插画', prompt: 'Flat illustration, minimal design, vector art, clean lines, solid colors, geometric shapes, modern UI style, simple and elegant', negative: 'photorealistic, 3d render, gradients, textures, shadows, realistic, blurry, low quality, cluttered, complex', color: '#34d399' },
-  { name: '吉卜力', prompt: 'Studio Ghibli style, whimsical, hand-drawn, pastoral scenery, warm colors, soft clouds, detailed nature, Miyazaki aesthetic, enchanting', negative: 'photorealistic, 3d render, dark, gritty, cyberpunk, violent, blurry, low quality, modern urban, sterile', color: '#86efac' },
-  { name: '美漫风格', prompt: 'American comic style, bold lines, dynamic poses, halftone, pop art, action-packed, inked outlines, vibrant primary colors, dramatic shading', negative: 'photorealistic, 3d render, anime, manga, soft colors, realistic proportions, blurry, low quality, muted', color: '#fb7185' },
-  { name: '暗黑奇幻', prompt: 'Dark fantasy, gothic atmosphere, ominous, dramatic shadows, ancient ruins, mythical creatures, epic scale, moody lighting, tormented souls', negative: 'cheerful, bright colors, modern, cute, minimalist, photorealistic, blurry, low quality, mundane, everyday', color: '#7c3aed' },
-  { name: '日系治愈', prompt: 'Japanese iyashikei, cozy, warm atmosphere, slice of life, soft lighting, gentle colors, peaceful scenery, comforting, slow living', negative: 'dark, violent, scary, intense, dramatic, photorealistic, 3d render, blurry, low quality, chaotic', color: '#fcd34d' }
+  {
+    name: '二次元动漫',
+    prompt:
+      'Anime style, vibrant colors, detailed eyes, cel shading, clean line art, expressive characters, dynamic composition, high quality illustration',
+    negative:
+      'photorealistic, 3d render, blurry, low quality, bad anatomy, deformed, ugly, duplicate, watermark, signature',
+    color: '#ff6b9d'
+  },
+  {
+    name: '写实摄影',
+    prompt:
+      'Photorealistic, high detail, natural lighting, 8k uhd, cinematic shot, depth of field, professional photography, realistic textures, lifelike',
+    negative:
+      'painting, illustration, cartoon, anime, 3d render, blurry, low quality, artificial, oversaturated',
+    color: '#4ecdc4'
+  },
+  {
+    name: '3D渲染',
+    prompt:
+      '3D render, octane render, blender, cinematic lighting, ray tracing, subsurface scattering, physically based rendering, high poly model, studio lighting',
+    negative: '2d, flat, painting, sketch, hand drawn, low poly, blurry, low quality, cartoon',
+    color: '#a78bfa'
+  },
+  {
+    name: '水彩插画',
+    prompt:
+      'Watercolor painting, soft edges, artistic, hand-painted, flowing colors, translucent layers, delicate brushwork, paper texture, dreamy atmosphere',
+    negative:
+      'photorealistic, 3d render, sharp edges, digital art, oversaturated, blurry, low quality, dark, gloomy',
+    color: '#67e8f9'
+  },
+  {
+    name: '赛博朋克',
+    prompt:
+      'Cyberpunk, neon lights, futuristic, dystopian city, holographic displays, rain-soaked streets, high tech low life, glowing accents, blade runner aesthetic',
+    negative:
+      'medieval, natural landscape, pastel colors, soft lighting, cottagecore, blurry, low quality, boring, plain',
+    color: '#f472b6'
+  },
+  {
+    name: '中国水墨',
+    prompt:
+      'Chinese ink wash painting, traditional art, brush strokes, ink splatter, monochrome, xuan paper texture, poetic composition, calligraphic lines, misty mountains',
+    negative:
+      'colorful, photorealistic, 3d render, western style, oil painting, blurry, low quality, modern, digital',
+    color: '#9ca3af'
+  },
+  {
+    name: '像素复古',
+    prompt:
+      'Pixel art, retro game style, 8-bit, 16-bit, dithering, limited color palette, crisp pixels, nostalgic, arcade aesthetic',
+    negative:
+      'photorealistic, 3d render, smooth gradients, anti-aliasing, blurry, low quality, modern, realistic',
+    color: '#fbbf24'
+  },
+  {
+    name: '油画质感',
+    prompt:
+      'Oil painting, rich textures, classical art, impasto, chiaroscuro, canvas texture, masterwork, museum quality, traditional techniques',
+    negative:
+      'photorealistic, 3d render, digital art, flat, cartoon, anime, blurry, low quality, modern',
+    color: '#f97316'
+  },
+  {
+    name: '扁平插画',
+    prompt:
+      'Flat illustration, minimal design, vector art, clean lines, solid colors, geometric shapes, modern UI style, simple and elegant',
+    negative:
+      'photorealistic, 3d render, gradients, textures, shadows, realistic, blurry, low quality, cluttered, complex',
+    color: '#34d399'
+  },
+  {
+    name: '吉卜力',
+    prompt:
+      'Studio Ghibli style, whimsical, hand-drawn, pastoral scenery, warm colors, soft clouds, detailed nature, Miyazaki aesthetic, enchanting',
+    negative:
+      'photorealistic, 3d render, dark, gritty, cyberpunk, violent, blurry, low quality, modern urban, sterile',
+    color: '#86efac'
+  },
+  {
+    name: '美漫风格',
+    prompt:
+      'American comic style, bold lines, dynamic poses, halftone, pop art, action-packed, inked outlines, vibrant primary colors, dramatic shading',
+    negative:
+      'photorealistic, 3d render, anime, manga, soft colors, realistic proportions, blurry, low quality, muted',
+    color: '#fb7185'
+  },
+  {
+    name: '暗黑奇幻',
+    prompt:
+      'Dark fantasy, gothic atmosphere, ominous, dramatic shadows, ancient ruins, mythical creatures, epic scale, moody lighting, tormented souls',
+    negative:
+      'cheerful, bright colors, modern, cute, minimalist, photorealistic, blurry, low quality, mundane, everyday',
+    color: '#7c3aed'
+  },
+  {
+    name: '日系治愈',
+    prompt:
+      'Japanese iyashikei, cozy, warm atmosphere, slice of life, soft lighting, gentle colors, peaceful scenery, comforting, slow living',
+    negative:
+      'dark, violent, scary, intense, dramatic, photorealistic, 3d render, blurry, low quality, chaotic',
+    color: '#fcd34d'
+  }
 ]
 
 const aspectRatios = [
@@ -186,7 +300,7 @@ const aspectRatios = [
 
 async function loadProject() {
   try {
-    const data = await window.api.getProject(projectId) as Project | null
+    const data = (await window.api.getProject(projectId)) as Project | null
     project.value = data
     if (data) {
       selectedStyle.value = data.style_name || ''
@@ -240,7 +354,7 @@ async function handleAspectRatioSelect(ratio: string) {
 async function saveStyleToProject() {
   if (!project.value) return
   try {
-    const style = stylePresets.find(s => s.name === selectedStyle.value)
+    const style = stylePresets.find((s) => s.name === selectedStyle.value)
     await window.api.updateProject(projectId, {
       styleName: selectedStyle.value,
       stylePrompt: style?.prompt || '',
@@ -277,7 +391,7 @@ function openParseDialog(mode: 'full' | 'append') {
 
 async function loadTemplates() {
   try {
-    const list = await window.api.getPromptTemplates(projectId, 'shot_image') as any[]
+    const list = (await window.api.getPromptTemplates(projectId, 'shot_image')) as any[]
     templates.value = list
     if (list.length > 0 && !selectedTemplate.value) {
       selectedTemplate.value = list[0].id
@@ -297,7 +411,7 @@ async function loadParseModel() {
   try {
     const provider = await window.api.getSetting('provider')
     const model = await window.api.getSetting('model')
-    const providers = await window.api.getProviders() as any[]
+    const providers = (await window.api.getProviders()) as any[]
     const p = providers.find((pr: any) => pr.key === provider)
     const m = p?.models?.find((mo: any) => mo.key === model)
     selectedModel.value = m?.name || model || '未配置'
@@ -328,10 +442,18 @@ async function handleParseSubmit() {
   removeAIProgress = window.api.onAIProgress((data: any) => {
     if (data.step >= 1 && data.step <= 4) {
       const idx = data.step - 1
-      parseProgressSteps.value[idx] = { ...parseProgressSteps.value[idx], status: data.status, message: data.message }
+      parseProgressSteps.value[idx] = {
+        ...parseProgressSteps.value[idx],
+        status: data.status,
+        message: data.message
+      }
       for (let i = 0; i < idx; i++) {
         if (parseProgressSteps.value[i].status !== 'done') {
-          parseProgressSteps.value[i] = { ...parseProgressSteps.value[i], status: 'done', message: parseProgressSteps.value[i].message + ' 完成' }
+          parseProgressSteps.value[i] = {
+            ...parseProgressSteps.value[i],
+            status: 'done',
+            message: parseProgressSteps.value[i].message + ' 完成'
+          }
         }
       }
     }
@@ -358,7 +480,10 @@ async function handleParseSubmit() {
     if (!err.message?.includes('请')) ElMessage.error(err.message || '生成失败，请重试')
   } finally {
     parseGenerating.value = false
-    if (removeAIProgress) { removeAIProgress(); removeAIProgress = null }
+    if (removeAIProgress) {
+      removeAIProgress()
+      removeAIProgress = null
+    }
   }
 }
 
@@ -560,7 +685,12 @@ function handleBatchGenerate(type: string) {
     // 资产模式：不依赖分镜勾选，对当前项目的全部资产操作
     let assetType: string
     if (type === '批量') {
-      assetType = residentTab.value === 'characters' ? '人物' : residentTab.value === 'scenes' ? '场景' : '道具'
+      assetType =
+        residentTab.value === 'characters'
+          ? '人物'
+          : residentTab.value === 'scenes'
+            ? '场景'
+            : '道具'
     } else {
       assetType = type
       // 列头点击时切换到右侧面板对应 Tab
@@ -592,7 +722,10 @@ function openBatchDialog(type: string, mode: 'asset' | 'shot' = 'shot') {
   batchDialogVisible.value = true
 }
 
-function scanBatchTasks(type: string, mode: 'asset' | 'shot' = 'shot'): { total: number; missing: number } {
+function scanBatchTasks(
+  type: string,
+  mode: 'asset' | 'shot' = 'shot'
+): { total: number; missing: number } {
   if (mode === 'asset') {
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
     const assets = projectData.value?.[assetKey] || []
@@ -637,12 +770,12 @@ async function handleBatchSubmit(mode: 'all' | 'missing') {
     const proj = await window.api.getProject(projectId)
     const config = proj?.model_config_json ? JSON.parse(proj.model_config_json) : {}
     const purposeMap: Record<string, string> = {
-      '人物': 'character_image',
-      '场景': 'scene_image',
-      '道具': 'prop_image',
-      '首帧': 'shot_image',
-      '尾帧': 'shot_image',
-      '视频': 'video'
+      人物: 'character_image',
+      场景: 'scene_image',
+      道具: 'prop_image',
+      首帧: 'shot_image',
+      尾帧: 'shot_image',
+      视频: 'video'
     }
     defaultModel = config[purposeMap[type]]?.model || null
   } catch {
@@ -654,14 +787,14 @@ async function handleBatchSubmit(mode: 'all' | 'missing') {
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
     const assets = projectData.value?.[assetKey] || []
     const purposeMap: Record<string, string> = {
-      '人物': 'character_reference',
-      '场景': 'scene_reference',
-      '道具': 'prop_reference'
+      人物: 'character_reference',
+      场景: 'scene_reference',
+      道具: 'prop_reference'
     }
     const idKeyMap: Record<string, string> = {
-      '人物': 'characterId',
-      '场景': 'sceneId',
-      '道具': 'propId'
+      人物: 'characterId',
+      场景: 'sceneId',
+      道具: 'propId'
     }
     const purpose = purposeMap[type]
     const idKey = idKeyMap[type]
@@ -814,7 +947,8 @@ async function handleSelectImage(type: string, asset: any) {
   try {
     const imagePath = await window.api.selectImage(project.value.path)
     if (!imagePath) return
-    if (type === 'character') await window.api.updateCharacter(asset.id, { referenceImage: imagePath })
+    if (type === 'character')
+      await window.api.updateCharacter(asset.id, { referenceImage: imagePath })
     else if (type === 'scene') await window.api.updateScene(asset.id, { referenceImage: imagePath })
     else if (type === 'prop') await window.api.updateProp(asset.id, { referenceImage: imagePath })
     await loadEpisodesData()
@@ -963,7 +1097,8 @@ function formatTime(ts: number): string {
 }
 
 function formatWaitTime(record: any): string {
-  if (record.status === 'pending' || record.status === 'completed' || record.status === 'failed') return '-'
+  if (record.status === 'pending' || record.status === 'completed' || record.status === 'failed')
+    return '-'
   if (!record.started_at || !record.created_at) return '-'
   const ms = record.started_at - record.created_at
   if (ms < 0) return '-'
@@ -992,7 +1127,13 @@ const filteredRecords = computed(() => {
   // Tab对应的purpose分组
   const tabPurposeMap: Record<string, string[]> = {
     video: ['video'],
-    image: ['character_reference', 'scene_reference', 'prop_reference', 'first_frame', 'last_frame'],
+    image: [
+      'character_reference',
+      'scene_reference',
+      'prop_reference',
+      'first_frame',
+      'last_frame'
+    ],
     other: ['voice']
   }
   const allowedPurposes = tabPurposeMap[genRecordTab.value] || []
@@ -1003,9 +1144,15 @@ const filteredRecords = computed(() => {
     // Tab过滤
     if (!allowedPurposes.includes(r.purpose)) return false
     // 状态过滤
-    if (genRecordStatusFilter.value !== 'all' && r.status !== genRecordStatusFilter.value) return false
+    if (genRecordStatusFilter.value !== 'all' && r.status !== genRecordStatusFilter.value)
+      return false
     // 类型过滤（仅图片Tab）
-    if (genRecordTab.value === 'image' && genRecordTypeFilter.value !== 'all' && r.purpose !== genRecordTypeFilter.value) return false
+    if (
+      genRecordTab.value === 'image' &&
+      genRecordTypeFilter.value !== 'all' &&
+      r.purpose !== genRecordTypeFilter.value
+    )
+      return false
     return true
   })
 })
@@ -1070,8 +1217,16 @@ function toggleExportAsset(assetId: string) {
 }
 
 async function handleAssetExportConfirm() {
-  const assetType = exportAssetType.value === 'characters' ? 'characters' : exportAssetType.value === 'scenes' ? 'scenes' : 'props'
-  const assets = projectData.value?.[assetType]?.filter((a: any) => exportAssetIds.value.has(a.id) && a.reference_image) || []
+  const assetType =
+    exportAssetType.value === 'characters'
+      ? 'characters'
+      : exportAssetType.value === 'scenes'
+        ? 'scenes'
+        : 'props'
+  const assets =
+    projectData.value?.[assetType]?.filter(
+      (a: any) => exportAssetIds.value.has(a.id) && a.reference_image
+    ) || []
   const skipped = exportAssetIds.value.size - assets.length
 
   if (assets.length === 0) {
@@ -1118,7 +1273,9 @@ async function handleVideoExport() {
     return
   }
 
-  const shots = projectData.value?.shots?.filter((s: any) => selectedShots.value.has(s.id) && s.video_path) || []
+  const shots =
+    projectData.value?.shots?.filter((s: any) => selectedShots.value.has(s.id) && s.video_path) ||
+    []
   const skipped = selectedShots.value.size - shots.length
 
   if (shots.length === 0) {
@@ -1193,26 +1350,32 @@ function handleStyleSelectFromToolbar(style: any) {
 
 function handleEraSelect(era: string) {
   const newEra = project.value?.era === era ? '' : era
-  window.api.updateProject(projectId, { era: newEra }).then(() => {
-    loadProject()
-    ElMessage.success(newEra ? `年代已设置为：${newEra}` : '年代已清空')
-  }).catch((err: any) => {
-    ElMessage.error('保存失败')
-    console.error(err)
-  })
+  window.api
+    .updateProject(projectId, { era: newEra })
+    .then(() => {
+      loadProject()
+      ElMessage.success(newEra ? `年代已设置为：${newEra}` : '年代已清空')
+    })
+    .catch((err: any) => {
+      ElMessage.error('保存失败')
+      console.error(err)
+    })
   eraPopoverVisible.value = false
 }
 
 function handleCustomEraSubmit() {
   if (!customEra.value.trim()) return
-  window.api.updateProject(projectId, { era: customEra.value.trim() }).then(() => {
-    loadProject()
-    eraPopoverVisible.value = false
-    customEra.value = ''
-  }).catch((err: any) => {
-    ElMessage.error('保存失败')
-    console.error(err)
-  })
+  window.api
+    .updateProject(projectId, { era: customEra.value.trim() })
+    .then(() => {
+      loadProject()
+      eraPopoverVisible.value = false
+      customEra.value = ''
+    })
+    .catch((err: any) => {
+      ElMessage.error('保存失败')
+      console.error(err)
+    })
 }
 
 async function openModelConfig() {
@@ -1223,7 +1386,12 @@ async function openModelConfig() {
     const models: any[] = []
     for (const p of providers) {
       for (const m of p.models || []) {
-        models.push({ label: `${p.name} / ${m.name}`, value: `${p.key}:${m.key}`, provider: p.key, modelKey: m.key })
+        models.push({
+          label: `${p.name} / ${m.name}`,
+          value: `${p.key}:${m.key}`,
+          provider: p.key,
+          modelKey: m.key
+        })
       }
     }
     providerModels.value = models
@@ -1257,7 +1425,10 @@ async function loadModelConfigTemplates() {
       shot_image: 'shot_image',
       video: 'video'
     }
-    const list = await window.api.getPromptTemplates(projectId, usageMap[tabKey] || undefined) as any[]
+    const list = (await window.api.getPromptTemplates(
+      projectId,
+      usageMap[tabKey] || undefined
+    )) as any[]
     modelConfigTemplates.value = list
   } catch (err) {
     console.error('加载模板失败', err)
@@ -1337,7 +1508,9 @@ onUnmounted(() => {
           <div class="section-block">
             <div class="section-header">
               <span class="section-title">画面风格</span>
-              <el-button text size="small" :icon="Plus" @click="handleCustomStyle">自定义风格</el-button>
+              <el-button text size="small" :icon="Plus" @click="handleCustomStyle"
+                >自定义风格</el-button
+              >
             </div>
             <div class="style-grid">
               <div
@@ -1370,7 +1543,12 @@ onUnmounted(() => {
           </div>
 
           <div class="action-bar">
-            <el-button type="primary" size="large" :icon="VideoPlay" @click="openParseDialog('full')">
+            <el-button
+              type="primary"
+              size="large"
+              :icon="VideoPlay"
+              @click="openParseDialog('full')"
+            >
               AI解析剧本
             </el-button>
             <el-button size="large" :icon="DocumentAdd" @click="openParseDialog('append')">
@@ -1397,7 +1575,9 @@ onUnmounted(() => {
                   />
                 </template>
                 <template v-else>
-                  <span class="project-name-text" @dblclick="startEditProjectName">{{ project?.name || '加载中...' }}</span>
+                  <span class="project-name-text" @dblclick="startEditProjectName">{{
+                    project?.name || '加载中...'
+                  }}</span>
                 </template>
               </div>
 
@@ -1412,7 +1592,12 @@ onUnmounted(() => {
                 <template #reference>
                   <div
                     class="toolbar-tag style-tag"
-                    :style="{ background: stylePresets.find(s => s.name === project?.style_name)?.color ? (stylePresets.find(s => s.name === project?.style_name)?.color + '33') : 'rgba(255,255,255,0.08)', color: '#fff' }"
+                    :style="{
+                      background: stylePresets.find((s) => s.name === project?.style_name)?.color
+                        ? stylePresets.find((s) => s.name === project?.style_name)?.color + '33'
+                        : 'rgba(255,255,255,0.08)',
+                      color: '#fff'
+                    }"
                   >
                     {{ project?.style_name || '选择风格' }}
                   </div>
@@ -1431,7 +1616,13 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <div class="style-popover-footer">
-                    <el-button text size="small" :icon="Plus" @click="ElMessage.info('自定义风格后续版本开放')">+ 自定义风格</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      :icon="Plus"
+                      @click="ElMessage.info('自定义风格后续版本开放')"
+                      >+ 自定义风格</el-button
+                    >
                   </div>
                 </div>
               </el-popover>
@@ -1460,14 +1651,26 @@ onUnmounted(() => {
                     {{ era }}
                   </div>
                   <div class="era-popover-custom">
-                    <el-input v-model="customEra" size="small" placeholder="自定义年代" @keydown.enter.prevent="handleCustomEraSubmit" />
+                    <el-input
+                      v-model="customEra"
+                      size="small"
+                      placeholder="自定义年代"
+                      @keydown.enter.prevent="handleCustomEraSubmit"
+                    />
                     <el-button text size="small" @click="handleCustomEraSubmit">确定</el-button>
                   </div>
                 </div>
               </el-popover>
 
               <!-- 模型配置按钮 -->
-              <el-button text size="small" :icon="Tools" title="模型配置" class="toolbar-icon-btn" @click="openModelConfig" />
+              <el-button
+                text
+                size="small"
+                :icon="Tools"
+                title="模型配置"
+                class="toolbar-icon-btn"
+                @click="openModelConfig"
+              />
             </div>
 
             <!-- 中间区域 -->
@@ -1497,9 +1700,32 @@ onUnmounted(() => {
 
             <!-- 右侧区域 -->
             <div class="toolbar-right">
-              <el-button text size="small" :icon="DocumentAdd" title="生成记录" class="toolbar-icon-btn" @click="openGenRecord" />
-              <el-button text size="small" :icon="RefreshLeft" title="撤销" class="toolbar-icon-btn" disabled @click="handleUndo" />
-              <el-button text size="small" :icon="RefreshRight" title="重做" class="toolbar-icon-btn" disabled @click="handleRedo" />
+              <el-button
+                text
+                size="small"
+                :icon="DocumentAdd"
+                title="生成记录"
+                class="toolbar-icon-btn"
+                @click="openGenRecord"
+              />
+              <el-button
+                text
+                size="small"
+                :icon="RefreshLeft"
+                title="撤销"
+                class="toolbar-icon-btn"
+                disabled
+                @click="handleUndo"
+              />
+              <el-button
+                text
+                size="small"
+                :icon="RefreshRight"
+                title="重做"
+                class="toolbar-icon-btn"
+                disabled
+                @click="handleRedo"
+              />
               <el-dropdown trigger="click" popper-class="dark-dropdown">
                 <el-button text size="small" :icon="Upload" title="导出" class="toolbar-icon-btn" />
                 <template #dropdown>
@@ -1511,7 +1737,14 @@ onUnmounted(() => {
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-              <el-button text size="small" :icon="Setting" title="设置" class="toolbar-icon-btn" @click="goSettings" />
+              <el-button
+                text
+                size="small"
+                :icon="Setting"
+                title="设置"
+                class="toolbar-icon-btn"
+                @click="goSettings"
+              />
             </div>
           </div>
 
@@ -1531,30 +1764,66 @@ onUnmounted(() => {
                   <div class="th col-script">剧本</div>
                   <div class="th col-chars">
                     出场人物
-                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('人物')">[批量生成]</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      class="batch-btn"
+                      @click="handleBatchGenerate('人物')"
+                      >[批量生成]</el-button
+                    >
                   </div>
                   <div class="th col-scenes">
                     场景
-                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('场景')">[批量生成]</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      class="batch-btn"
+                      @click="handleBatchGenerate('场景')"
+                      >[批量生成]</el-button
+                    >
                   </div>
                   <div class="th col-props">
                     道具
-                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('道具')">[批量生成]</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      class="batch-btn"
+                      @click="handleBatchGenerate('道具')"
+                      >[批量生成]</el-button
+                    >
                   </div>
                   <div class="th col-voice">配音</div>
                   <div class="th col-first">
                     首帧
-                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('首帧')">[批量生成]</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      class="batch-btn"
+                      @click="handleBatchGenerate('首帧')"
+                      >[批量生成]</el-button
+                    >
                   </div>
                   <div class="th col-first-prompt">首帧提示词</div>
                   <div class="th col-last">
                     尾帧
-                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('尾帧')">[批量生成]</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      class="batch-btn"
+                      @click="handleBatchGenerate('尾帧')"
+                      >[批量生成]</el-button
+                    >
                   </div>
                   <div class="th col-last-prompt">尾帧提示词</div>
                   <div class="th col-video">
                     视频
-                    <el-button text size="small" class="batch-btn" @click="handleBatchGenerate('视频')">[批量生成]</el-button>
+                    <el-button
+                      text
+                      size="small"
+                      class="batch-btn"
+                      @click="handleBatchGenerate('视频')"
+                      >[批量生成]</el-button
+                    >
                   </div>
                   <div class="th col-op">操作</div>
                 </div>
@@ -1576,14 +1845,19 @@ onUnmounted(() => {
                   >
                     <!-- 序号 -->
                     <div class="td col-num">
-                      <el-checkbox :model-value="selectedShots.has(shot.id)" @change="toggleShotSelect(shot.id)" />
+                      <el-checkbox
+                        :model-value="selectedShots.has(shot.id)"
+                        @change="toggleShotSelect(shot.id)"
+                      />
                       <span class="shot-index">{{ Number(idx) + 1 }}</span>
                     </div>
 
                     <!-- 剧本 -->
                     <div class="td col-script">
                       <div
-                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'description'"
+                        v-if="
+                          editingCell?.shotId === shot.id && editingCell?.field === 'description'
+                        "
                         class="edit-cell"
                       >
                         <el-input
@@ -1598,13 +1872,19 @@ onUnmounted(() => {
                       <div
                         v-else
                         class="cell-text"
-                        v-html="getHighlightText(shot.description, shot)"
                         @dblclick="startEdit(shot.id, 'description', shot.description || '')"
+                        v-html="getHighlightText(shot.description, shot)"
                       />
                       <div class="tag-bar">
-                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
-                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
-                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{ p.name }}</span>
+                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
+                          c.name
+                        }}</span>
+                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{
+                          s.name
+                        }}</span>
+                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{
+                          p.name
+                        }}</span>
                       </div>
                     </div>
 
@@ -1617,7 +1897,11 @@ onUnmounted(() => {
                           class="thumb-cell"
                           @click="showDetail('character', c)"
                         >
-                          <img v-if="c.reference_image" :src="c.reference_image" class="thumb-img" />
+                          <img
+                            v-if="c.reference_image"
+                            :src="c.reference_image"
+                            class="thumb-img"
+                          />
                           <div v-else class="thumb-placeholder">{{ c.name }}</div>
                         </div>
                         <div v-if="!shot.characters?.length" class="thumb-empty">-</div>
@@ -1633,7 +1917,11 @@ onUnmounted(() => {
                           class="thumb-cell"
                           @click="showDetail('scene', s)"
                         >
-                          <img v-if="s.reference_image" :src="s.reference_image" class="thumb-img" />
+                          <img
+                            v-if="s.reference_image"
+                            :src="s.reference_image"
+                            class="thumb-img"
+                          />
                           <div v-else class="thumb-placeholder">{{ s.name }}</div>
                         </div>
                         <div v-if="!shot.scenes?.length" class="thumb-empty">-</div>
@@ -1649,7 +1937,11 @@ onUnmounted(() => {
                           class="thumb-cell"
                           @click="showDetail('prop', p)"
                         >
-                          <img v-if="p.reference_image" :src="p.reference_image" class="thumb-img" />
+                          <img
+                            v-if="p.reference_image"
+                            :src="p.reference_image"
+                            class="thumb-img"
+                          />
                           <div v-else class="thumb-placeholder">{{ p.name }}</div>
                         </div>
                         <div v-if="!shot.props?.length" class="thumb-empty">-</div>
@@ -1658,7 +1950,9 @@ onUnmounted(() => {
 
                     <!-- 配音 -->
                     <div class="td col-voice">
-                      <el-button text size="small" @click="showDetail('voice', shot)">配音</el-button>
+                      <el-button text size="small" @click="showDetail('voice', shot)"
+                        >配音</el-button
+                      >
                     </div>
 
                     <!-- 首帧 -->
@@ -1674,7 +1968,10 @@ onUnmounted(() => {
                     <!-- 首帧提示词 -->
                     <div class="td col-first-prompt">
                       <div
-                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'first_frame_prompt'"
+                        v-if="
+                          editingCell?.shotId === shot.id &&
+                          editingCell?.field === 'first_frame_prompt'
+                        "
                         class="edit-cell"
                       >
                         <el-input
@@ -1689,13 +1986,21 @@ onUnmounted(() => {
                       <div
                         v-else
                         class="cell-text"
+                        @dblclick="
+                          startEdit(shot.id, 'first_frame_prompt', shot.first_frame_prompt || '')
+                        "
                         v-html="getHighlightText(shot.first_frame_prompt, shot)"
-                        @dblclick="startEdit(shot.id, 'first_frame_prompt', shot.first_frame_prompt || '')"
                       />
                       <div class="tag-bar">
-                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
-                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
-                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{ p.name }}</span>
+                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
+                          c.name
+                        }}</span>
+                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{
+                          s.name
+                        }}</span>
+                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{
+                          p.name
+                        }}</span>
                       </div>
                     </div>
 
@@ -1712,7 +2017,10 @@ onUnmounted(() => {
                     <!-- 尾帧提示词 -->
                     <div class="td col-last-prompt">
                       <div
-                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'last_frame_prompt'"
+                        v-if="
+                          editingCell?.shotId === shot.id &&
+                          editingCell?.field === 'last_frame_prompt'
+                        "
                         class="edit-cell"
                       >
                         <el-input
@@ -1727,13 +2035,21 @@ onUnmounted(() => {
                       <div
                         v-else
                         class="cell-text"
+                        @dblclick="
+                          startEdit(shot.id, 'last_frame_prompt', shot.last_frame_prompt || '')
+                        "
                         v-html="getHighlightText(shot.last_frame_prompt, shot)"
-                        @dblclick="startEdit(shot.id, 'last_frame_prompt', shot.last_frame_prompt || '')"
                       />
                       <div class="tag-bar">
-                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
-                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
-                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{ p.name }}</span>
+                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
+                          c.name
+                        }}</span>
+                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{
+                          s.name
+                        }}</span>
+                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{
+                          p.name
+                        }}</span>
                       </div>
                     </div>
 
@@ -1750,8 +2066,19 @@ onUnmounted(() => {
                     <!-- 操作 -->
                     <div class="td col-op">
                       <el-button text size="small" :icon="ArrowUp" @click="handleMoveUp(shot.id)" />
-                      <el-button text size="small" :icon="ArrowDown" @click="handleMoveDown(shot.id)" />
-                      <el-button text size="small" :icon="Delete" class="delete-btn" @click="handleDeleteShot(shot.id)" />
+                      <el-button
+                        text
+                        size="small"
+                        :icon="ArrowDown"
+                        @click="handleMoveDown(shot.id)"
+                      />
+                      <el-button
+                        text
+                        size="small"
+                        :icon="Delete"
+                        class="delete-btn"
+                        @click="handleDeleteShot(shot.id)"
+                      />
                     </div>
                   </div>
                 </div>
@@ -1767,7 +2094,11 @@ onUnmounted(() => {
                   <el-button text :icon="Grid" title="前进" disabled />
                   <div class="panel-tabs">
                     <div
-                      v-for="tab in [{k:'characters',l:'角色'},{k:'scenes',l:'场景'},{k:'props',l:'道具'}]"
+                      v-for="tab in [
+                        { k: 'characters', l: '角色' },
+                        { k: 'scenes', l: '场景' },
+                        { k: 'props', l: '道具' }
+                      ]"
                       :key="tab.k"
                       class="panel-tab"
                       :class="{ active: residentTab === tab.k }"
@@ -1781,32 +2112,72 @@ onUnmounted(() => {
                 <div class="panel-search">
                   <template v-if="exportAssetMode">
                     <span class="export-mode-label">导出模式</span>
-                    <el-button type="primary" size="small" :disabled="exportAssetIds.size === 0" @click="handleAssetExportConfirm">导出选中 ({{ exportAssetIds.size }})</el-button>
+                    <el-button
+                      type="primary"
+                      size="small"
+                      :disabled="exportAssetIds.size === 0"
+                      @click="handleAssetExportConfirm"
+                      >导出选中 ({{ exportAssetIds.size }})</el-button
+                    >
                     <el-button text size="small" @click="cancelAssetExport">取消</el-button>
                   </template>
                   <template v-else>
-                    <el-input v-model="searchKeyword" placeholder="搜索..." :prefix-icon="Search" size="small" />
-                    <el-button text size="small" @click="handleBatchGenerate('批量')">批量生成</el-button>
+                    <el-input
+                      v-model="searchKeyword"
+                      placeholder="搜索..."
+                      :prefix-icon="Search"
+                      size="small"
+                    />
+                    <el-button text size="small" @click="handleBatchGenerate('批量')"
+                      >批量生成</el-button
+                    >
                   </template>
                 </div>
 
                 <!-- 作品中 -->
                 <div class="panel-section">
                   <div class="panel-section-title">
-                    作品中 ({{ filteredAssets.length }}/{{ projectData?.[residentTab]?.length || 0 }})
+                    作品中 ({{ filteredAssets.length }}/{{
+                      projectData?.[residentTab]?.length || 0
+                    }})
                   </div>
                   <div class="asset-grid">
                     <div
                       v-for="asset in filteredAssets"
                       :key="asset.id"
                       class="asset-card"
-                      :class="{ unused: !isAssetUsed(asset.id), 'export-selected': exportAssetMode && exportAssetIds.has(asset.id) }"
-                      @click="exportAssetMode ? toggleExportAsset(asset.id) : showDetail(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset)"
+                      :class="{
+                        unused: !isAssetUsed(asset.id),
+                        'export-selected': exportAssetMode && exportAssetIds.has(asset.id)
+                      }"
+                      @click="
+                        exportAssetMode
+                          ? toggleExportAsset(asset.id)
+                          : showDetail(
+                              residentTab === 'characters'
+                                ? 'character'
+                                : residentTab === 'scenes'
+                                  ? 'scene'
+                                  : 'prop',
+                              asset
+                            )
+                      "
                     >
-                      <img v-if="asset.reference_image" :src="asset.reference_image" class="asset-img" />
+                      <img
+                        v-if="asset.reference_image"
+                        :src="asset.reference_image"
+                        class="asset-img"
+                      />
                       <div v-else class="asset-placeholder">{{ asset.name }}</div>
-                      <div v-if="exportAssetMode" class="asset-checkbox" @click.stop="toggleExportAsset(asset.id)">
-                        <div class="asset-check-indicator" :class="{ checked: exportAssetIds.has(asset.id) }">
+                      <div
+                        v-if="exportAssetMode"
+                        class="asset-checkbox"
+                        @click.stop="toggleExportAsset(asset.id)"
+                      >
+                        <div
+                          class="asset-check-indicator"
+                          :class="{ checked: exportAssetIds.has(asset.id) }"
+                        >
                           <span v-if="exportAssetIds.has(asset.id)">✓</span>
                         </div>
                       </div>
@@ -1817,7 +2188,16 @@ onUnmounted(() => {
                         size="small"
                         class="asset-delete"
                         :icon="Delete"
-                        @click.stop="handleDeleteAsset(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset.id)"
+                        @click.stop="
+                          handleDeleteAsset(
+                            residentTab === 'characters'
+                              ? 'character'
+                              : residentTab === 'scenes'
+                                ? 'scene'
+                                : 'prop',
+                            asset.id
+                          )
+                        "
                       />
                     </div>
                   </div>
@@ -1826,19 +2206,37 @@ onUnmounted(() => {
                 <!-- 全部可用 -->
                 <div v-if="!exportAssetMode" class="panel-section">
                   <div class="panel-section-title">
-                    全部可用 ({{ filteredAssets.filter((a:any) => isAssetUsed(a.id)).length }}/{{ filteredAssets.length }})
+                    全部可用 ({{ filteredAssets.filter((a: any) => isAssetUsed(a.id)).length }}/{{
+                      filteredAssets.length
+                    }})
                   </div>
                   <div class="asset-grid">
                     <div
-                      v-for="asset in filteredAssets.filter((a:any) => isAssetUsed(a.id))"
+                      v-for="asset in filteredAssets.filter((a: any) => isAssetUsed(a.id))"
                       :key="asset.id"
                       class="asset-card"
-                      @click="showDetail(residentTab === 'characters' ? 'character' : residentTab === 'scenes' ? 'scene' : 'prop', asset)"
+                      @click="
+                        showDetail(
+                          residentTab === 'characters'
+                            ? 'character'
+                            : residentTab === 'scenes'
+                              ? 'scene'
+                              : 'prop',
+                          asset
+                        )
+                      "
                     >
-                      <img v-if="asset.reference_image" :src="asset.reference_image" class="asset-img" />
+                      <img
+                        v-if="asset.reference_image"
+                        :src="asset.reference_image"
+                        class="asset-img"
+                      />
                       <div v-else class="asset-placeholder">{{ asset.name }}</div>
                     </div>
-                    <div v-if="!filteredAssets.filter((a:any) => isAssetUsed(a.id)).length" class="panel-empty">
+                    <div
+                      v-if="!filteredAssets.filter((a: any) => isAssetUsed(a.id)).length"
+                      class="panel-empty"
+                    >
                       暂无可用资产
                     </div>
                   </div>
@@ -1857,13 +2255,24 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 角色/场景/道具详情 -->
-                <div v-if="['character','scene','prop'].includes(detailType)" class="detail-body">
+                <div v-if="['character', 'scene', 'prop'].includes(detailType)" class="detail-body">
                   <div class="detail-media">
-                    <img v-if="detailData?.reference_image" :src="detailData.reference_image" class="detail-img" />
+                    <img
+                      v-if="detailData?.reference_image"
+                      :src="detailData.reference_image"
+                      class="detail-img"
+                    />
                     <div v-else class="detail-placeholder">{{ detailData?.name }}</div>
                     <div class="detail-upload">
-                      <el-button :icon="Upload" size="small" @click="handleSelectImage(detailType, detailData)">上传本地</el-button>
-                      <el-button text size="small" @click="ElMessage.info('资产库导入后续版本开放')">资产库导入</el-button>
+                      <el-button
+                        :icon="Upload"
+                        size="small"
+                        @click="handleSelectImage(detailType, detailData)"
+                        >上传本地</el-button
+                      >
+                      <el-button text size="small" @click="ElMessage.info('资产库导入后续版本开放')"
+                        >资产库导入</el-button
+                      >
                     </div>
                   </div>
                   <div class="detail-fields">
@@ -1871,7 +2280,9 @@ onUnmounted(() => {
                       <label>名称</label>
                       <el-input
                         :model-value="detailData?.name"
-                        @blur="(e: any) => handleAssetNameChange(detailType, detailData, e.target.value)"
+                        @blur="
+                          (e: any) => handleAssetNameChange(detailType, detailData, e.target.value)
+                        "
                       />
                     </div>
                     <div class="detail-field">
@@ -1880,20 +2291,30 @@ onUnmounted(() => {
                         :model-value="detailData?.description"
                         type="textarea"
                         :rows="4"
-                        @blur="(e: any) => handleAssetDescChange(detailType, detailData, e.target.value)"
+                        @blur="
+                          (e: any) => handleAssetDescChange(detailType, detailData, e.target.value)
+                        "
                       />
                     </div>
                   </div>
                   <!-- 生图控制栏 -->
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <el-button
+                        text
+                        :icon="Tools"
+                        @click="ElMessage.info('模型选择后续版本开放')"
+                      />
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
                       <el-button text :icon="Plus" @click="genCount++" />
                     </div>
-                    <el-button type="primary" class="gen-btn" @click="handleGenerateImage(detailType, detailData?.id)">
+                    <el-button
+                      type="primary"
+                      class="gen-btn"
+                      @click="handleGenerateImage(detailType, detailData?.id)"
+                    >
                       AI生图
                     </el-button>
                   </div>
@@ -1918,19 +2339,34 @@ onUnmounted(() => {
                         :model-value="detailData?.first_frame_prompt"
                         type="textarea"
                         :rows="4"
-                        @blur="(e: any) => handleShotPromptChange(detailData.id, 'first_frame_prompt', e.target.value)"
+                        @blur="
+                          (e: any) =>
+                            handleShotPromptChange(
+                              detailData.id,
+                              'first_frame_prompt',
+                              e.target.value
+                            )
+                        "
                       />
                     </div>
                   </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <el-button
+                        text
+                        :icon="Tools"
+                        @click="ElMessage.info('模型选择后续版本开放')"
+                      />
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
                       <el-button text :icon="Plus" @click="genCount++" />
                     </div>
-                    <el-button type="primary" class="gen-btn" @click="handleGenerateImage('firstFrame', detailData?.id)">
+                    <el-button
+                      type="primary"
+                      class="gen-btn"
+                      @click="handleGenerateImage('firstFrame', detailData?.id)"
+                    >
                       AI生图
                     </el-button>
                   </div>
@@ -1955,19 +2391,34 @@ onUnmounted(() => {
                         :model-value="detailData?.last_frame_prompt"
                         type="textarea"
                         :rows="4"
-                        @blur="(e: any) => handleShotPromptChange(detailData.id, 'last_frame_prompt', e.target.value)"
+                        @blur="
+                          (e: any) =>
+                            handleShotPromptChange(
+                              detailData.id,
+                              'last_frame_prompt',
+                              e.target.value
+                            )
+                        "
                       />
                     </div>
                   </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <el-button
+                        text
+                        :icon="Tools"
+                        @click="ElMessage.info('模型选择后续版本开放')"
+                      />
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
                       <el-button text :icon="Plus" @click="genCount++" />
                     </div>
-                    <el-button type="primary" class="gen-btn" @click="handleGenerateImage('lastFrame', detailData?.id)">
+                    <el-button
+                      type="primary"
+                      class="gen-btn"
+                      @click="handleGenerateImage('lastFrame', detailData?.id)"
+                    >
                       AI生图
                     </el-button>
                   </div>
@@ -1987,13 +2438,21 @@ onUnmounted(() => {
                   </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button text :icon="Tools" @click="ElMessage.info('模型选择后续版本开放')" />
+                      <el-button
+                        text
+                        :icon="Tools"
+                        @click="ElMessage.info('模型选择后续版本开放')"
+                      />
                       <span class="gen-label">生成数量</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
                       <el-button text :icon="Plus" @click="genCount++" />
                     </div>
-                    <el-button type="primary" class="gen-btn" @click="ElMessage.info('视频生成后续版本开放')">
+                    <el-button
+                      type="primary"
+                      class="gen-btn"
+                      @click="ElMessage.info('视频生成后续版本开放')"
+                    >
                       AI生视频
                     </el-button>
                   </div>
@@ -2041,30 +2500,52 @@ onUnmounted(() => {
           <div
             class="gen-record-tab"
             :class="{ active: genRecordTab === 'video' }"
-            @click="genRecordTab = 'video'; genRecordTypeFilter = 'all'"
-          >视频</div>
+            @click="
+              genRecordTab = 'video'
+              genRecordTypeFilter = 'all'
+            "
+          >
+            视频
+          </div>
           <div
             class="gen-record-tab"
             :class="{ active: genRecordTab === 'image' }"
-            @click="genRecordTab = 'image'; genRecordTypeFilter = 'all'"
-          >图片</div>
+            @click="
+              genRecordTab = 'image'
+              genRecordTypeFilter = 'all'
+            "
+          >
+            图片
+          </div>
           <div
             class="gen-record-tab"
             :class="{ active: genRecordTab === 'other' }"
-            @click="genRecordTab = 'other'; genRecordTypeFilter = 'all'"
-          >其他</div>
+            @click="
+              genRecordTab = 'other'
+              genRecordTypeFilter = 'all'
+            "
+          >
+            其他
+          </div>
         </div>
 
         <!-- 筛选栏 -->
         <div class="gen-record-filters">
           <div class="gen-record-status-filters">
             <span
-              v-for="s in [{k:'all',l:'全部'},{k:'pending',l:'排队中'},{k:'running',l:'生成中'},{k:'completed',l:'完成'},{k:'failed',l:'失败'}]"
+              v-for="s in [
+                { k: 'all', l: '全部' },
+                { k: 'pending', l: '排队中' },
+                { k: 'running', l: '生成中' },
+                { k: 'completed', l: '完成' },
+                { k: 'failed', l: '失败' }
+              ]"
               :key="s.k"
               class="gen-record-filter-btn"
               :class="{ active: genRecordStatusFilter === s.k }"
               @click="genRecordStatusFilter = s.k as any"
-            >{{ s.l }}</span>
+              >{{ s.l }}</span
+            >
           </div>
           <el-select
             v-if="genRecordTab === 'image'"
@@ -2130,7 +2611,8 @@ onUnmounted(() => {
                     size="small"
                     type="primary"
                     @click="retryTask(r)"
-                  >重试</el-button>
+                    >重试</el-button
+                  >
                   <el-tooltip
                     v-if="r.error_message"
                     :content="r.error_message"
@@ -2181,10 +2663,16 @@ onUnmounted(() => {
       <div class="model-config-body">
         <!-- 顶部工具行 -->
         <div class="model-config-header">
-          <el-button text size="small" @click="ElMessage.info('导入配置后续版本开放')">导入配置</el-button>
-          <el-button text size="small" @click="ElMessage.info('导出配置后续版本开放')">导出配置</el-button>
+          <el-button text size="small" @click="ElMessage.info('导入配置后续版本开放')"
+            >导入配置</el-button
+          >
+          <el-button text size="small" @click="ElMessage.info('导出配置后续版本开放')"
+            >导出配置</el-button
+          >
           <div class="model-config-mode">
-            <span class="mode-label">{{ modelConfigMode === 'pro' ? '专业模式' : '新手模式' }}</span>
+            <span class="mode-label">{{
+              modelConfigMode === 'pro' ? '专业模式' : '新手模式'
+            }}</span>
             <el-switch v-model="modelConfigMode" active-value="pro" inactive-value="novice" />
           </div>
         </div>
@@ -2197,7 +2685,10 @@ onUnmounted(() => {
               :key="tab.key"
               class="model-config-tab"
               :class="{ active: modelConfigTab === idx }"
-              @click="modelConfigTab = idx; loadModelConfigTemplates()"
+              @click="
+                modelConfigTab = idx
+                loadModelConfigTemplates()
+              "
             >
               {{ tab.label }}
             </div>
@@ -2210,7 +2701,10 @@ onUnmounted(() => {
                   :model-value="getModelConfigField(modelConfigTabs[modelConfigTab].key, 'model')"
                   size="small"
                   style="width: 240px"
-                  @change="(val: string) => setModelConfigField(modelConfigTabs[modelConfigTab].key, 'model', val)"
+                  @change="
+                    (val: string) =>
+                      setModelConfigField(modelConfigTabs[modelConfigTab].key, 'model', val)
+                  "
                 >
                   <el-option
                     v-for="m in providerModels"
@@ -2247,19 +2741,33 @@ onUnmounted(() => {
                   v-for="t in modelConfigTemplates"
                   :key="t.id"
                   class="config-template-item"
-                  :class="{ active: getModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId') === t.id }"
-                  @click="setModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId', t.id)"
+                  :class="{
+                    active:
+                      getModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId') ===
+                      t.id
+                  }"
+                  @click="
+                    setModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId', t.id)
+                  "
                 >
                   {{ t.name }}
                 </div>
-                <div v-if="!modelConfigTemplates.length" class="config-template-empty">暂无模板</div>
+                <div v-if="!modelConfigTemplates.length" class="config-template-empty">
+                  暂无模板
+                </div>
               </div>
               <div class="config-template-preview">
                 <el-input
                   type="textarea"
                   :rows="6"
                   disabled
-                  :model-value="modelConfigTemplates.find((t: any) => t.id === getModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId'))?.content || '请选择模板'"
+                  :model-value="
+                    modelConfigTemplates.find(
+                      (t: any) =>
+                        t.id ===
+                        getModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId')
+                    )?.content || '请选择模板'
+                  "
                 />
               </div>
             </div>
@@ -2293,12 +2801,25 @@ onUnmounted(() => {
               {{ scriptCharCount }} 字{{ scriptCharCount < 500 ? '（建议500字以上）' : '' }}
             </span>
           </div>
-          <el-input v-model="parseScriptText" type="textarea" :rows="10" placeholder="在此粘贴剧本内容..." resize="none" :disabled="parseGenerating" />
+          <el-input
+            v-model="parseScriptText"
+            type="textarea"
+            :rows="10"
+            placeholder="在此粘贴剧本内容..."
+            resize="none"
+            :disabled="parseGenerating"
+          />
         </div>
         <div class="parse-section compact">
           <span class="parse-section-title">画面风格</span>
           <div class="style-grid compact">
-            <div v-for="s in stylePresets" :key="s.name" class="style-card compact" :class="{ active: selectedStyle === s.name }" @click="handleStyleSelect(s)">
+            <div
+              v-for="s in stylePresets"
+              :key="s.name"
+              class="style-card compact"
+              :class="{ active: selectedStyle === s.name }"
+              @click="handleStyleSelect(s)"
+            >
               <div class="style-preview compact" :style="{ background: s.color }" />
               <span class="style-name compact">{{ s.name }}</span>
             </div>
@@ -2307,7 +2828,13 @@ onUnmounted(() => {
         <div class="parse-section compact">
           <span class="parse-section-title">画面比例</span>
           <div class="ratio-group compact">
-            <div v-for="r in aspectRatios" :key="r.value" class="ratio-card compact" :class="{ active: selectedAspectRatio === r.value }" @click="handleAspectRatioSelect(r.value)">
+            <div
+              v-for="r in aspectRatios"
+              :key="r.value"
+              class="ratio-card compact"
+              :class="{ active: selectedAspectRatio === r.value }"
+              @click="handleAspectRatioSelect(r.value)"
+            >
               <div class="ratio-icon compact" :class="'_' + r.value.replace(':', '_')" />
               <span class="ratio-label">{{ r.label }}</span>
             </div>
@@ -2315,7 +2842,12 @@ onUnmounted(() => {
         </div>
         <div class="parse-section compact">
           <span class="parse-section-title">提示词模板</span>
-          <el-select v-model="selectedTemplate" style="width: 100%" @change="handleTemplateChange" :disabled="parseGenerating">
+          <el-select
+            v-model="selectedTemplate"
+            style="width: 100%"
+            :disabled="parseGenerating"
+            @change="handleTemplateChange"
+          >
             <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
           <div v-if="templatePreview" class="template-preview">{{ templatePreview }}</div>
@@ -2325,7 +2857,12 @@ onUnmounted(() => {
           <el-input v-model="selectedModel" disabled />
         </div>
         <div v-if="parseGenerating" class="parse-progress">
-          <div v-for="s in parseProgressSteps" :key="s.step" class="progress-item" :class="s.status">
+          <div
+            v-for="s in parseProgressSteps"
+            :key="s.step"
+            class="progress-item"
+            :class="s.status"
+          >
             <span class="progress-icon">
               <span v-if="s.status === 'done'">✅</span>
               <span v-else-if="s.status === 'running'" class="spin">🔄</span>
@@ -2338,7 +2875,13 @@ onUnmounted(() => {
       </div>
       <template #footer>
         <el-button :disabled="parseGenerating" @click="handleSkipParse">暂时跳过</el-button>
-        <el-button type="primary" :loading="parseGenerating" :disabled="parseGenerating" @click="handleParseSubmit">一键生成分镜</el-button>
+        <el-button
+          type="primary"
+          :loading="parseGenerating"
+          :disabled="parseGenerating"
+          @click="handleParseSubmit"
+          >一键生成分镜</el-button
+        >
       </template>
     </el-dialog>
 
@@ -2354,7 +2897,9 @@ onUnmounted(() => {
           <template v-if="batchMode === 'asset'">
             <span class="batch-stat-label">共</span>
             <span class="batch-stat-value">{{ batchTotalAssets }}</span>
-            <span class="batch-stat-label">个{{ batchType === '人物' ? '角色' : batchType === '场景' ? '场景' : '道具' }}</span>
+            <span class="batch-stat-label"
+              >个{{ batchType === '人物' ? '角色' : batchType === '场景' ? '场景' : '道具' }}</span
+            >
           </template>
           <template v-else>
             <span class="batch-stat-label">已选中</span>
@@ -2364,16 +2909,28 @@ onUnmounted(() => {
         </div>
         <div class="batch-stat">
           <span class="batch-stat-label">其中</span>
-          <span class="batch-stat-value" :class="{ zero: batchMissingCount === 0 }">{{ batchMissingCount }}</span>
+          <span class="batch-stat-value" :class="{ zero: batchMissingCount === 0 }">{{
+            batchMissingCount
+          }}</span>
           <span class="batch-stat-label">个缺失</span>
         </div>
 
         <div class="batch-count-row">
           <span class="batch-count-label">生成次数</span>
           <div class="batch-count-control">
-            <el-button text size="small" :icon="Minus" @click="batchCount = Math.max(1, batchCount - 1)" />
+            <el-button
+              text
+              size="small"
+              :icon="Minus"
+              @click="batchCount = Math.max(1, batchCount - 1)"
+            />
             <span class="batch-count-num">{{ batchCount }}</span>
-            <el-button text size="small" :icon="Plus" @click="batchCount = Math.min(10, batchCount + 1)" />
+            <el-button
+              text
+              size="small"
+              :icon="Plus"
+              @click="batchCount = Math.min(10, batchCount + 1)"
+            />
           </div>
         </div>
 
@@ -2388,9 +2945,7 @@ onUnmounted(() => {
           </el-button>
         </div>
 
-        <div class="batch-hint">
-          批量执行任务前，请先调试效果至符合预期后再执行
-        </div>
+        <div class="batch-hint">批量执行任务前，请先调试效果至符合预期后再执行</div>
       </div>
     </el-dialog>
   </div>
@@ -3792,8 +4347,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 画布视图 */
@@ -3941,15 +4500,39 @@ onUnmounted(() => {
   background: rgba(239, 68, 68, 0.04);
 }
 
-.col-num { width: 40px; text-align: center; }
-.col-shot { min-width: 120px; max-width: 160px; }
-.col-type { width: 80px; white-space: nowrap; }
-.col-model { width: 80px; }
-.col-channel { width: 60px; }
-.col-time { width: 90px; white-space: nowrap; }
-.col-wait { width: 70px; text-align: center; }
-.col-status { width: 80px; }
-.col-action { width: 90px; text-align: center; }
+.col-num {
+  width: 40px;
+  text-align: center;
+}
+.col-shot {
+  min-width: 120px;
+  max-width: 160px;
+}
+.col-type {
+  width: 80px;
+  white-space: nowrap;
+}
+.col-model {
+  width: 80px;
+}
+.col-channel {
+  width: 60px;
+}
+.col-time {
+  width: 90px;
+  white-space: nowrap;
+}
+.col-wait {
+  width: 70px;
+  text-align: center;
+}
+.col-status {
+  width: 80px;
+}
+.col-action {
+  width: 90px;
+  text-align: center;
+}
 
 .col-shot {
   overflow: hidden;

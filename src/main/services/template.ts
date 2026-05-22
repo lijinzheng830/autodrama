@@ -8,7 +8,8 @@ export const OFFICIAL_TEMPLATES = [
     project_id: '',
     usage: 'shot_image',
     name: '标准分镜模板',
-    content: '【占位】标准分镜描述模板，用于生成常规分镜图像。包含场景描述、角色动作、镜头角度等要素。',
+    content:
+      '【占位】标准分镜描述模板，用于生成常规分镜图像。包含场景描述、角色动作、镜头角度等要素。',
     is_default: 1,
     created_at: '',
     updated_at: ''
@@ -74,15 +75,20 @@ export function savePromptTemplate(
   const db = getDb()
   const id = randomUUID()
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO prompt_templates (id, project_id, "usage", name, content, is_default, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, 0, datetime('now'), datetime('now'))
-  `).run(id, projectId, input.usage, input.name, input.content)
+  `
+  ).run(id, projectId, input.usage, input.name, input.content)
 
   return { id, project_id: projectId, ...input, is_default: 0 }
 }
 
-export function updatePromptTemplate(templateId: string, input: { name?: string; usage?: string; content?: string }): void {
+export function updatePromptTemplate(
+  templateId: string,
+  input: { name?: string; usage?: string; content?: string }
+): void {
   const db = getDb()
   const sets: string[] = []
   const params: any[] = []
@@ -101,7 +107,7 @@ export function updatePromptTemplate(templateId: string, input: { name?: string;
   }
   if (sets.length === 0) return
 
-  sets.push('updated_at = datetime(\'now\')')
+  sets.push("updated_at = datetime('now')")
   params.push(templateId)
 
   db.prepare(`UPDATE prompt_templates SET ${sets.join(', ')} WHERE id = ?`).run(...params)

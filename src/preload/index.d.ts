@@ -76,6 +76,7 @@ export interface Api {
   configWriteFile: (filePath: string, content: string) => Promise<boolean>
   configReadFile: (filePath: string) => Promise<string | null>
   showSaveDialog: (options: any) => Promise<string | null>
+  showOpenDialog: (options: any) => Promise<string | null>
 }
 
 declare global {

@@ -2,6 +2,7 @@ import { getDb } from './db'
 import { getProvider } from './providers'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 import { updateProjectScript } from './project'
+import { checkLicense } from '../utils/license'
 
 export interface AutoProcessOptions {
   promptTemplate?: string
@@ -30,11 +31,17 @@ export interface AIConfig {
 
 export function getAIConfig(): AIConfig {
   const db = getDb()
-  const providerRow = db.prepare("SELECT value FROM settings WHERE key = 'provider'").get() as { value: string } | undefined
-  const modelRow = db.prepare("SELECT value FROM settings WHERE key = 'model'").get() as { value: string } | undefined
+  const providerRow = db.prepare("SELECT value FROM settings WHERE key = 'provider'").get() as
+    | { value: string }
+    | undefined
+  const modelRow = db.prepare("SELECT value FROM settings WHERE key = 'model'").get() as
+    | { value: string }
+    | undefined
   const provider = providerRow?.value || 'qwen'
   const model = modelRow?.value || 'qwen3.6-flash'
-  const apiKeyRow = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(`api_key_${provider}`) as { value: string } | undefined
+  const apiKeyRow = db
+    .prepare(`SELECT value FROM settings WHERE key = ?`)
+    .get(`api_key_${provider}`) as { value: string } | undefined
   return {
     provider,
     model,
@@ -48,11 +55,9 @@ export async function callAI(
   modelKey?: string
 ): Promise<string> {
   // LICENSE CHECK
-  import('../utils/license').then(({ checkLicense }) => {
-    if (!checkLicense()) {
-      console.warn('License check failed, but allowing AI call in MVP1')
-    }
-  })
+  if (!checkLicense()) {
+    console.warn('License check failed, but allowing AI call in MVP1')
+  }
 
   const config = getAIConfig()
   const provider = providerKey || config.provider
@@ -207,8 +212,11 @@ export async function autoProcess(
   // 保存剧本到项目
   try {
     if (mode === 'append') {
-      const existing = db.prepare('SELECT script_text FROM projects WHERE id = ?').get(projectId) as { script_text: string } | undefined
-      const combined = (existing?.script_text || '') + (existing?.script_text ? '\n\n' : '') + script
+      const existing = db
+        .prepare('SELECT script_text FROM projects WHERE id = ?')
+        .get(projectId) as { script_text: string } | undefined
+      const combined =
+        (existing?.script_text || '') + (existing?.script_text ? '\n\n' : '') + script
       updateProjectScript(projectId, combined)
     } else {
       updateProjectScript(projectId, script)
@@ -222,7 +230,10 @@ export async function autoProcess(
     db.prepare('UPDATE projects SET era = ? WHERE id = ?').run(options.era, projectId)
   }
   if (options?.aspectRatio) {
-    db.prepare('UPDATE projects SET aspect_ratio = ? WHERE id = ?').run(options.aspectRatio, projectId)
+    db.prepare('UPDATE projects SET aspect_ratio = ? WHERE id = ?').run(
+      options.aspectRatio,
+      projectId
+    )
   }
 
   const storyboardPrompt = options?.promptTemplate || STORYBOARD_PROMPT
@@ -310,9 +321,15 @@ async function saveToDatabase(
   const crypto = await import('crypto')
 
   // 预先查询已有资产（名称 → ID 映射），用于「只创建、不覆盖」
-  const existingChars = db.prepare('SELECT * FROM characters WHERE project_id = ?').all(projectId) as any[]
-  const existingScenes = db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as any[]
-  const existingProps = db.prepare('SELECT * FROM props WHERE project_id = ?').all(projectId) as any[]
+  const existingChars = db
+    .prepare('SELECT * FROM characters WHERE project_id = ?')
+    .all(projectId) as any[]
+  const existingScenes = db
+    .prepare('SELECT * FROM scenes WHERE project_id = ?')
+    .all(projectId) as any[]
+  const existingProps = db
+    .prepare('SELECT * FROM props WHERE project_id = ?')
+    .all(projectId) as any[]
 
   const existingCharMap = new Map<string, string>()
   for (const c of existingChars) existingCharMap.set(c.name.trim(), c.id)
@@ -326,7 +343,9 @@ async function saveToDatabase(
   // append 模式：获取已有最大 chapter_index
   let existingMaxChapterIndex = -1
   if (mode === 'append') {
-    const row = db.prepare('SELECT MAX(chapter_index) as max FROM chapters WHERE project_id = ?').get(projectId) as { max: number } | undefined
+    const row = db
+      .prepare('SELECT MAX(chapter_index) as max FROM chapters WHERE project_id = ?')
+      .get(projectId) as { max: number } | undefined
     existingMaxChapterIndex = row?.max ?? -1
   }
 
@@ -343,7 +362,9 @@ async function saveToDatabase(
         db.prepare('DELETE FROM shot_scenes WHERE shot_id = ?').run(s.id)
         db.prepare('DELETE FROM shot_props WHERE shot_id = ?').run(s.id)
       }
-      db.prepare('DELETE FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)').run(projectId)
+      db.prepare(
+        'DELETE FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)'
+      ).run(projectId)
       db.prepare('DELETE FROM chapters WHERE project_id = ?').run(projectId)
     }
 
@@ -408,16 +429,25 @@ async function saveToDatabase(
     const insertShot = db.prepare(
       'INSERT INTO shots (id, chapter_id, shot_index, description, first_frame_prompt, last_frame_prompt, video_prompt) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
-    const insertShotChar = db.prepare('INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)')
+    const insertShotChar = db.prepare(
+      'INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)'
+    )
     const insertShotScene = db.prepare('INSERT INTO shot_scenes (shot_id, scene_id) VALUES (?, ?)')
-    const insertShotProp = db.prepare('INSERT INTO shot_props (id, shot_id, prop_id) VALUES (?, ?, ?)')
+    const insertShotProp = db.prepare(
+      'INSERT INTO shot_props (id, shot_id, prop_id) VALUES (?, ?, ?)'
+    )
 
     const chapters: any[] = shotsData.chapters || []
     for (let ci = 0; ci < chapters.length; ci++) {
       const chapter = chapters[ci]
       const chapterId = crypto.randomUUID()
       const actualChapterIndex = mode === 'append' ? existingMaxChapterIndex + 1 + ci : ci
-      insertChapter.run(chapterId, projectId, actualChapterIndex, chapter.title || `第${actualChapterIndex + 1}章`)
+      insertChapter.run(
+        chapterId,
+        projectId,
+        actualChapterIndex,
+        chapter.title || `第${actualChapterIndex + 1}章`
+      )
 
       const shots: any[] = chapter.shots || []
       for (const shot of shots) {

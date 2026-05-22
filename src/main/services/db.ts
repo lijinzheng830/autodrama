@@ -272,9 +272,7 @@ export function initDatabase(): Database.Database {
     if (hasPrompt) {
       // 检查 prompt 列是否有实际数据
       const countRow = db
-        .prepare(
-          `SELECT COUNT(*) as c FROM scenes WHERE prompt IS NOT NULL AND TRIM(prompt) != ''`
-        )
+        .prepare(`SELECT COUNT(*) as c FROM scenes WHERE prompt IS NOT NULL AND TRIM(prompt) != ''`)
         .get() as { c: number }
 
       if (countRow.c > 0) {

@@ -3,7 +3,9 @@ import { PROVIDERS } from './providers'
 
 export function getSetting(key: string): string | null {
   const db = getDb()
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined
   return row ? row.value : null
 }
 

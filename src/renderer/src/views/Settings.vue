@@ -3,8 +3,16 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowLeft, Plus, Edit, Delete, Download, Upload,
-  Monitor, Setting, DocumentCopy, InfoFilled
+  ArrowLeft,
+  Plus,
+  Edit,
+  Delete,
+  Download,
+  Upload,
+  Monitor,
+  Setting,
+  DocumentCopy,
+  InfoFilled
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -52,7 +60,7 @@ function openEditProvider(p: any) {
     key: p.key || '',
     baseURL: p.baseURL || '',
     apiKey: p.apiKey || '',
-    models: Array.isArray(p.models) ? p.models.join('\n') : (p.models || '')
+    models: Array.isArray(p.models) ? p.models.join('\n') : p.models || ''
   }
   providerDialogVisible.value = true
 }
@@ -63,7 +71,10 @@ async function saveProvider() {
     ElMessage.warning('请填写名称、标识和baseURL')
     return
   }
-  const modelList = models.split('\n').map(s => s.trim()).filter(Boolean)
+  const modelList = models
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
   const data = { name, key, baseURL, apiKey, models: modelList }
   try {
     if (providerDialogMode.value === 'add') {
@@ -113,10 +124,8 @@ const usageOptions = [
 
 async function loadTemplates() {
   try {
-    // 自定义模板
-    templates.value = await window.api.getPromptTemplates('') as any[]
-    // 官方模板
-    const all = await window.api.getPromptTemplates('') as any[]
+    const all = (await window.api.getPromptTemplates('')) as any[]
+    templates.value = all.filter((t: any) => !t.is_default && !t.is_default)
     officialTemplates.value = all.filter((t: any) => t.is_default === 1 || t.is_default === true)
   } catch (err) {
     console.error(err)
@@ -150,7 +159,11 @@ function openAddTemplate() {
 function openEditTemplate(t: any) {
   templateDialogMode.value = 'edit'
   templateEditId.value = t.id
-  templateForm.value = { name: t.name || '', usage: t.usage || 'script_parse', content: t.content || '' }
+  templateForm.value = {
+    name: t.name || '',
+    usage: t.usage || 'script_parse',
+    content: t.content || ''
+  }
   templateDialogVisible.value = true
 }
 
@@ -188,7 +201,11 @@ async function handleDeleteTemplate(id: string) {
 
 async function cloneTemplate(t: any) {
   try {
-    await window.api.savePromptTemplate('', { usage: t.usage, name: t.name + '（复制）', content: t.content })
+    await window.api.savePromptTemplate('', {
+      usage: t.usage,
+      name: t.name + '（复制）',
+      content: t.content
+    })
     ElMessage.success('已另存为我的模板')
     await loadTemplates()
     templateTab.value = 'custom'
@@ -200,7 +217,7 @@ async function cloneTemplate(t: any) {
 // Config export / import
 async function handleExportConfig() {
   try {
-    const modelRoutes = await window.api.getSetting('model_routes') || '{}'
+    const modelRoutes = (await window.api.getSetting('model_routes')) || '{}'
     const data = {
       systemPrompt: systemPrompt.value,
       templates: templates.value,
@@ -224,14 +241,14 @@ async function handleExportConfig() {
 
 async function handleImportConfig() {
   try {
-    const filePath = await window.api.selectExportDirectory()
+    const filePath = await window.api.showOpenDialog({
+      title: '导入配置',
+      filters: [{ name: 'AutoDrama配置', extensions: ['autodrama-config'] }]
+    })
     if (!filePath) return
-    // Actually we need a file picker, not directory. Use the existing selectDirectory for now and append filename
-    // Better approach: let user pick the file directly
-    ElMessage.info('请选择 config.autodrama-config 文件所在的目录，文件名为 config.autodrama-config')
-    const cipher = await window.api.configReadFile(`${filePath}/config.autodrama-config`)
+    const cipher = await window.api.configReadFile(filePath)
     if (!cipher) {
-      ElMessage.error('未找到 config.autodrama-config 文件或读取失败')
+      ElMessage.error('读取配置文件失败')
       return
     }
     const res = await window.api.importConfig(cipher)
@@ -249,11 +266,28 @@ async function handleImportConfig() {
       await window.api.setSetting('model_routes', JSON.stringify(data.modelRoutes))
     }
     if (Array.isArray(data.templates)) {
+      // 先加载现有模板列表用于匹配同名
+      const existing = (await window.api.getPromptTemplates('')) as any[]
+      const existingMap = new Map<string, any>()
+      for (const t of existing) {
+        if (!t.is_default && t.name) existingMap.set(t.name, t)
+      }
       for (const t of data.templates) {
-        try {
-          await window.api.savePromptTemplate('', { usage: t.usage, name: t.name, content: t.content })
-        } catch {
-          // ignore duplicate
+        const match = existingMap.get(t.name)
+        if (match) {
+          // 同名覆盖
+          await window.api.updatePromptTemplate(match.id, {
+            usage: t.usage,
+            name: t.name,
+            content: t.content
+          })
+        } else {
+          // 新增
+          await window.api.savePromptTemplate('', {
+            usage: t.usage,
+            name: t.name,
+            content: t.content
+          })
         }
       }
     }
@@ -311,7 +345,7 @@ const availableModels = computed(() => {
 })
 
 const availableChannels = computed(() => {
-  return providers.value.map(p => p.name || p.key).filter(Boolean)
+  return providers.value.map((p) => p.name || p.key).filter(Boolean)
 })
 
 function getRouteModel(key: string): string {
@@ -385,7 +419,9 @@ onMounted(async () => {
         <div v-if="activeNav === 'providers'" class="settings-panel">
           <div class="panel-header">
             <h2 class="panel-title">API供应商 & 插件</h2>
-            <el-button type="primary" size="small" :icon="Plus" @click="openAddProvider">添加供应商</el-button>
+            <el-button type="primary" size="small" :icon="Plus" @click="openAddProvider"
+              >添加供应商</el-button
+            >
           </div>
           <div class="panel-body">
             <table class="data-table">
@@ -405,8 +441,12 @@ onMounted(async () => {
                   <td>{{ p.baseURL }}</td>
                   <td>{{ Array.isArray(p.models) ? p.models.length : 0 }}</td>
                   <td>
-                    <el-button text size="small" :icon="Edit" @click="openEditProvider(p)">编辑</el-button>
-                    <el-button text size="small" :icon="Delete" @click="handleDeleteProvider(p.id)">删除</el-button>
+                    <el-button text size="small" :icon="Edit" @click="openEditProvider(p)"
+                      >编辑</el-button
+                    >
+                    <el-button text size="small" :icon="Delete" @click="handleDeleteProvider(p.id)"
+                      >删除</el-button
+                    >
                   </td>
                 </tr>
                 <tr v-if="!providers.length">
@@ -436,8 +476,12 @@ onMounted(async () => {
 
           <!-- 导出导入 -->
           <div class="config-actions">
-            <el-button text size="small" :icon="Download" @click="handleExportConfig">导出配置</el-button>
-            <el-button text size="small" :icon="Upload" @click="handleImportConfig">导入配置</el-button>
+            <el-button text size="small" :icon="Download" @click="handleExportConfig"
+              >导出配置</el-button
+            >
+            <el-button text size="small" :icon="Upload" @click="handleImportConfig"
+              >导入配置</el-button
+            >
           </div>
 
           <!-- 模板Tab -->
@@ -446,12 +490,16 @@ onMounted(async () => {
               class="template-tab"
               :class="{ active: templateTab === 'official' }"
               @click="templateTab = 'official'"
-            >官方模板</div>
+            >
+              官方模板
+            </div>
             <div
               class="template-tab"
               :class="{ active: templateTab === 'custom' }"
               @click="templateTab = 'custom'"
-            >我的模板</div>
+            >
+              我的模板
+            </div>
           </div>
 
           <div class="panel-body">
@@ -468,9 +516,11 @@ onMounted(async () => {
                 <tbody>
                   <tr v-for="t in officialTemplates" :key="t.id">
                     <td>{{ t.name }}</td>
-                    <td>{{ usageOptions.find(u => u.value === t.usage)?.label || t.usage }}</td>
+                    <td>{{ usageOptions.find((u) => u.value === t.usage)?.label || t.usage }}</td>
                     <td>
-                      <el-button text size="small" :icon="DocumentCopy" @click="cloneTemplate(t)">另存为我的模板</el-button>
+                      <el-button text size="small" :icon="DocumentCopy" @click="cloneTemplate(t)"
+                        >另存为我的模板</el-button
+                      >
                     </td>
                   </tr>
                   <tr v-if="!officialTemplates.length">
@@ -483,7 +533,9 @@ onMounted(async () => {
             <!-- 我的模板 -->
             <div v-if="templateTab === 'custom'">
               <div class="panel-toolbar">
-                <el-button type="primary" size="small" :icon="Plus" @click="openAddTemplate">新建模板</el-button>
+                <el-button type="primary" size="small" :icon="Plus" @click="openAddTemplate"
+                  >新建模板</el-button
+                >
               </div>
               <table class="data-table">
                 <thead>
@@ -496,10 +548,18 @@ onMounted(async () => {
                 <tbody>
                   <tr v-for="t in templates.filter((x: any) => !x.is_default)" :key="t.id">
                     <td>{{ t.name }}</td>
-                    <td>{{ usageOptions.find(u => u.value === t.usage)?.label || t.usage }}</td>
+                    <td>{{ usageOptions.find((u) => u.value === t.usage)?.label || t.usage }}</td>
                     <td>
-                      <el-button text size="small" :icon="Edit" @click="openEditTemplate(t)">编辑</el-button>
-                      <el-button text size="small" :icon="Delete" @click="handleDeleteTemplate(t.id)">删除</el-button>
+                      <el-button text size="small" :icon="Edit" @click="openEditTemplate(t)"
+                        >编辑</el-button
+                      >
+                      <el-button
+                        text
+                        size="small"
+                        :icon="Delete"
+                        @click="handleDeleteTemplate(t.id)"
+                        >删除</el-button
+                      >
                     </td>
                   </tr>
                   <tr v-if="!templates.filter((x: any) => !x.is_default && !x.is_default).length">
@@ -608,7 +668,12 @@ onMounted(async () => {
         </div>
         <div class="form-row">
           <label class="form-label">API Key</label>
-          <el-input v-model="providerForm.apiKey" type="password" placeholder="可选" show-password />
+          <el-input
+            v-model="providerForm.apiKey"
+            type="password"
+            placeholder="可选"
+            show-password
+          />
         </div>
         <div class="form-row">
           <label class="form-label">模型列表</label>

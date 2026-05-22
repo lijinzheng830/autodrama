@@ -5,7 +5,8 @@ import { randomUUID } from 'crypto'
 
 function updateShotPrompts(projectId: string, oldName: string, newName: string): void {
   const db = getDb()
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE shots
     SET
       first_frame_prompt = REPLACE(COALESCE(first_frame_prompt, ''), ?, ?),
@@ -14,7 +15,8 @@ function updateShotPrompts(projectId: string, oldName: string, newName: string):
     WHERE chapter_id IN (
       SELECT id FROM chapters WHERE project_id = ?
     )
-  `).run(oldName, newName, oldName, newName, oldName, newName, projectId)
+  `
+  ).run(oldName, newName, oldName, newName, oldName, newName, projectId)
 }
 
 // ========== Character ==========
@@ -41,10 +43,12 @@ export function createCharacter(projectId: string, input: CreateCharacterInput) 
   if (existing) throw new Error(`项目中已存在名为 "${input.name}" 的角色`)
 
   const id = randomUUID()
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO characters (id, project_id, name, description, reference_image)
     VALUES (?, ?, ?, ?, ?)
-  `).run(id, projectId, input.name, input.description ?? null, input.referenceImage ?? null)
+  `
+  ).run(id, projectId, input.name, input.description ?? null, input.referenceImage ?? null)
 
   return { id, project_id: projectId, ...input }
 }
@@ -113,14 +117,18 @@ export interface UpdateSceneInput {
 export function createScene(projectId: string, input: CreateSceneInput) {
   const db = getDb()
 
-  const existing = db.prepare('SELECT id FROM scenes WHERE project_id = ? AND name = ?').get(projectId, input.name)
+  const existing = db
+    .prepare('SELECT id FROM scenes WHERE project_id = ? AND name = ?')
+    .get(projectId, input.name)
   if (existing) throw new Error(`项目中已存在名为 "${input.name}" 的场景`)
 
   const id = randomUUID()
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO scenes (id, project_id, name, description, reference_image)
     VALUES (?, ?, ?, ?, ?)
-  `).run(id, projectId, input.name, input.description ?? null, input.referenceImage ?? null)
+  `
+  ).run(id, projectId, input.name, input.description ?? null, input.referenceImage ?? null)
 
   return { id, project_id: projectId, ...input }
 }
@@ -185,14 +193,18 @@ export interface UpdatePropInput {
 export function createProp(projectId: string, input: CreatePropInput) {
   const db = getDb()
 
-  const existing = db.prepare('SELECT id FROM props WHERE project_id = ? AND name = ?').get(projectId, input.name)
+  const existing = db
+    .prepare('SELECT id FROM props WHERE project_id = ? AND name = ?')
+    .get(projectId, input.name)
   if (existing) throw new Error(`项目中已存在名为 "${input.name}" 的道具`)
 
   const id = randomUUID()
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO props (id, project_id, name, description, reference_image)
     VALUES (?, ?, ?, ?, ?)
-  `).run(id, projectId, input.name, input.description ?? null, input.referenceImage ?? null)
+  `
+  ).run(id, projectId, input.name, input.description ?? null, input.referenceImage ?? null)
 
   return { id, project_id: projectId, ...input }
 }
