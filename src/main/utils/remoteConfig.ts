@@ -1,0 +1,23 @@
+/**
+ * 远程配置模块
+ * MVP1：空实现，预留接口
+ * MVP2：接入远程配置拉取逻辑
+ */
+
+export interface RemoteConfig {
+  version: number
+  prompt_templates?: any[]
+  model_defaults?: Record<string, any>
+  system_prompt?: string
+}
+
+export async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
+  // TODO: implement in MVP2
+  return null
+}
+
+export function mergePresets(localTemplates: any[], remoteTemplates: any[]): any[] {
+  // TODO: implement in MVP2
+  // 官方模板不动，远程新增的直接加
+  return localTemplates
+}

@@ -47,6 +47,13 @@ export async function callAI(
   providerKey?: string,
   modelKey?: string
 ): Promise<string> {
+  // LICENSE CHECK
+  import('../utils/license').then(({ checkLicense }) => {
+    if (!checkLicense()) {
+      console.warn('License check failed, but allowing AI call in MVP1')
+    }
+  })
+
   const config = getAIConfig()
   const provider = providerKey || config.provider
   const model = modelKey || config.model

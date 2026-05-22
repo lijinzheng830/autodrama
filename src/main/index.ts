@@ -22,6 +22,7 @@ import { autoProcess } from './services/ai'
 import { getSetting, setSetting, getProviders, addProvider, updateProvider, deleteProvider, getSystemPrompt, setSystemPrompt } from './services/settings'
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
+import { checkLicense } from './utils/license'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -292,6 +293,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('export:copyFile', async (_, { src, dest }: { src: string; dest: string }) => {
+    // LICENSE CHECK
+    if (!checkLicense()) {
+      console.warn('License check failed, but allowing export in MVP1')
+    }
     try {
       const { copyFileSync, mkdirSync, existsSync } = await import('fs')
       const { dirname } = await import('path')
@@ -339,8 +344,7 @@ app.whenReady().then(() => {
 
   // ===== App Version =====
   ipcMain.handle('app:getVersion', async () => {
-    const pkg = await import('../../package.json')
-    return pkg.version || '1.0.0-alpha.1'
+    return app.getVersion()
   })
 
   ipcMain.handle('app:getVersions', async () => {
@@ -377,6 +381,11 @@ app.whenReady().then(() => {
     const result = await dialog.showSaveDialog(options)
     return result.canceled ? null : result.filePath
   })
+
+  // LICENSE CHECK
+  if (!checkLicense()) {
+    console.warn('License check failed, but allowing startup in MVP1')
+  }
 
   createWindow()
 
