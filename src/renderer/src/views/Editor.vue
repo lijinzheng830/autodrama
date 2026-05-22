@@ -2079,7 +2079,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .model-badge {
@@ -2244,7 +2244,7 @@ onUnmounted(() => {
 .style-name {
   font-size: 13px;
   font-weight: 500;
-  color: #d1d5db;
+  color: #e5e7eb;
   text-align: center;
 }
 
@@ -2532,7 +2532,7 @@ onUnmounted(() => {
 .era-popover-item {
   padding: 8px 12px;
   font-size: 13px;
-  color: #d1d5db;
+  color: #e5e7eb;
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.15s;
@@ -2564,7 +2564,7 @@ onUnmounted(() => {
 }
 
 .dark-dropdown .el-dropdown-menu__item {
-  color: #d1d5db;
+  color: #e5e7eb;
 }
 
 .dark-dropdown .el-dropdown-menu__item:hover {
@@ -2687,7 +2687,7 @@ onUnmounted(() => {
 }
 
 .config-template-tab.disabled {
-  color: #4b5563;
+  color: #6b7280;
   cursor: not-allowed;
 }
 
@@ -2702,7 +2702,7 @@ onUnmounted(() => {
 .config-template-item {
   padding: 6px 10px;
   font-size: 12px;
-  color: #d1d5db;
+  color: #e5e7eb;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
@@ -2718,15 +2718,15 @@ onUnmounted(() => {
 }
 
 .config-template-empty {
-  font-size: 12px;
-  color: #4b5563;
+  font-size: 13px;
+  color: #6b7280;
   text-align: center;
   padding: 16px;
 }
 
 .config-template-preview :deep(.el-textarea__inner) {
   background: rgba(255, 255, 255, 0.03);
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .episodes-body {
@@ -2747,7 +2747,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .shot-table {
@@ -2768,7 +2768,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-start;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #9ca3af;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
@@ -2832,7 +2832,7 @@ onUnmounted(() => {
 /* 分镜行 */
 .shot-row {
   display: flex;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   transition: background 0.15s;
 }
 
@@ -2846,7 +2846,7 @@ onUnmounted(() => {
 
 .shot-row .td {
   padding: 10px;
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -2858,14 +2858,14 @@ onUnmounted(() => {
 }
 
 .shot-index {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #9ca3af;
   margin-left: 4px;
 }
 
 .cell-text {
-  font-size: 12px;
-  color: #d1d5db;
+  font-size: 13px;
+  color: #e5e7eb;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -2887,8 +2887,8 @@ onUnmounted(() => {
 .edit-cell :deep(.el-textarea__inner) {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(167, 139, 250, 0.3);
-  color: #d1d5db;
-  font-size: 12px;
+  color: #e5e7eb;
+  font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -2902,7 +2902,7 @@ onUnmounted(() => {
 }
 
 .tag {
-  font-size: 10px;
+  font-size: 11px;
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 500;
@@ -2936,7 +2936,7 @@ onUnmounted(() => {
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2955,7 +2955,7 @@ onUnmounted(() => {
 
 .thumb-placeholder {
   font-size: 9px;
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   padding: 2px;
   line-height: 1.2;
@@ -2967,8 +2967,8 @@ onUnmounted(() => {
 }
 
 .thumb-empty {
-  font-size: 12px;
-  color: #4b5563;
+  font-size: 13px;
+  color: #6b7280;
 }
 
 /* 媒体单元格 */
@@ -2976,7 +2976,7 @@ onUnmounted(() => {
   width: 70px;
   height: 50px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2990,8 +2990,8 @@ onUnmounted(() => {
 }
 
 .media-placeholder {
-  font-size: 11px;
-  color: #6b7280;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .media-preview img,
@@ -3054,7 +3054,7 @@ onUnmounted(() => {
 .panel-tab {
   padding: 4px 10px;
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
@@ -3088,7 +3088,7 @@ onUnmounted(() => {
 .panel-section-title {
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  color: #9ca3af;
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3106,7 +3106,7 @@ onUnmounted(() => {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -3129,8 +3129,8 @@ onUnmounted(() => {
 }
 
 .asset-placeholder {
-  font-size: 10px;
-  color: #6b7280;
+  font-size: 11px;
+  color: #9ca3af;
   text-align: center;
   padding: 4px;
   line-height: 1.3;
@@ -3156,8 +3156,8 @@ onUnmounted(() => {
 }
 
 .panel-empty {
-  font-size: 12px;
-  color: #4b5563;
+  font-size: 13px;
+  color: #6b7280;
   text-align: center;
   padding: 16px;
 }
@@ -3209,13 +3209,13 @@ onUnmounted(() => {
   width: 100%;
   height: 160px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .detail-upload {
@@ -3300,8 +3300,8 @@ onUnmounted(() => {
 }
 
 .history-empty {
-  font-size: 12px;
-  color: #4b5563;
+  font-size: 13px;
+  color: #6b7280;
   text-align: center;
   padding: 16px;
 }
@@ -3331,7 +3331,7 @@ onUnmounted(() => {
 }
 
 .parse-tab.disabled {
-  color: #4b5563;
+  color: #6b7280;
   cursor: not-allowed;
 }
 
@@ -3365,7 +3365,7 @@ onUnmounted(() => {
 
 .char-count {
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .char-count.warning {
@@ -3374,7 +3374,7 @@ onUnmounted(() => {
 
 .template-preview {
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
@@ -3444,7 +3444,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .canvas-placeholder p {
@@ -3457,7 +3457,7 @@ onUnmounted(() => {
   text-align: center;
   padding: 40px;
   font-size: 14px;
-  color: #4b5563;
+  color: #6b7280;
 }
 
 .gen-record-list {
@@ -3530,7 +3530,7 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .gen-record-error {
@@ -3619,7 +3619,7 @@ onUnmounted(() => {
 }
 
 .parse-dialog .el-textarea__inner::placeholder {
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .parse-dialog .el-textarea__inner:focus {
@@ -3649,7 +3649,7 @@ onUnmounted(() => {
 }
 
 .batch-stat-value.zero {
-  color: #4b5563;
+  color: #6b7280;
 }
 
 .batch-count-row {
@@ -3663,7 +3663,7 @@ onUnmounted(() => {
 
 .batch-count-label {
   font-size: 13px;
-  color: #d1d5db;
+  color: #e5e7eb;
 }
 
 .batch-count-control {
@@ -3694,7 +3694,7 @@ onUnmounted(() => {
 
 .batch-hint {
   font-size: 11px;
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   padding-top: 4px;
 }
