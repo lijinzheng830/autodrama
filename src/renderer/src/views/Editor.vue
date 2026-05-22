@@ -1140,6 +1140,7 @@ onUnmounted(() => {
                           v-model="editText"
                           type="textarea"
                           :rows="3"
+                          @blur="saveEdit(shot.id, 'description')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'description')"
                           @keydown.esc.prevent="cancelEdit"
                         />
@@ -1230,6 +1231,7 @@ onUnmounted(() => {
                           v-model="editText"
                           type="textarea"
                           :rows="3"
+                          @blur="saveEdit(shot.id, 'first_frame_prompt')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'first_frame_prompt')"
                           @keydown.esc.prevent="cancelEdit"
                         />
@@ -1267,6 +1269,7 @@ onUnmounted(() => {
                           v-model="editText"
                           type="textarea"
                           :rows="3"
+                          @blur="saveEdit(shot.id, 'last_frame_prompt')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'last_frame_prompt')"
                           @keydown.esc.prevent="cancelEdit"
                         />
