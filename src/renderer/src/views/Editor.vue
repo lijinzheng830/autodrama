@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -395,8 +395,16 @@ function startEdit(shotId: string, field: string, currentText: string) {
 }
 
 function cancelEdit() {
+  const shotId = editingCell.value?.shotId
   cleanupDocMouseDown()
   editingCell.value = null
+  // 退出编辑后滚动到刚才编辑的行
+  if (shotId) {
+    nextTick(() => {
+      const row = document.querySelector(`.shot-row[data-shot-id="${shotId}"]`)
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+  }
 }
 
 async function saveEdit(shotId: string, field: string) {
@@ -420,6 +428,11 @@ async function saveEdit(shotId: string, field: string) {
     console.error(err)
   } finally {
     editingCell.value = null
+    // 退出编辑后滚动到刚才编辑的行
+    nextTick(() => {
+      const row = document.querySelector(`.shot-row[data-shot-id="${shotId}"]`)
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
   }
 }
 
@@ -1143,6 +1156,7 @@ onUnmounted(() => {
                     v-for="(shot, idx) in group.shots"
                     :key="shot.id"
                     class="shot-row"
+                    :data-shot-id="shot.id"
                     :class="{ selected: selectedShots.has(shot.id) }"
                   >
                     <!-- 序号 -->
@@ -2639,8 +2653,12 @@ onUnmounted(() => {
 .edit-cell :deep(.el-textarea__inner) {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(167, 139, 250, 0.3);
-  color: #e5e7eb;
+  color: #d1d5db;
   font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0;
 }
 
 .tag-bar {
