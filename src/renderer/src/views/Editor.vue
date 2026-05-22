@@ -67,6 +67,36 @@ const viewMode = ref<'table' | 'canvas'>('table')
 const genRecordVisible = ref(false)
 const genRecords = ref<any[]>([])
 
+// 项目名称编辑
+const editingProjectName = ref(false)
+const projectNameEdit = ref('')
+
+// Popover 控制
+const stylePopoverVisible = ref(false)
+const eraPopoverVisible = ref(false)
+
+// 年代预设
+const eraPresets = ['古代', '近代', '现代', '近未来', '远未来', '末日废土', '架空世界']
+const customEra = ref('')
+
+// 模型配置弹窗
+const modelConfigVisible = ref(false)
+const modelConfigTab = ref(0)
+const modelConfigMode = ref('novice')
+const modelConfig = ref<Record<string, any>>({})
+const providerModels = ref<any[]>([])
+const modelConfigTemplates = ref<any[]>([])
+
+const modelConfigTabs = [
+  { key: 'language_model', label: '语言模型' },
+  { key: 'script_rewrite', label: '单分镜剧本改写' },
+  { key: 'character_image', label: '角色生图模型' },
+  { key: 'scene_image', label: '场景生图模型' },
+  { key: 'prop_image', label: '道具生图模型' },
+  { key: 'shot_image', label: '分镜图生图模型' },
+  { key: 'video', label: '视频生成模型' }
+]
+
 // 生图控制（详情面板）
 const genCount = ref(1)
 
@@ -643,27 +673,136 @@ function handleRedo() {
   ElMessage.info('重做功能后续版本开放')
 }
 
-function handleExport() {
-  if (!projectData.value) return
-  const exportData = {
-    projectName: project.value?.name,
-    chapters: projectData.value.chapters,
-    shots: projectData.value.shots,
-    characters: projectData.value.characters,
-    scenes: projectData.value.scenes,
-    props: projectData.value.props,
-    exportedAt: new Date().toISOString()
+function handleExportPlaceholder(type: string) {
+  ElMessage.info(`${type}导出功能将在M1-21实现`)
+}
+
+// ===== 工具栏左侧交互 =====
+
+async function startEditProjectName() {
+  if (!project.value) return
+  projectNameEdit.value = project.value.name
+  editingProjectName.value = true
+}
+
+async function saveProjectName() {
+  if (!project.value || !projectNameEdit.value.trim()) {
+    editingProjectName.value = false
+    return
   }
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${project.value?.name || 'project'}_export.json`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-  ElMessage.success('导出成功')
+  if (projectNameEdit.value.trim() === project.value.name) {
+    editingProjectName.value = false
+    return
+  }
+  try {
+    await window.api.updateProject(projectId, { name: projectNameEdit.value.trim() })
+    await loadProject()
+    ElMessage.success('项目名称已更新')
+  } catch (err) {
+    ElMessage.error('保存失败')
+    console.error(err)
+  }
+  editingProjectName.value = false
+}
+
+function handleStyleSelectFromToolbar(style: any) {
+  selectedStyle.value = style.name
+  saveStyleToProject()
+  stylePopoverVisible.value = false
+}
+
+function handleEraSelect(era: string) {
+  const newEra = project.value?.era === era ? '' : era
+  window.api.updateProject(projectId, { era: newEra }).then(() => {
+    loadProject()
+    ElMessage.success(newEra ? `年代已设置为：${newEra}` : '年代已清空')
+  }).catch((err: any) => {
+    ElMessage.error('保存失败')
+    console.error(err)
+  })
+  eraPopoverVisible.value = false
+}
+
+function handleCustomEraSubmit() {
+  if (!customEra.value.trim()) return
+  window.api.updateProject(projectId, { era: customEra.value.trim() }).then(() => {
+    loadProject()
+    eraPopoverVisible.value = false
+    customEra.value = ''
+  }).catch((err: any) => {
+    ElMessage.error('保存失败')
+    console.error(err)
+  })
+}
+
+async function openModelConfig() {
+  modelConfigVisible.value = true
+  // 加载模型列表
+  try {
+    const providers = await window.api.getProviders()
+    const models: any[] = []
+    for (const p of providers) {
+      for (const m of p.models || []) {
+        models.push({ label: `${p.name} / ${m.name}`, value: `${p.key}:${m.key}`, provider: p.key, modelKey: m.key })
+      }
+    }
+    providerModels.value = models
+  } catch (err) {
+    console.error('加载模型失败', err)
+  }
+  // 加载当前配置
+  try {
+    const proj = await window.api.getProject(projectId)
+    if (proj?.model_config_json) {
+      modelConfig.value = JSON.parse(proj.model_config_json)
+    } else {
+      modelConfig.value = {}
+    }
+  } catch (err) {
+    modelConfig.value = {}
+  }
+  // 加载模板
+  loadModelConfigTemplates()
+}
+
+async function loadModelConfigTemplates() {
+  try {
+    const tabKey = modelConfigTabs[modelConfigTab.value].key
+    const usageMap: Record<string, string> = {
+      language_model: 'script_parse',
+      script_rewrite: 'script_parse',
+      character_image: 'character_image',
+      scene_image: 'scene_image',
+      prop_image: 'prop_image',
+      shot_image: 'shot_image',
+      video: 'video'
+    }
+    const list = await window.api.getPromptTemplates(projectId, usageMap[tabKey] || undefined) as any[]
+    modelConfigTemplates.value = list
+  } catch (err) {
+    console.error('加载模板失败', err)
+    modelConfigTemplates.value = []
+  }
+}
+
+function handleModelConfigSave() {
+  try {
+    window.api.updateProject(projectId, { modelConfigJson: JSON.stringify(modelConfig.value) })
+    ElMessage.success('模型配置已保存')
+    modelConfigVisible.value = false
+  } catch (err) {
+    ElMessage.error('保存失败')
+    console.error(err)
+  }
+}
+
+function getModelConfigField(key: string, field: string, defaultValue: any = '') {
+  return modelConfig.value[key]?.[field] ?? defaultValue
+}
+
+function setModelConfigField(key: string, field: string, value: any) {
+  if (!modelConfig.value[key]) modelConfig.value[key] = {}
+  modelConfig.value[key][field] = value
 }
 
 const scriptCharCount = computed(() => parseScriptText.value.length)
@@ -764,12 +903,101 @@ onUnmounted(() => {
         <div v-else-if="activeNav === 'episodes'" class="episodes-layout">
           <!-- 顶部工具栏 -->
           <div class="episodes-toolbar">
-            <div class="toolbar-group">
+            <!-- 左侧区域 -->
+            <div class="toolbar-left">
+              <!-- 项目名称 -->
+              <div class="toolbar-project-name">
+                <template v-if="editingProjectName">
+                  <el-input
+                    v-model="projectNameEdit"
+                    size="small"
+                    class="project-name-input"
+                    @blur="saveProjectName"
+                    @keydown.enter.prevent="saveProjectName"
+                  />
+                </template>
+                <template v-else>
+                  <span class="project-name-text" @dblclick="startEditProjectName">{{ project?.name || '加载中...' }}</span>
+                </template>
+              </div>
+
+              <!-- 风格标签 -->
+              <el-popover
+                v-model:visible="stylePopoverVisible"
+                placement="bottom"
+                :width="480"
+                trigger="click"
+                popper-class="dark-popover style-popover"
+              >
+                <template #reference>
+                  <div
+                    class="toolbar-tag style-tag"
+                    :style="{ background: stylePresets.find(s => s.name === project?.style_name)?.color ? (stylePresets.find(s => s.name === project?.style_name)?.color + '33') : 'rgba(255,255,255,0.08)', color: '#fff' }"
+                  >
+                    {{ project?.style_name || '选择风格' }}
+                  </div>
+                </template>
+                <div class="style-popover-body">
+                  <div class="style-popover-grid">
+                    <div
+                      v-for="s in stylePresets"
+                      :key="s.name"
+                      class="style-popover-card"
+                      :class="{ active: project?.style_name === s.name }"
+                      @click="handleStyleSelectFromToolbar(s)"
+                    >
+                      <div class="style-popover-preview" :style="{ background: s.color }" />
+                      <span class="style-popover-name">{{ s.name }}</span>
+                    </div>
+                  </div>
+                  <div class="style-popover-footer">
+                    <el-button text size="small" :icon="Plus" @click="ElMessage.info('自定义风格后续版本开放')">+ 自定义风格</el-button>
+                  </div>
+                </div>
+              </el-popover>
+
+              <!-- 年代标签 -->
+              <el-popover
+                v-model:visible="eraPopoverVisible"
+                placement="bottom"
+                :width="200"
+                trigger="click"
+                popper-class="dark-popover era-popover"
+              >
+                <template #reference>
+                  <div class="toolbar-tag era-tag">
+                    {{ project?.era || '设置年代' }}
+                  </div>
+                </template>
+                <div class="era-popover-body">
+                  <div
+                    v-for="era in eraPresets"
+                    :key="era"
+                    class="era-popover-item"
+                    :class="{ active: project?.era === era }"
+                    @click="handleEraSelect(era)"
+                  >
+                    {{ era }}
+                  </div>
+                  <div class="era-popover-custom">
+                    <el-input v-model="customEra" size="small" placeholder="自定义年代" @keydown.enter.prevent="handleCustomEraSubmit" />
+                    <el-button text size="small" @click="handleCustomEraSubmit">确定</el-button>
+                  </div>
+                </div>
+              </el-popover>
+
+              <!-- 模型配置按钮 -->
+              <el-button text size="small" :icon="Tools" title="模型配置" class="toolbar-icon-btn" @click="openModelConfig" />
+            </div>
+
+            <!-- 中间区域 -->
+            <div class="toolbar-center">
               <el-button
                 text
                 size="small"
                 :icon="Document"
                 :class="{ active: viewMode === 'table' }"
+                class="view-mode-btn"
                 @click="viewMode = 'table'"
               >
                 编辑器
@@ -779,34 +1007,31 @@ onUnmounted(() => {
                 size="small"
                 :icon="Grid"
                 :class="{ active: viewMode === 'canvas' }"
+                class="view-mode-btn"
+                disabled
                 @click="viewMode = 'canvas'"
               >
                 画布
               </el-button>
             </div>
-            <div class="toolbar-divider" />
-            <div class="toolbar-group">
-              <el-button text size="small" :icon="RefreshLeft" @click="handleUndo">
-                撤销
-              </el-button>
-              <el-button text size="small" :icon="RefreshRight" @click="handleRedo">
-                重做
-              </el-button>
-            </div>
-            <div class="toolbar-divider" />
-            <div class="toolbar-group">
-              <el-button text size="small" :icon="Clock" @click="openGenRecord">
-                生成记录
-              </el-button>
-            </div>
-            <div class="toolbar-spacer" />
-            <div class="toolbar-group">
-              <el-button text size="small" :icon="Download" @click="handleExport">
-                导出
-              </el-button>
-              <el-button text size="small" :icon="Setting" @click="goSettings">
-                设置
-              </el-button>
+
+            <!-- 右侧区域 -->
+            <div class="toolbar-right">
+              <el-button text size="small" :icon="DocumentAdd" title="生成记录" class="toolbar-icon-btn" @click="ElMessage.info('生成记录将在M1-20实现')" />
+              <el-button text size="small" :icon="RefreshLeft" title="撤销" class="toolbar-icon-btn" disabled @click="handleUndo" />
+              <el-button text size="small" :icon="RefreshRight" title="重做" class="toolbar-icon-btn" disabled @click="handleRedo" />
+              <el-dropdown trigger="click" popper-class="dark-dropdown">
+                <el-button text size="small" :icon="Upload" title="导出" class="toolbar-icon-btn" />
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="handleExportPlaceholder('视频')">视频导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExportPlaceholder('场景')">场景导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExportPlaceholder('角色')">角色导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExportPlaceholder('道具')">道具导出</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-button text size="small" :icon="Setting" title="设置" class="toolbar-icon-btn" @click="goSettings" />
             </div>
           </div>
 
@@ -1329,6 +1554,107 @@ onUnmounted(() => {
       </div>
     </el-dialog>
 
+    <!-- 模型配置弹窗 -->
+    <el-dialog
+      v-model="modelConfigVisible"
+      title="模型配置"
+      width="680px"
+      class="dark-dialog model-config-dialog"
+    >
+      <div class="model-config-body">
+        <!-- 顶部工具行 -->
+        <div class="model-config-header">
+          <el-button text size="small" @click="ElMessage.info('导入配置后续版本开放')">导入配置</el-button>
+          <el-button text size="small" @click="ElMessage.info('导出配置后续版本开放')">导出配置</el-button>
+          <div class="model-config-mode">
+            <span class="mode-label">{{ modelConfigMode === 'pro' ? '专业模式' : '新手模式' }}</span>
+            <el-switch v-model="modelConfigMode" active-value="pro" inactive-value="novice" />
+          </div>
+        </div>
+
+        <!-- 左侧Tab + 右侧内容 -->
+        <div class="model-config-layout">
+          <div class="model-config-tabs">
+            <div
+              v-for="(tab, idx) in modelConfigTabs"
+              :key="tab.key"
+              class="model-config-tab"
+              :class="{ active: modelConfigTab === idx }"
+              @click="modelConfigTab = idx; loadModelConfigTemplates()"
+            >
+              {{ tab.label }}
+            </div>
+          </div>
+          <div class="model-config-content">
+            <div class="config-section">
+              <div class="config-row">
+                <label>当前模型</label>
+                <el-select
+                  :model-value="getModelConfigField(modelConfigTabs[modelConfigTab].key, 'model')"
+                  size="small"
+                  style="width: 240px"
+                  @change="(val: string) => setModelConfigField(modelConfigTabs[modelConfigTab].key, 'model', val)"
+                >
+                  <el-option
+                    v-for="m in providerModels"
+                    :key="m.value"
+                    :label="m.label"
+                    :value="m.value"
+                  />
+                </el-select>
+              </div>
+              <div class="config-row">
+                <label>渠道</label>
+                <el-select size="small" style="width: 240px" disabled placeholder="MVP1占位">
+                  <el-option label="默认渠道" value="default" />
+                </el-select>
+              </div>
+              <div class="config-row">
+                <label>分辨率</label>
+                <el-input size="small" style="width: 240px" disabled placeholder="MVP1占位" />
+              </div>
+              <div class="config-row">
+                <label>功能开关</label>
+                <el-switch disabled />
+              </div>
+            </div>
+
+            <!-- 模板区 -->
+            <div class="config-template-section">
+              <div class="config-template-tabs">
+                <div class="config-template-tab active">指令模板</div>
+                <div class="config-template-tab disabled">我的指令</div>
+              </div>
+              <div class="config-template-list">
+                <div
+                  v-for="t in modelConfigTemplates"
+                  :key="t.id"
+                  class="config-template-item"
+                  :class="{ active: getModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId') === t.id }"
+                  @click="setModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId', t.id)"
+                >
+                  {{ t.name }}
+                </div>
+                <div v-if="!modelConfigTemplates.length" class="config-template-empty">暂无模板</div>
+              </div>
+              <div class="config-template-preview">
+                <el-input
+                  type="textarea"
+                  :rows="6"
+                  disabled
+                  :model-value="modelConfigTemplates.find((t: any) => t.id === getModelConfigField(modelConfigTabs[modelConfigTab].key, 'templateId'))?.content || '请选择模板'"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="modelConfigVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleModelConfigSave">保存</el-button>
+      </template>
+    </el-dialog>
+
     <!-- AI解析弹窗 -->
     <el-dialog
       v-model="parseDialogVisible"
@@ -1725,48 +2051,379 @@ onUnmounted(() => {
 }
 
 .episodes-toolbar {
-  height: 40px;
+  height: 48px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  justify-content: space-between;
+  padding: 0 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(255, 255, 255, 0.02);
   flex-shrink: 0;
-  gap: 4px;
 }
 
-.toolbar-group {
+.toolbar-left {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
+  flex: 1;
 }
 
-.toolbar-group .el-button {
-  color: #9ca3af;
+.toolbar-project-name {
+  display: flex;
+  align-items: center;
+}
+
+.project-name-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.project-name-text:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.project-name-input :deep(.el-input__wrapper) {
+  padding: 0 6px;
+}
+
+.project-name-input :deep(.el-input__inner) {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.toolbar-tag {
+  padding: 2px 10px;
   font-size: 12px;
-  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
 }
 
-.toolbar-group .el-button:hover {
+.style-tag {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.era-tag {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.toolbar-icon-btn {
+  color: #9ca3af;
+  font-size: 16px;
+  padding: 4px 6px;
+}
+
+.toolbar-icon-btn:hover {
   color: #e5e7eb;
   background: rgba(255, 255, 255, 0.04);
 }
 
-.toolbar-group .el-button.active {
+.toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.view-mode-btn {
+  color: #9ca3af;
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+.view-mode-btn:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.view-mode-btn.active {
   color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.12);
+  background: rgba(167, 139, 250, 0.15);
   font-weight: 500;
 }
 
-.toolbar-divider {
-  width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 0 4px;
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: flex-end;
 }
 
-.toolbar-spacer {
+/* Popover 暗色主题 */
+.dark-popover {
+  background: #1a1a20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark-popover .el-popover__title {
+  color: #f3f4f6;
+}
+
+/* 风格选择 Popover */
+.style-popover-body {
+  padding: 8px;
+}
+
+.style-popover-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.style-popover-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.style-popover-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.style-popover-card.active {
+  border-color: rgba(167, 139, 250, 0.6);
+}
+
+.style-popover-preview {
+  width: 80px;
+  height: 60px;
+  border-radius: 6px;
+  opacity: 0.8;
+}
+
+.style-popover-name {
+  font-size: 12px;
+  color: #e5e7eb;
+  text-align: center;
+}
+
+.style-popover-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 年代选择 Popover */
+.era-popover-body {
+  padding: 4px;
+}
+
+.era-popover-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #d1d5db;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.era-popover-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5e7eb;
+}
+
+.era-popover-item.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+  font-weight: 500;
+}
+
+.era-popover-custom {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0 0;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Dropdown 暗色主题 */
+.dark-dropdown .el-dropdown-menu {
+  background: #1a1a20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark-dropdown .el-dropdown-menu__item {
+  color: #d1d5db;
+}
+
+.dark-dropdown .el-dropdown-menu__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+}
+
+/* 模型配置弹窗 */
+.model-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.model-config-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.model-config-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.mode-label {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.model-config-layout {
+  display: flex;
+  gap: 16px;
+  min-height: 360px;
+}
+
+.model-config-tabs {
+  width: 140px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-config-tab {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.model-config-tab:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5e7eb;
+}
+
+.model-config-tab.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+  font-weight: 500;
+}
+
+.model-config-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.config-row label {
+  width: 70px;
+  font-size: 12px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.config-template-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+}
+
+.config-template-tabs {
+  display: flex;
+  gap: 12px;
+}
+
+.config-template-tab {
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+}
+
+.config-template-tab.active {
+  color: #c4b5fd;
+  border-bottom-color: #a78bfa;
+  font-weight: 500;
+}
+
+.config-template-tab.disabled {
+  color: #4b5563;
+  cursor: not-allowed;
+}
+
+.config-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.config-template-item {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #d1d5db;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.config-template-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.config-template-item.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+}
+
+.config-template-empty {
+  font-size: 12px;
+  color: #4b5563;
+  text-align: center;
+  padding: 16px;
+}
+
+.config-template-preview :deep(.el-textarea__inner) {
+  background: rgba(255, 255, 255, 0.03);
+  color: #6b7280;
 }
 
 .episodes-body {
