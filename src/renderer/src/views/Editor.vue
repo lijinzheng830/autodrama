@@ -100,6 +100,22 @@ const modelConfigTabs = [
 // 生图控制（详情面板）
 const genCount = ref(1)
 
+// 批量操作弹窗
+const batchDialogVisible = ref(false)
+const batchType = ref('')
+const batchCount = ref(1)
+const batchMissingCount = ref(0)
+const batchTotalAssets = ref(0)
+
+const batchTypeLabels: Record<string, string> = {
+  '人物': '批量生成角色定妆照',
+  '场景': '批量生成场景定妆照',
+  '道具': '批量生成道具定妆照',
+  '首帧': '批量生成首帧图',
+  '尾帧': '批量生成尾帧图',
+  '视频': '批量生成视频'
+}
+
 // AI解析弹窗（保留）
 const parseDialogVisible = ref(false)
 const parseMode = ref<'full' | 'append'>('full')
@@ -525,7 +541,180 @@ async function handleDeleteShot(shotId: string) {
 }
 
 function handleBatchGenerate(type: string) {
-  ElMessage.info(`${type}批量生成功能后续版本开放`)
+  if (selectedShots.value.size === 0) {
+    ElMessage.warning('请先勾选分镜')
+    return
+  }
+  openBatchDialog(type)
+}
+
+// ===== 批量操作弹窗 =====
+
+function openBatchDialog(type: string) {
+  batchType.value = type
+  batchCount.value = 1
+  const { total, missing } = scanBatchTasks(type)
+  batchTotalAssets.value = total
+  batchMissingCount.value = missing
+  batchDialogVisible.value = true
+}
+
+function scanBatchTasks(type: string): { total: number; missing: number } {
+  const selectedShotIds = Array.from(selectedShots.value)
+  const shots = projectData.value?.shots || []
+  let total = 0
+  let missing = 0
+
+  for (const shot of shots) {
+    if (!selectedShotIds.includes(shot.id)) continue
+    switch (type) {
+      case '人物':
+        total += shot.characters?.length || 0
+        missing += shot.characters?.filter((c: any) => !c.reference_image).length || 0
+        break
+      case '场景':
+        total += shot.scenes?.length || 0
+        missing += shot.scenes?.filter((s: any) => !s.reference_image).length || 0
+        break
+      case '道具':
+        total += shot.props?.length || 0
+        missing += shot.props?.filter((p: any) => !p.reference_image).length || 0
+        break
+      case '首帧':
+        total += 1
+        missing += shot.first_frame_image_path ? 0 : 1
+        break
+      case '尾帧':
+        total += 1
+        missing += shot.last_frame_image_path ? 0 : 1
+        break
+      case '视频':
+        total += 1
+        missing += shot.video_path ? 0 : 1
+        break
+    }
+  }
+
+  return { total, missing }
+}
+
+async function handleBatchSubmit(mode: 'all' | 'missing') {
+  const selectedShotIds = Array.from(selectedShots.value)
+  const shots = projectData.value?.shots || []
+  const type = batchType.value
+  let createdCount = 0
+
+  // 从模型配置读取默认模型（MVP1简化）
+  let defaultModel = null
+  try {
+    const proj = await window.api.getProject(projectId)
+    const config = proj?.model_config_json ? JSON.parse(proj.model_config_json) : {}
+    const purposeMap: Record<string, string> = {
+      '人物': 'character_image',
+      '场景': 'scene_image',
+      '道具': 'prop_image',
+      '首帧': 'shot_image',
+      '尾帧': 'shot_image',
+      '视频': 'video'
+    }
+    defaultModel = config[purposeMap[type]]?.model || null
+  } catch {
+    // ignore
+  }
+
+  for (const shot of shots) {
+    if (!selectedShotIds.includes(shot.id)) continue
+
+    switch (type) {
+      case '人物': {
+        for (const char of (shot.characters || [])) {
+          if (mode === 'missing' && char.reference_image) continue
+          await window.api.createGenerationTask({
+            projectId,
+            shotId: shot.id,
+            type: 'image',
+            purpose: 'character_reference',
+            model: defaultModel,
+            inputParams: JSON.stringify({ characterId: char.id, count: batchCount.value })
+          })
+          createdCount++
+        }
+        break
+      }
+      case '场景': {
+        for (const scene of (shot.scenes || [])) {
+          if (mode === 'missing' && scene.reference_image) continue
+          await window.api.createGenerationTask({
+            projectId,
+            shotId: shot.id,
+            type: 'image',
+            purpose: 'scene_reference',
+            model: defaultModel,
+            inputParams: JSON.stringify({ sceneId: scene.id, count: batchCount.value })
+          })
+          createdCount++
+        }
+        break
+      }
+      case '道具': {
+        for (const prop of (shot.props || [])) {
+          if (mode === 'missing' && prop.reference_image) continue
+          await window.api.createGenerationTask({
+            projectId,
+            shotId: shot.id,
+            type: 'image',
+            purpose: 'prop_reference',
+            model: defaultModel,
+            inputParams: JSON.stringify({ propId: prop.id, count: batchCount.value })
+          })
+          createdCount++
+        }
+        break
+      }
+      case '首帧': {
+        if (mode === 'missing' && shot.first_frame_image_path) continue
+        await window.api.createGenerationTask({
+          projectId,
+          shotId: shot.id,
+          type: 'image',
+          purpose: 'first_frame',
+          model: defaultModel,
+          inputParams: JSON.stringify({ count: batchCount.value })
+        })
+        createdCount++
+        break
+      }
+      case '尾帧': {
+        if (mode === 'missing' && shot.last_frame_image_path) continue
+        await window.api.createGenerationTask({
+          projectId,
+          shotId: shot.id,
+          type: 'image',
+          purpose: 'last_frame',
+          model: defaultModel,
+          inputParams: JSON.stringify({ count: batchCount.value })
+        })
+        createdCount++
+        break
+      }
+      case '视频': {
+        if (mode === 'missing' && shot.video_path) continue
+        await window.api.createGenerationTask({
+          projectId,
+          shotId: shot.id,
+          type: 'video',
+          purpose: 'video',
+          model: defaultModel,
+          inputParams: JSON.stringify({ count: batchCount.value })
+        })
+        createdCount++
+        break
+      }
+    }
+  }
+
+  ElMessage.success(`已创建 ${createdCount} 个生成任务，图片生成将在后续版本开放`)
+  batchDialogVisible.value = false
 }
 
 // ===== 右侧面板 =====
@@ -1792,6 +1981,51 @@ onUnmounted(() => {
         <el-button :disabled="parseGenerating" @click="handleSkipParse">暂时跳过</el-button>
         <el-button type="primary" :loading="parseGenerating" :disabled="parseGenerating" @click="handleParseSubmit">一键生成分镜</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 批量操作弹窗 -->
+    <el-dialog
+      v-model="batchDialogVisible"
+      :title="batchTypeLabels[batchType] || '批量生成'"
+      width="480px"
+      class="dark-dialog batch-dialog"
+    >
+      <div class="batch-body">
+        <div class="batch-stat">
+          <span class="batch-stat-label">已选中</span>
+          <span class="batch-stat-value">{{ selectedShots.size }}</span>
+          <span class="batch-stat-label">个分镜</span>
+        </div>
+        <div class="batch-stat">
+          <span class="batch-stat-label">其中</span>
+          <span class="batch-stat-value" :class="{ zero: batchMissingCount === 0 }">{{ batchMissingCount }}</span>
+          <span class="batch-stat-label">个缺失</span>
+        </div>
+
+        <div class="batch-count-row">
+          <span class="batch-count-label">生成次数</span>
+          <div class="batch-count-control">
+            <el-button text size="small" :icon="Minus" @click="batchCount = Math.max(1, batchCount - 1)" />
+            <span class="batch-count-num">{{ batchCount }}</span>
+            <el-button text size="small" :icon="Plus" @click="batchCount = Math.min(10, batchCount + 1)" />
+          </div>
+        </div>
+
+        <div class="batch-actions">
+          <el-button type="primary" @click="handleBatchSubmit('all')">全部生成</el-button>
+          <el-button
+            :disabled="batchMissingCount === 0"
+            :class="{ 'batch-missing-disabled': batchMissingCount === 0 }"
+            @click="handleBatchSubmit('missing')"
+          >
+            缺失生成
+          </el-button>
+        </div>
+
+        <div class="batch-hint">
+          批量执行任务前，请先调试效果至符合预期后再执行
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -3390,5 +3624,78 @@ onUnmounted(() => {
 
 .parse-dialog .el-textarea__inner:focus {
   border-color: rgba(167, 139, 250, 0.4);
+}
+
+/* 批量操作弹窗 */
+.batch-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.batch-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.batch-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.batch-stat-value.zero {
+  color: #4b5563;
+}
+
+.batch-count-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.batch-count-label {
+  font-size: 13px;
+  color: #d1d5db;
+}
+
+.batch-count-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batch-count-num {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e5e7eb;
+  min-width: 24px;
+  text-align: center;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.batch-missing-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.batch-hint {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  padding-top: 4px;
 }
 </style>
