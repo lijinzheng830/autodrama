@@ -351,6 +351,7 @@ export interface GenerationTask {
   output_path?: string
   error_message?: string
   created_at?: string
+  started_at?: string
   updated_at?: string
 }
 
@@ -463,20 +464,37 @@ export function createGenerationTask(input: {
   return { id }
 }
 
-export function getGenerationTasks(projectId: string): GenerationTask[] {
+export function getGenerationTasks(
+  projectId: string,
+  filters?: { status?: string; purpose?: string; since?: number }
+): GenerationTask[] {
   const db = getDb()
-  return db
-    .prepare(
-      `
+
+  let sql = `
     SELECT
       id, project_id, shot_id, type, purpose, channel, model, status,
-      input_params, output_path, error_message, created_at, updated_at
+      input_params, output_path, error_message, created_at, started_at, updated_at
     FROM generation_tasks
     WHERE project_id = ?
-    ORDER BY created_at DESC
   `
-    )
-    .all(projectId) as GenerationTask[]
+  const params: unknown[] = [projectId]
+
+  if (filters?.status) {
+    sql += ' AND status = ?'
+    params.push(filters.status)
+  }
+  if (filters?.purpose) {
+    sql += ' AND purpose = ?'
+    params.push(filters.purpose)
+  }
+  if (filters?.since) {
+    sql += ' AND created_at >= ?'
+    params.push(filters.since)
+  }
+
+  sql += ' ORDER BY created_at DESC'
+
+  return db.prepare(sql).all(...params) as GenerationTask[]
 }
 
 export function copyImageToProject(srcPath: string, projectPath: string): string {
@@ -639,6 +657,26 @@ export function getProjectData(projectId: string): Record<string, unknown> {
   }))
 
   return { chapters, characters, scenes, props, shots: shotsWithAssoc }
+}
+
+export function getProjectStats(projectId: string): { scenes: number; props: number; chapters: number; shots: number } {
+  const db = getDb()
+
+  const scenesRow = db.prepare('SELECT COUNT(*) as count FROM scenes WHERE project_id = ?').get(projectId) as { count: number }
+  const propsRow = db.prepare('SELECT COUNT(*) as count FROM props WHERE project_id = ?').get(projectId) as { count: number }
+  const chaptersRow = db.prepare('SELECT COUNT(*) as count FROM chapters WHERE project_id = ?').get(projectId) as { count: number }
+  const shotsRow = db
+    .prepare(
+      'SELECT COUNT(*) as count FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)'
+    )
+    .get(projectId) as { count: number }
+
+  return {
+    scenes: scenesRow.count,
+    props: propsRow.count,
+    chapters: chaptersRow.count,
+    shots: shotsRow.count
+  }
 }
 
 export function moveShotUp(shotId: string): void {

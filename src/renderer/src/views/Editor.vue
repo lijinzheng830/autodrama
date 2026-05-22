@@ -57,6 +57,9 @@ const selectedAspectRatio = ref('16:9')
 const projectData = ref<any>(null)
 const episodesLoading = ref(false)
 
+// 项目统计
+const projectStats = ref({ scenes: 0, props: 0, chapters: 0, shots: 0 })
+
 // 全选
 const selectedShots = ref<Set<string>>(new Set())
 const allShotIds = computed(() => {
@@ -319,6 +322,8 @@ async function loadProject(): Promise<void> {
       selectedAspectRatio.value = data.aspect_ratio || '16:9'
       if (data.script_text) store.scriptText = data.script_text
     }
+    const stats = await window.api.getProjectStats(projectId)
+    projectStats.value = stats as { scenes: number; props: number; chapters: number; shots: number }
   } catch (err) {
     ElMessage.error('加载项目失败')
     console.error(err)
@@ -1522,9 +1527,6 @@ onUnmounted(() => {
           <div class="section-block">
             <div class="section-header">
               <span class="section-title">画面风格</span>
-              <el-button text size="small" :icon="Plus" @click="handleCustomStyle"
-                >自定义风格</el-button
-              >
             </div>
             <div class="style-grid">
               <div
@@ -1536,6 +1538,13 @@ onUnmounted(() => {
               >
                 <div class="style-preview" :style="{ background: s.color }" />
                 <span class="style-name">{{ s.name }}</span>
+              </div>
+              <div class="style-card custom-style-card" @click="handleCustomStyle">
+                <div class="style-preview custom-preview">
+                  <el-icon :size="20"><Plus /></el-icon>
+                </div>
+                <span class="style-name">自定义</span>
+                <span class="custom-tag">自定义</span>
               </div>
             </div>
           </div>
@@ -1556,18 +1565,40 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div class="action-bar">
-            <el-button
-              type="primary"
-              size="large"
-              :icon="VideoPlay"
-              @click="openParseDialog('full')"
-            >
-              AI解析剧本
-            </el-button>
-            <el-button size="large" :icon="DocumentAdd" @click="openParseDialog('append')">
-              追加解析
-            </el-button>
+          <div class="section-block">
+            <span class="section-title">项目统计</span>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <span class="stat-value">{{ projectStats.scenes }}</span>
+                <span class="stat-label">场景</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ projectStats.props }}</span>
+                <span class="stat-label">道具</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ projectStats.chapters }}</span>
+                <span class="stat-label">剧集</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value">{{ projectStats.shots }}</span>
+                <span class="stat-label">分镜</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-block">
+            <span class="section-title">剧本解析</span>
+            <div class="action-grid">
+              <div class="action-card" @click="openParseDialog('full')">
+                <el-icon :size="28" class="action-icon"><VideoPlay /></el-icon>
+                <span class="action-name">AI解析剧本</span>
+              </div>
+              <div class="action-card" @click="openParseDialog('append')">
+                <el-icon :size="28" class="action-icon"><DocumentAdd /></el-icon>
+                <span class="action-name">追加解析</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3084,6 +3115,7 @@ onUnmounted(() => {
   padding: 24px 32px;
   overflow-y: auto;
   max-width: 960px;
+  margin: 0 auto;
 }
 
 .panel-title {
@@ -3263,10 +3295,94 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.action-bar {
+.custom-style-card {
+  position: relative;
+}
+
+.custom-preview {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: #9ca3af;
+}
+
+.custom-tag {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  font-size: 10px;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-bottom: 20px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.15s ease;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #c4b5fd;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(167, 139, 250, 0.2);
+}
+
+.action-icon {
+  color: #a78bfa;
+}
+
+.action-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e5e7eb;
 }
 
 /* 剧集结构页 */

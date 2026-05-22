@@ -131,13 +131,14 @@ export interface Api {
   // Shot & project data
   getShotsWithAssociations: (chapterId: string) => Promise<unknown[]>
   getProjectData: (projectId: string) => Promise<unknown>
+  getProjectStats: (projectId: string) => Promise<{ scenes: number; props: number; chapters: number; shots: number }>
   moveShotUp: (shotId: string) => Promise<void>
   moveShotDown: (shotId: string) => Promise<void>
   deleteShot: (shotId: string) => Promise<void>
   updateShot: (shotId: string, input: ShotInput) => Promise<void>
   addShotAssociation: (shotId: string, type: string, assetId: string) => Promise<void>
   createGenerationTask: (input: GenerationTaskInput) => Promise<unknown>
-  getGenerationTasks: (projectId: string) => Promise<unknown[]>
+  getGenerationTasks: (projectId: string, filters?: { status?: string; purpose?: string; since?: number }) => Promise<unknown[]>
   selectImage: (projectPath: string) => Promise<string | null>
   selectExportDirectory: (defaultPath?: string) => Promise<string | null>
   copyExportFile: (src: string, dest: string) => Promise<boolean>

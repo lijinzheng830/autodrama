@@ -18,6 +18,7 @@ import {
   getShotScenesByProject,
   getShotsWithAssociations,
   getProjectData,
+  getProjectStats,
   moveShotUp,
   moveShotDown,
   deleteShot,
@@ -259,6 +260,10 @@ app.whenReady().then(() => {
     return getProjectData(projectId)
   })
 
+  ipcMain.handle('project:stats', async (_, projectId: string) => {
+    return getProjectStats(projectId)
+  })
+
   ipcMain.handle('shot:moveUp', async (_, shotId: string) => {
     moveShotUp(shotId)
   })
@@ -292,8 +297,8 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('generationTask:list', async (_, projectId: string) => {
-    return getGenerationTasks(projectId)
+  ipcMain.handle('generationTask:list', async (_, projectId: string, filters?: { status?: string; purpose?: string; since?: number }) => {
+    return getGenerationTasks(projectId, filters)
   })
 
   ipcMain.handle('dialog:selectImage', async (_, projectPath: string) => {

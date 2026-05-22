@@ -82,6 +82,7 @@ const api = {
   getShotsWithAssociations: (chapterId: string) =>
     ipcRenderer.invoke('project:shotsWithAssociations', chapterId),
   getProjectData: (projectId: string) => ipcRenderer.invoke('project:data', projectId),
+  getProjectStats: (projectId: string) => ipcRenderer.invoke('project:stats', projectId),
   moveShotUp: (shotId: string) => ipcRenderer.invoke('shot:moveUp', shotId),
   moveShotDown: (shotId: string) => ipcRenderer.invoke('shot:moveDown', shotId),
   deleteShot: (shotId: string) => ipcRenderer.invoke('shot:delete', shotId),
@@ -91,7 +92,8 @@ const api = {
     ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
   createGenerationTask: (input: GenerationTaskInput) =>
     ipcRenderer.invoke('generationTask:create', input),
-  getGenerationTasks: (projectId: string) => ipcRenderer.invoke('generationTask:list', projectId),
+  getGenerationTasks: (projectId: string, filters?: { status?: string; purpose?: string; since?: number }) =>
+    ipcRenderer.invoke('generationTask:list', projectId, filters),
   selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath),
   selectExportDirectory: (defaultPath?: string) =>
     ipcRenderer.invoke('export:selectDirectory', defaultPath),
