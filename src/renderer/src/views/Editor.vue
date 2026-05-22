@@ -103,6 +103,7 @@ const genCount = ref(1)
 // 批量操作弹窗
 const batchDialogVisible = ref(false)
 const batchType = ref('')
+const batchMode = ref<'asset' | 'shot'>('shot')
 const batchCount = ref(1)
 const batchMissingCount = ref(0)
 const batchTotalAssets = ref(0)
@@ -113,7 +114,8 @@ const batchTypeLabels: Record<string, string> = {
   '道具': '批量生成道具定妆照',
   '首帧': '批量生成首帧图',
   '尾帧': '批量生成尾帧图',
-  '视频': '批量生成视频'
+  '视频': '批量生成视频',
+  '批量': '批量生成'
 }
 
 // AI解析弹窗（保留）
@@ -541,25 +543,51 @@ async function handleDeleteShot(shotId: string) {
 }
 
 function handleBatchGenerate(type: string) {
-  if (selectedShots.value.size === 0) {
-    ElMessage.warning('请先勾选分镜')
-    return
+  if (['人物', '场景', '道具', '批量'].includes(type)) {
+    // 资产模式：不依赖分镜勾选，对当前项目的全部资产操作
+    let assetType: string
+    if (type === '批量') {
+      assetType = residentTab.value === 'characters' ? '人物' : residentTab.value === 'scenes' ? '场景' : '道具'
+    } else {
+      assetType = type
+      // 列头点击时切换到右侧面板对应 Tab
+      if (type === '人物') residentTab.value = 'characters'
+      if (type === '场景') residentTab.value = 'scenes'
+      if (type === '道具') residentTab.value = 'props'
+      panelMode.value = 'resident'
+    }
+    openBatchDialog(assetType, 'asset')
+  } else {
+    // 分镜模式：首帧/尾帧/视频，依赖分镜勾选
+    if (selectedShots.value.size === 0) {
+      ElMessage.warning('请先勾选分镜')
+      return
+    }
+    openBatchDialog(type, 'shot')
   }
-  openBatchDialog(type)
 }
 
 // ===== 批量操作弹窗 =====
 
-function openBatchDialog(type: string) {
+function openBatchDialog(type: string, mode: 'asset' | 'shot' = 'shot') {
   batchType.value = type
+  batchMode.value = mode
   batchCount.value = 1
-  const { total, missing } = scanBatchTasks(type)
+  const { total, missing } = scanBatchTasks(type, mode)
   batchTotalAssets.value = total
   batchMissingCount.value = missing
   batchDialogVisible.value = true
 }
 
-function scanBatchTasks(type: string): { total: number; missing: number } {
+function scanBatchTasks(type: string, mode: 'asset' | 'shot' = 'shot'): { total: number; missing: number } {
+  if (mode === 'asset') {
+    const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
+    const assets = projectData.value?.[assetKey] || []
+    const total = assets.length
+    const missing = assets.filter((a: any) => !a.reference_image).length
+    return { total, missing }
+  }
+
   const selectedShotIds = Array.from(selectedShots.value)
   const shots = projectData.value?.shots || []
   let total = 0
@@ -568,18 +596,6 @@ function scanBatchTasks(type: string): { total: number; missing: number } {
   for (const shot of shots) {
     if (!selectedShotIds.includes(shot.id)) continue
     switch (type) {
-      case '人物':
-        total += shot.characters?.length || 0
-        missing += shot.characters?.filter((c: any) => !c.reference_image).length || 0
-        break
-      case '场景':
-        total += shot.scenes?.length || 0
-        missing += shot.scenes?.filter((s: any) => !s.reference_image).length || 0
-        break
-      case '道具':
-        total += shot.props?.length || 0
-        missing += shot.props?.filter((p: any) => !p.reference_image).length || 0
-        break
       case '首帧':
         total += 1
         missing += shot.first_frame_image_path ? 0 : 1
@@ -599,8 +615,6 @@ function scanBatchTasks(type: string): { total: number; missing: number } {
 }
 
 async function handleBatchSubmit(mode: 'all' | 'missing') {
-  const selectedShotIds = Array.from(selectedShots.value)
-  const shots = projectData.value?.shots || []
   const type = batchType.value
   let createdCount = 0
 
@@ -622,93 +636,85 @@ async function handleBatchSubmit(mode: 'all' | 'missing') {
     // ignore
   }
 
-  for (const shot of shots) {
-    if (!selectedShotIds.includes(shot.id)) continue
+  if (batchMode.value === 'asset') {
+    // 资产模式：遍历项目全部资产，shotId 为 null
+    const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
+    const assets = projectData.value?.[assetKey] || []
+    const purposeMap: Record<string, string> = {
+      '人物': 'character_reference',
+      '场景': 'scene_reference',
+      '道具': 'prop_reference'
+    }
+    const idKeyMap: Record<string, string> = {
+      '人物': 'characterId',
+      '场景': 'sceneId',
+      '道具': 'propId'
+    }
+    const purpose = purposeMap[type]
+    const idKey = idKeyMap[type]
 
-    switch (type) {
-      case '人物': {
-        for (const char of (shot.characters || [])) {
-          if (mode === 'missing' && char.reference_image) continue
+    for (const asset of assets) {
+      if (mode === 'missing' && asset.reference_image) continue
+      const inputParams: any = { count: batchCount.value }
+      inputParams[idKey] = asset.id
+      await window.api.createGenerationTask({
+        projectId,
+        shotId: null,
+        type: 'image',
+        purpose,
+        model: defaultModel,
+        inputParams: JSON.stringify(inputParams)
+      })
+      createdCount++
+    }
+  } else {
+    // 分镜模式：遍历选中的分镜
+    const selectedShotIds = Array.from(selectedShots.value)
+    const shots = projectData.value?.shots || []
+
+    for (const shot of shots) {
+      if (!selectedShotIds.includes(shot.id)) continue
+
+      switch (type) {
+        case '首帧': {
+          if (mode === 'missing' && shot.first_frame_image_path) continue
           await window.api.createGenerationTask({
             projectId,
             shotId: shot.id,
             type: 'image',
-            purpose: 'character_reference',
+            purpose: 'first_frame',
             model: defaultModel,
-            inputParams: JSON.stringify({ characterId: char.id, count: batchCount.value })
+            inputParams: JSON.stringify({ count: batchCount.value })
           })
           createdCount++
+          break
         }
-        break
-      }
-      case '场景': {
-        for (const scene of (shot.scenes || [])) {
-          if (mode === 'missing' && scene.reference_image) continue
+        case '尾帧': {
+          if (mode === 'missing' && shot.last_frame_image_path) continue
           await window.api.createGenerationTask({
             projectId,
             shotId: shot.id,
             type: 'image',
-            purpose: 'scene_reference',
+            purpose: 'last_frame',
             model: defaultModel,
-            inputParams: JSON.stringify({ sceneId: scene.id, count: batchCount.value })
+            inputParams: JSON.stringify({ count: batchCount.value })
           })
           createdCount++
+          break
         }
-        break
-      }
-      case '道具': {
-        for (const prop of (shot.props || [])) {
-          if (mode === 'missing' && prop.reference_image) continue
+        case '视频': {
+          if (mode === 'missing' && shot.video_path) continue
           await window.api.createGenerationTask({
             projectId,
             shotId: shot.id,
-            type: 'image',
-            purpose: 'prop_reference',
+            type: 'video',
+            purpose: 'video',
             model: defaultModel,
-            inputParams: JSON.stringify({ propId: prop.id, count: batchCount.value })
+            inputParams: JSON.stringify({ count: batchCount.value })
           })
           createdCount++
+          break
         }
-        break
-      }
-      case '首帧': {
-        if (mode === 'missing' && shot.first_frame_image_path) continue
-        await window.api.createGenerationTask({
-          projectId,
-          shotId: shot.id,
-          type: 'image',
-          purpose: 'first_frame',
-          model: defaultModel,
-          inputParams: JSON.stringify({ count: batchCount.value })
-        })
-        createdCount++
-        break
-      }
-      case '尾帧': {
-        if (mode === 'missing' && shot.last_frame_image_path) continue
-        await window.api.createGenerationTask({
-          projectId,
-          shotId: shot.id,
-          type: 'image',
-          purpose: 'last_frame',
-          model: defaultModel,
-          inputParams: JSON.stringify({ count: batchCount.value })
-        })
-        createdCount++
-        break
-      }
-      case '视频': {
-        if (mode === 'missing' && shot.video_path) continue
-        await window.api.createGenerationTask({
-          projectId,
-          shotId: shot.id,
-          type: 'video',
-          purpose: 'video',
-          model: defaultModel,
-          inputParams: JSON.stringify({ count: batchCount.value })
-        })
-        createdCount++
-        break
       }
     }
   }
@@ -1992,9 +1998,16 @@ onUnmounted(() => {
     >
       <div class="batch-body">
         <div class="batch-stat">
-          <span class="batch-stat-label">已选中</span>
-          <span class="batch-stat-value">{{ selectedShots.size }}</span>
-          <span class="batch-stat-label">个分镜</span>
+          <template v-if="batchMode === 'asset'">
+            <span class="batch-stat-label">共</span>
+            <span class="batch-stat-value">{{ batchTotalAssets }}</span>
+            <span class="batch-stat-label">个{{ batchType === '人物' ? '角色' : batchType === '场景' ? '场景' : '道具' }}</span>
+          </template>
+          <template v-else>
+            <span class="batch-stat-label">已选中</span>
+            <span class="batch-stat-value">{{ selectedShots.size }}</span>
+            <span class="batch-stat-label">个分镜</span>
+          </template>
         </div>
         <div class="batch-stat">
           <span class="batch-stat-label">其中</span>
