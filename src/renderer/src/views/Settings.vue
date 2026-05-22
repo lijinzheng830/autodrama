@@ -15,6 +15,24 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
+interface ProviderItem {
+  id: string
+  name?: string
+  key?: string
+  baseURL?: string
+  apiKey?: string
+  models?: any[]
+}
+
+interface PromptTemplate {
+  id: string
+  name: string
+  usage: string
+  content: string
+  is_default: number | boolean
+  project_id?: string
+}
+
 const router = useRouter()
 
 // 导航
@@ -26,33 +44,33 @@ const navItems = [
 ]
 const activeNav = ref('providers')
 
-function goBack() {
+function goBack(): void {
   router.back()
 }
 
 // ===== Providers =====
-const providers = ref<any[]>([])
+const providers = ref<ProviderItem[]>([])
 const providerDialogVisible = ref(false)
 const providerDialogMode = ref<'add' | 'edit'>('add')
 const providerEditId = ref('')
 const providerForm = ref({ name: '', key: '', baseURL: '', apiKey: '', models: '' })
 
-async function loadProviders() {
+async function loadProviders(): Promise<void> {
   try {
     providers.value = await window.api.getProviders()
-  } catch (err) {
-    console.error(err)
+  } catch (_err: any) {
+    console.error(_err)
   }
 }
 
-function openAddProvider() {
+function openAddProvider(): void {
   providerDialogMode.value = 'add'
   providerEditId.value = ''
   providerForm.value = { name: '', key: '', baseURL: '', apiKey: '', models: '' }
   providerDialogVisible.value = true
 }
 
-function openEditProvider(p: any) {
+function openEditProvider(p: ProviderItem): void {
   providerDialogMode.value = 'edit'
   providerEditId.value = p.id
   providerForm.value = {
@@ -65,7 +83,7 @@ function openEditProvider(p: any) {
   providerDialogVisible.value = true
 }
 
-async function saveProvider() {
+async function saveProvider(): Promise<void> {
   const { name, key, baseURL, apiKey, models } = providerForm.value
   if (!name || !key || !baseURL) {
     ElMessage.warning('请填写名称、标识和baseURL')
@@ -86,12 +104,12 @@ async function saveProvider() {
     }
     providerDialogVisible.value = false
     await loadProviders()
-  } catch (err: any) {
-    ElMessage.error(err.message || '操作失败')
+  } catch (_err: any) {
+    ElMessage.error((_err instanceof Error ? _err.message : '操作失败') || '操作失败')
   }
 }
 
-async function handleDeleteProvider(id: string) {
+async function handleDeleteProvider(id: string): Promise<void> {
   try {
     await ElMessageBox.confirm('确定删除该供应商？', '确认删除', { type: 'warning' })
     await window.api.deleteProvider(id)
@@ -122,41 +140,43 @@ const usageOptions = [
   { label: '视频', value: 'video' }
 ]
 
-async function loadTemplates() {
+async function loadTemplates(): Promise<void> {
   try {
     const all = (await window.api.getPromptTemplates('')) as any[]
     templates.value = all.filter((t: any) => !t.is_default && !t.is_default)
-    officialTemplates.value = all.filter((t: any) => t.is_default === 1 || t.is_default === true)
-  } catch (err) {
-    console.error(err)
+    officialTemplates.value = all.filter(
+      (t: PromptTemplate) => t.is_default === 1 || t.is_default === true
+    )
+  } catch (_err: any) {
+    console.error(_err)
   }
 }
 
-async function loadSystemPrompt() {
+async function loadSystemPrompt(): Promise<void> {
   try {
     systemPrompt.value = await window.api.getSystemPrompt()
-  } catch (err) {
-    console.error(err)
+  } catch (_err: any) {
+    console.error(_err)
   }
 }
 
-async function saveSystemPrompt() {
+async function saveSystemPrompt(): Promise<void> {
   try {
     await window.api.setSystemPrompt(systemPrompt.value)
     ElMessage.success('系统预设已保存')
-  } catch (err) {
+  } catch (_err: any) {
     ElMessage.error('保存失败')
   }
 }
 
-function openAddTemplate() {
+function openAddTemplate(): void {
   templateDialogMode.value = 'add'
   templateEditId.value = ''
   templateForm.value = { name: '', usage: 'script_parse', content: '' }
   templateDialogVisible.value = true
 }
 
-function openEditTemplate(t: any) {
+function openEditTemplate(t: any): void {
   templateDialogMode.value = 'edit'
   templateEditId.value = t.id
   templateForm.value = {
@@ -167,7 +187,7 @@ function openEditTemplate(t: any) {
   templateDialogVisible.value = true
 }
 
-async function saveTemplate() {
+async function saveTemplate(): Promise<void> {
   const { name, usage, content } = templateForm.value
   if (!name || !content) {
     ElMessage.warning('请填写名称和内容')
@@ -183,12 +203,12 @@ async function saveTemplate() {
     }
     templateDialogVisible.value = false
     await loadTemplates()
-  } catch (err: any) {
-    ElMessage.error(err.message || '操作失败')
+  } catch (_err: any) {
+    ElMessage.error((_err instanceof Error ? _err.message : '操作失败') || '操作失败')
   }
 }
 
-async function handleDeleteTemplate(id: string) {
+async function handleDeleteTemplate(id: string): Promise<void> {
   try {
     await ElMessageBox.confirm('确定删除该模板？', '确认删除', { type: 'warning' })
     await window.api.deletePromptTemplate(id)
@@ -199,7 +219,7 @@ async function handleDeleteTemplate(id: string) {
   }
 }
 
-async function cloneTemplate(t: any) {
+async function cloneTemplate(t: any): Promise<void> {
   try {
     await window.api.savePromptTemplate('', {
       usage: t.usage,
@@ -209,13 +229,13 @@ async function cloneTemplate(t: any) {
     ElMessage.success('已另存为我的模板')
     await loadTemplates()
     templateTab.value = 'custom'
-  } catch (err: any) {
-    ElMessage.error(err.message || '操作失败')
+  } catch (_err: any) {
+    ElMessage.error((_err instanceof Error ? _err.message : '操作失败') || '操作失败')
   }
 }
 
 // Config export / import
-async function handleExportConfig() {
+async function handleExportConfig(): Promise<void> {
   try {
     const modelRoutes = (await window.api.getSetting('model_routes')) || '{}'
     const data = {
@@ -233,13 +253,13 @@ async function handleExportConfig() {
     const ok = await window.api.configWriteFile(filePath, cipher)
     if (ok) ElMessage.success(`配置已导出到 ${filePath}`)
     else ElMessage.error('写入文件失败')
-  } catch (err) {
+  } catch (_err: any) {
     ElMessage.error('导出失败')
-    console.error(err)
+    console.error(_err)
   }
 }
 
-async function handleImportConfig() {
+async function handleImportConfig(): Promise<void> {
   try {
     const filePath = await window.api.showOpenDialog({
       title: '导入配置',
@@ -257,7 +277,7 @@ async function handleImportConfig() {
       return
     }
     // Merge
-    const data = res.data
+    const data = res.data as Record<string, any>
     if (data.systemPrompt) {
       systemPrompt.value = data.systemPrompt
       await window.api.setSystemPrompt(data.systemPrompt)
@@ -294,9 +314,9 @@ async function handleImportConfig() {
     ElMessage.success('配置导入成功')
     await loadTemplates()
     await loadModelRoutes()
-  } catch (err) {
+  } catch (_err: any) {
     ElMessage.error('导入失败')
-    console.error(err)
+    console.error(_err)
   }
 }
 
@@ -312,7 +332,7 @@ const routePurposes = [
 ]
 const modelRoutes = ref<Record<string, { model: string; channel: string }>>({})
 
-async function loadModelRoutes() {
+async function loadModelRoutes(): Promise<void> {
   try {
     const raw = await window.api.getSetting('model_routes')
     modelRoutes.value = raw ? JSON.parse(raw) : {}
@@ -321,11 +341,11 @@ async function loadModelRoutes() {
   }
 }
 
-async function saveModelRoutes() {
+async function saveModelRoutes(): Promise<void> {
   try {
     await window.api.setSetting('model_routes', JSON.stringify(modelRoutes.value))
     ElMessage.success('模型路由已保存')
-  } catch (err) {
+  } catch (_err: any) {
     ElMessage.error('保存失败')
   }
 }
@@ -352,7 +372,7 @@ function getRouteModel(key: string): string {
   return modelRoutes.value[key]?.model || ''
 }
 
-function setRouteModel(key: string, val: string) {
+function setRouteModel(key: string, val: string): void {
   if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
   modelRoutes.value[key].model = val
 }
@@ -361,7 +381,7 @@ function getRouteChannel(key: string): string {
   return modelRoutes.value[key]?.channel || ''
 }
 
-function setRouteChannel(key: string, val: string) {
+function setRouteChannel(key: string, val: string): void {
   if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
   modelRoutes.value[key].channel = val
 }
@@ -546,7 +566,10 @@ onMounted(async () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="t in templates.filter((x: any) => !x.is_default)" :key="t.id">
+                  <tr
+                    v-for="t in templates.filter((x: PromptTemplate) => !x.is_default)"
+                    :key="t.id"
+                  >
                     <td>{{ t.name }}</td>
                     <td>{{ usageOptions.find((u) => u.value === t.usage)?.label || t.usage }}</td>
                     <td>
@@ -562,7 +585,7 @@ onMounted(async () => {
                       >
                     </td>
                   </tr>
-                  <tr v-if="!templates.filter((x: any) => !x.is_default && !x.is_default).length">
+                  <tr v-if="!templates.filter((x: PromptTemplate) => !x.is_default).length">
                     <td colspan="3" class="table-empty">暂无自定义模板</td>
                   </tr>
                 </tbody>
@@ -623,7 +646,7 @@ onMounted(async () => {
         <div v-if="activeNav === 'about'" class="settings-panel">
           <div class="about-section">
             <div class="about-logo">
-              <img src="../../resources/icon.png" alt="AutoDrama" class="about-icon" />
+              <img src="/icon.png" alt="AutoDrama" class="about-icon" />
               <h2 class="about-title">AutoDrama</h2>
               <p class="about-version">版本 {{ appVersion }}</p>
             </div>
@@ -1087,5 +1110,44 @@ onMounted(async () => {
 
 .dark-select .el-input__inner {
   color: #e5e7eb !important;
+}
+
+.dark-dialog .el-input__wrapper,
+.dark-dialog .el-textarea__inner {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.dark-dialog .el-input__inner,
+.dark-dialog .el-textarea__inner {
+  color: #e5e7eb;
+}
+
+.dark-dialog .el-input__inner::placeholder,
+.dark-dialog .el-textarea__inner::placeholder {
+  color: #9ca3af;
+}
+
+.dark-dialog .el-select .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.dark-dialog .el-select-dropdown {
+  background: #1a1a20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark-dialog .el-select-dropdown__item {
+  color: #e5e7eb;
+}
+
+.dark-dialog .el-select-dropdown__item.hover,
+.dark-dialog .el-select-dropdown__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark-dialog .el-select-dropdown__item.selected {
+  color: #a78bfa;
 }
 </style>

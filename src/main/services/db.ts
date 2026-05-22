@@ -130,14 +130,13 @@ export function initDatabase(): Database.Database {
 
     CREATE TABLE IF NOT EXISTS prompt_templates (
       id TEXT PRIMARY KEY,
-      project_id TEXT NOT NULL,
+      project_id TEXT,
       usage TEXT NOT NULL,
       name TEXT NOT NULL,
       content TEXT NOT NULL,
       is_default INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      updated_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS character_images (
@@ -198,7 +197,43 @@ export function initDatabase(): Database.Database {
     insertSetting.run(s.key, s.value)
   }
 
-  // 插入官方预设模板（失败则忽略，template.ts 中有硬编码兜底）
+  // 迁移：如果 prompt_templates 有外键约束，重建表移除它
+  try {
+    const fkList = db.prepare(`PRAGMA foreign_key_list(prompt_templates)`).all() as { table: string }[]
+    if (fkList.length > 0) {
+      const fkState = db.prepare(`PRAGMA foreign_keys`).get() as { foreign_keys: number }
+      db.exec(`PRAGMA foreign_keys = OFF`)
+      db.exec(`BEGIN TRANSACTION`)
+
+      db.exec(`
+        CREATE TABLE prompt_templates_new (
+          id TEXT PRIMARY KEY,
+          project_id TEXT,
+          usage TEXT NOT NULL,
+          name TEXT NOT NULL,
+          content TEXT NOT NULL,
+          is_default INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        )
+      `)
+
+      db.exec(`
+        INSERT INTO prompt_templates_new (id, project_id, "usage", name, content, is_default, created_at, updated_at)
+        SELECT id, NULLIF(project_id, ''), "usage", name, content, is_default, created_at, updated_at FROM prompt_templates
+      `)
+
+      db.exec(`DROP TABLE prompt_templates`)
+      db.exec(`ALTER TABLE prompt_templates_new RENAME TO prompt_templates`)
+
+      db.exec(`COMMIT`)
+      db.exec(`PRAGMA foreign_keys = ${fkState.foreign_keys}`)
+    }
+  } catch (e) {
+    console.error('迁移 prompt_templates 外键失败:', e)
+  }
+
+  // 插入官方预设模板
   try {
     const insertTemplate = db.prepare(`
       INSERT OR IGNORE INTO prompt_templates (id, project_id, "usage", name, content, is_default, created_at, updated_at)
@@ -206,7 +241,7 @@ export function initDatabase(): Database.Database {
     `)
     insertTemplate.run(
       'official-shot-image-standard',
-      '',
+      null,
       'shot_image',
       '标准分镜模板',
       '【占位】标准分镜描述模板，用于生成常规分镜图像。包含场景描述、角色动作、镜头角度等要素。',
@@ -214,7 +249,7 @@ export function initDatabase(): Database.Database {
     )
     insertTemplate.run(
       'official-shot-image-detailed',
-      '',
+      null,
       'shot_image',
       '精细镜头拆分模板',
       '【占位】精细镜头拆分模板，用于详细拆解每个镜头的构图、角色表情、光影效果和动作细节。',
@@ -222,7 +257,7 @@ export function initDatabase(): Database.Database {
     )
     insertTemplate.run(
       'official-shot-image-pure',
-      '',
+      null,
       'shot_image',
       '纯分镜模板',
       '【占位】纯分镜模板，不包含额外描述，仅输出分镜的基本画面信息。',
@@ -230,14 +265,14 @@ export function initDatabase(): Database.Database {
     )
     insertTemplate.run(
       'official-shot-video',
-      '',
+      null,
       'shot_video',
       '短视频制作模板',
       '【占位】短视频制作模板，用于生成视频分镜描述，包含运镜方式、时长、转场等要素。',
       1
     )
   } catch {
-    // 外键约束或其他错误，template.ts 中的硬编码常量兜底
+    // 忽略重复插入错误
   }
 
   // 迁移：给已有表添加新字段（不 DROP 重建）
@@ -266,7 +301,7 @@ export function initDatabase(): Database.Database {
   // M1-03: 迁移 scenes 表的 prompt 列
   // description 就是提示词主体，不需要单独的 prompt 列
   try {
-    const colInfo = db.prepare(`PRAGMA table_info(scenes)`).all() as any[]
+    const colInfo = db.prepare(`PRAGMA table_info(scenes)`).all() as { name: string }[]
     const hasPrompt = colInfo.some((c) => c.name === 'prompt')
 
     if (hasPrompt) {

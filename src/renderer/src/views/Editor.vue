@@ -19,9 +19,9 @@ import {
   Grid,
   Document,
   RefreshLeft,
-  RefreshRight,
-  Clock,
-  Download
+  RefreshRight
+  //   Clock,
+  //   Download
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 
@@ -41,6 +41,8 @@ interface Project {
   created_at: number
   updated_at: number
   script_text?: string
+  era?: string
+  model_config_json?: string
 }
 
 const project = ref<Project | null>(null)
@@ -94,6 +96,11 @@ const genRecordTypeFilter = ref<
   | 'last_frame'
 >('all')
 
+function setGenRecordTab(tab: 'video' | 'image' | 'other'): void {
+  genRecordTab.value = tab
+  genRecordTypeFilter.value = 'all'
+}
+
 // 项目名称编辑
 const editingProjectName = ref(false)
 const projectNameEdit = ref('')
@@ -123,6 +130,11 @@ const modelConfigTabs = [
   { key: 'shot_image', label: '分镜图生图模型' },
   { key: 'video', label: '视频生成模型' }
 ]
+
+function setModelConfigTab(idx: number): void {
+  modelConfigTab.value = idx
+  loadModelConfigTemplates()
+}
 
 // 生图控制（详情面板）
 const genCount = ref(1)
@@ -298,7 +310,7 @@ const aspectRatios = [
 
 // ===== 数据加载 =====
 
-async function loadProject() {
+async function loadProject(): Promise<void> {
   try {
     const data = (await window.api.getProject(projectId)) as Project | null
     project.value = data
@@ -313,7 +325,7 @@ async function loadProject() {
   }
 }
 
-async function loadEpisodesData() {
+async function loadEpisodesData(): Promise<void> {
   episodesLoading.value = true
   try {
     const data = await window.api.getProjectData(projectId)
@@ -326,7 +338,7 @@ async function loadEpisodesData() {
   }
 }
 
-async function loadModelName() {
+async function loadModelName(): Promise<void> {
   try {
     const provider = await window.api.getSetting('provider')
     const model = await window.api.getSetting('model')
@@ -334,24 +346,24 @@ async function loadModelName() {
     const p = providers.find((pr: any) => pr.key === provider) as any
     const m = p?.models?.find((mo: any) => mo.key === model)
     currentModel.value = m?.name || model || '未配置'
-  } catch (err) {
+  } catch (_err) {
     currentModel.value = '未配置'
   }
 }
 
 // ===== 风格/比例（总览页）=====
 
-async function handleStyleSelect(style: any) {
+async function handleStyleSelect(style: any): Promise<void> {
   selectedStyle.value = style.name
   await saveStyleToProject()
 }
 
-async function handleAspectRatioSelect(ratio: string) {
+async function handleAspectRatioSelect(ratio: string): Promise<void> {
   selectedAspectRatio.value = ratio
   await saveStyleToProject()
 }
 
-async function saveStyleToProject() {
+async function saveStyleToProject(): Promise<void> {
   if (!project.value) return
   try {
     const style = stylePresets.find((s) => s.name === selectedStyle.value)
@@ -367,13 +379,13 @@ async function saveStyleToProject() {
   }
 }
 
-function handleCustomStyle() {
+function handleCustomStyle(): void {
   ElMessage.info('自定义风格功能后续版本开放')
 }
 
 // ===== AI解析弹窗（保留）=====
 
-function openParseDialog(mode: 'full' | 'append') {
+function openParseDialog(mode: 'full' | 'append'): void {
   parseMode.value = mode
   parseScriptText.value = ''
   parseGenerating.value = false
@@ -389,7 +401,7 @@ function openParseDialog(mode: 'full' | 'append') {
   parseDialogVisible.value = true
 }
 
-async function loadTemplates() {
+async function loadTemplates(): Promise<void> {
   try {
     const list = (await window.api.getPromptTemplates(projectId, 'shot_image')) as any[]
     templates.value = list
@@ -402,12 +414,12 @@ async function loadTemplates() {
   }
 }
 
-function handleTemplateChange(templateId: string) {
+function handleTemplateChange(templateId: string): void {
   const t = templates.value.find((tm: any) => tm.id === templateId)
   templatePreview.value = t?.content || ''
 }
 
-async function loadParseModel() {
+async function loadParseModel(): Promise<void> {
   try {
     const provider = await window.api.getSetting('provider')
     const model = await window.api.getSetting('model')
@@ -415,12 +427,12 @@ async function loadParseModel() {
     const p = providers.find((pr: any) => pr.key === provider)
     const m = p?.models?.find((mo: any) => mo.key === model)
     selectedModel.value = m?.name || model || '未配置'
-  } catch (err) {
+  } catch (_err) {
     selectedModel.value = '未配置'
   }
 }
 
-async function handleParseSubmit() {
+async function handleParseSubmit(): Promise<void> {
   if (!parseScriptText.value.trim()) {
     ElMessage.warning('请输入剧本内容')
     return
@@ -487,7 +499,7 @@ async function handleParseSubmit() {
   }
 }
 
-function handleSkipParse() {
+function handleSkipParse(): void {
   parseDialogVisible.value = false
 }
 
@@ -503,7 +515,7 @@ const groupedShots = computed(() => {
   return result
 })
 
-function toggleSelectAll() {
+function toggleSelectAll(): void {
   if (isAllSelected.value) {
     selectedShots.value.clear()
   } else {
@@ -511,7 +523,7 @@ function toggleSelectAll() {
   }
 }
 
-function toggleShotSelect(shotId: string) {
+function toggleShotSelect(shotId: string): void {
   if (selectedShots.value.has(shotId)) selectedShots.value.delete(shotId)
   else selectedShots.value.add(shotId)
 }
@@ -519,7 +531,7 @@ function toggleShotSelect(shotId: string) {
 let docMouseDownHandler: ((e: MouseEvent) => void) | null = null
 let currentEditTextarea: HTMLTextAreaElement | null = null
 
-function cleanupDocMouseDown() {
+function cleanupDocMouseDown(): void {
   if (docMouseDownHandler) {
     document.removeEventListener('mousedown', docMouseDownHandler)
     docMouseDownHandler = null
@@ -527,7 +539,7 @@ function cleanupDocMouseDown() {
   currentEditTextarea = null
 }
 
-function startEdit(shotId: string, field: string, currentText: string) {
+function startEdit(shotId: string, field: string, currentText: string): void {
   cleanupDocMouseDown()
   editingCell.value = { shotId, field }
   editText.value = currentText
@@ -550,7 +562,7 @@ function startEdit(shotId: string, field: string, currentText: string) {
   }, 0)
 }
 
-function cancelEdit() {
+function cancelEdit(): void {
   const shotId = editingCell.value?.shotId
   cleanupDocMouseDown()
   editingCell.value = null
@@ -563,7 +575,7 @@ function cancelEdit() {
   }
 }
 
-async function saveEdit(shotId: string, field: string) {
+async function saveEdit(shotId: string, field: string): Promise<void> {
   cleanupDocMouseDown()
   if (!editingCell.value) return
   try {
@@ -629,7 +641,7 @@ async function checkAndCreateAssociations(shotId: string, text: string): Promise
   return created
 }
 
-function getHighlightText(text: string, shot: any) {
+function getHighlightText(text: string, shot: any): any {
   if (!text) return ''
   const names = new Set<string>()
   for (const c of shot.characters || []) names.add(c.name)
@@ -642,7 +654,7 @@ function getHighlightText(text: string, shot: any) {
   return html
 }
 
-async function handleMoveUp(shotId: string) {
+async function handleMoveUp(shotId: string): Promise<void> {
   try {
     await window.api.moveShotUp(shotId)
     await loadEpisodesData()
@@ -652,7 +664,7 @@ async function handleMoveUp(shotId: string) {
   }
 }
 
-async function handleMoveDown(shotId: string) {
+async function handleMoveDown(shotId: string): Promise<void> {
   try {
     await window.api.moveShotDown(shotId)
     await loadEpisodesData()
@@ -662,7 +674,7 @@ async function handleMoveDown(shotId: string) {
   }
 }
 
-async function handleDeleteShot(shotId: string) {
+async function handleDeleteShot(shotId: string): Promise<void> {
   try {
     await ElMessageBox.confirm('确定删除该分镜吗？此操作不可撤销', '删除确认', {
       confirmButtonText: '删除',
@@ -680,7 +692,7 @@ async function handleDeleteShot(shotId: string) {
   }
 }
 
-function handleBatchGenerate(type: string) {
+function handleBatchGenerate(type: string): void {
   if (['人物', '场景', '道具', '批量'].includes(type)) {
     // 资产模式：不依赖分镜勾选，对当前项目的全部资产操作
     let assetType: string
@@ -712,7 +724,7 @@ function handleBatchGenerate(type: string) {
 
 // ===== 批量操作弹窗 =====
 
-function openBatchDialog(type: string, mode: 'asset' | 'shot' = 'shot') {
+function openBatchDialog(type: string, mode: 'asset' | 'shot' = 'shot'): void {
   batchType.value = type
   batchMode.value = mode
   batchCount.value = 1
@@ -760,15 +772,17 @@ function scanBatchTasks(
   return { total, missing }
 }
 
-async function handleBatchSubmit(mode: 'all' | 'missing') {
+async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   const type = batchType.value
   let createdCount = 0
 
   // 从模型配置读取默认模型（MVP1简化）
-  let defaultModel = null
+  let defaultModel: string | null = null
   try {
     const proj = await window.api.getProject(projectId)
-    const config = proj?.model_config_json ? JSON.parse(proj.model_config_json) : {}
+    const config = (proj as Record<string, any>)?.model_config_json
+      ? JSON.parse((proj as Record<string, any>).model_config_json)
+      : {}
     const purposeMap: Record<string, string> = {
       人物: 'character_image',
       场景: 'scene_image',
@@ -871,14 +885,14 @@ async function handleBatchSubmit(mode: 'all' | 'missing') {
 
 // ===== 右侧面板 =====
 
-function showDetail(type: string, data: any) {
+function showDetail(type: string, data: any): void {
   panelMode.value = 'detail'
   detailType.value = type
   detailData.value = data
   genCount.value = 1
 }
 
-function backToResident() {
+function backToResident(): void {
   panelMode.value = 'resident'
   detailData.value = null
 }
@@ -911,13 +925,13 @@ const usedPropIds = computed(() => {
   return ids
 })
 
-function isAssetUsed(assetId: string) {
+function isAssetUsed(assetId: string): any {
   if (residentTab.value === 'characters') return usedCharacterIds.value.has(assetId)
   if (residentTab.value === 'scenes') return usedSceneIds.value.has(assetId)
   return usedPropIds.value.has(assetId)
 }
 
-async function handleAssetNameChange(type: string, asset: any, newName: string) {
+async function handleAssetNameChange(type: string, asset: any, newName: string): Promise<void> {
   if (!newName.trim() || newName === asset.name) return
   try {
     if (type === 'character') await window.api.updateCharacter(asset.id, { name: newName.trim() })
@@ -930,7 +944,7 @@ async function handleAssetNameChange(type: string, asset: any, newName: string) 
   }
 }
 
-async function handleAssetDescChange(type: string, asset: any, newDesc: string) {
+async function handleAssetDescChange(type: string, asset: any, newDesc: string): Promise<void> {
   try {
     if (type === 'character') await window.api.updateCharacter(asset.id, { description: newDesc })
     else if (type === 'scene') await window.api.updateScene(asset.id, { description: newDesc })
@@ -942,7 +956,7 @@ async function handleAssetDescChange(type: string, asset: any, newDesc: string) 
   }
 }
 
-async function handleSelectImage(type: string, asset: any) {
+async function handleSelectImage(type: string, asset: any): Promise<void> {
   if (!project.value?.path) return
   try {
     const imagePath = await window.api.selectImage(project.value.path)
@@ -962,7 +976,7 @@ async function handleSelectImage(type: string, asset: any) {
   }
 }
 
-async function handleDeleteAsset(type: string, assetId: string) {
+async function handleDeleteAsset(type: string, assetId: string): Promise<void> {
   try {
     await ElMessageBox.confirm('确定删除吗？', '删除确认', {
       confirmButtonText: '删除',
@@ -981,7 +995,7 @@ async function handleDeleteAsset(type: string, assetId: string) {
   }
 }
 
-async function handleCreateAsset() {
+async function handleCreateAsset(): Promise<void> {
   const tab = residentTab.value
   const label = tab === 'characters' ? '角色' : tab === 'scenes' ? '场景' : '道具'
   try {
@@ -1003,12 +1017,12 @@ async function handleCreateAsset() {
   }
 }
 
-function handleImportAsset() {
+function handleImportAsset(): void {
   ElMessage.info('从其他项目导入功能后续版本开放')
 }
 
 // 生图按钮（MVP1占位）
-async function handleGenerateImage(type: string, shotId?: string) {
+async function handleGenerateImage(type: string, shotId?: string): Promise<void> {
   try {
     await window.api.createGenerationTask({
       projectId,
@@ -1025,7 +1039,7 @@ async function handleGenerateImage(type: string, shotId?: string) {
 }
 
 // 提示词编辑（首帧/尾帧详情）
-async function handleShotPromptChange(shotId: string, field: string, value: string) {
+async function handleShotPromptChange(shotId: string, field: string, value: string): Promise<void> {
   try {
     const update: any = {}
     update[field] = value
@@ -1038,22 +1052,22 @@ async function handleShotPromptChange(shotId: string, field: string, value: stri
   }
 }
 
-function goHome() {
+function goHome(): void {
   router.push('/')
 }
 
-function goSettings() {
+function goSettings(): void {
   router.push('/settings')
 }
 
 // ===== 顶部工具栏 =====
 
-async function openGenRecord() {
+async function openGenRecord(): Promise<void> {
   genRecordVisible.value = true
   await loadGenerationRecords()
 }
 
-async function loadGenerationRecords() {
+async function loadGenerationRecords(): Promise<void> {
   try {
     genRecords.value = await window.api.getGenerationTasks(projectId)
   } catch (err) {
@@ -1062,7 +1076,7 @@ async function loadGenerationRecords() {
   }
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string): any {
   const map: Record<string, string> = {
     pending: '排队中',
     running: '生成中',
@@ -1157,7 +1171,7 @@ const filteredRecords = computed(() => {
   })
 })
 
-async function retryTask(record: any) {
+async function retryTask(record: any): Promise<void> {
   try {
     await window.api.createGenerationTask({
       projectId: record.project_id,
@@ -1175,15 +1189,15 @@ async function retryTask(record: any) {
   }
 }
 
-function handleUndo() {
+function handleUndo(): void {
   ElMessage.info('撤销功能后续版本开放')
 }
 
-function handleRedo() {
+function handleRedo(): void {
   ElMessage.info('重做功能后续版本开放')
 }
 
-function handleExport(type: string) {
+function handleExport(type: string): void {
   if (type === '视频') {
     handleVideoExport()
   } else if (type === '角色') {
@@ -1195,7 +1209,7 @@ function handleExport(type: string) {
   }
 }
 
-function startAssetExport(type: 'characters' | 'scenes' | 'props') {
+function startAssetExport(type: 'characters' | 'scenes' | 'props'): void {
   exportAssetMode.value = true
   exportAssetType.value = type
   exportAssetIds.value = new Set()
@@ -1203,12 +1217,12 @@ function startAssetExport(type: 'characters' | 'scenes' | 'props') {
   panelMode.value = 'resident'
 }
 
-function cancelAssetExport() {
+function cancelAssetExport(): void {
   exportAssetMode.value = false
   exportAssetIds.value = new Set()
 }
 
-function toggleExportAsset(assetId: string) {
+function toggleExportAsset(assetId: string): void {
   if (exportAssetIds.value.has(assetId)) {
     exportAssetIds.value.delete(assetId)
   } else {
@@ -1216,7 +1230,7 @@ function toggleExportAsset(assetId: string) {
   }
 }
 
-async function handleAssetExportConfirm() {
+async function handleAssetExportConfirm(): Promise<void> {
   const assetType =
     exportAssetType.value === 'characters'
       ? 'characters'
@@ -1267,7 +1281,7 @@ async function handleAssetExportConfirm() {
   ElMessage.success(msg)
 }
 
-async function handleVideoExport() {
+async function handleVideoExport(): Promise<void> {
   if (selectedShots.value.size === 0) {
     ElMessage.warning('请先勾选分镜')
     return
@@ -1316,13 +1330,13 @@ async function handleVideoExport() {
 
 // ===== 工具栏左侧交互 =====
 
-async function startEditProjectName() {
+async function startEditProjectName(): Promise<void> {
   if (!project.value) return
   projectNameEdit.value = project.value.name
   editingProjectName.value = true
 }
 
-async function saveProjectName() {
+async function saveProjectName(): Promise<void> {
   if (!project.value || !projectNameEdit.value.trim()) {
     editingProjectName.value = false
     return
@@ -1342,13 +1356,13 @@ async function saveProjectName() {
   editingProjectName.value = false
 }
 
-function handleStyleSelectFromToolbar(style: any) {
+function handleStyleSelectFromToolbar(style: any): void {
   selectedStyle.value = style.name
   saveStyleToProject()
   stylePopoverVisible.value = false
 }
 
-function handleEraSelect(era: string) {
+function handleEraSelect(era: string): void {
   const newEra = project.value?.era === era ? '' : era
   window.api
     .updateProject(projectId, { era: newEra })
@@ -1363,7 +1377,7 @@ function handleEraSelect(era: string) {
   eraPopoverVisible.value = false
 }
 
-function handleCustomEraSubmit() {
+function handleCustomEraSubmit(): void {
   if (!customEra.value.trim()) return
   window.api
     .updateProject(projectId, { era: customEra.value.trim() })
@@ -1378,14 +1392,14 @@ function handleCustomEraSubmit() {
     })
 }
 
-async function openModelConfig() {
+async function openModelConfig(): Promise<void> {
   modelConfigVisible.value = true
   // 加载模型列表
   try {
     const providers = await window.api.getProviders()
     const models: any[] = []
-    for (const p of providers) {
-      for (const m of p.models || []) {
+    for (const p of providers as Record<string, any>[]) {
+      for (const m of (p as Record<string, any>).models || []) {
         models.push({
           label: `${p.name} / ${m.name}`,
           value: `${p.key}:${m.key}`,
@@ -1401,19 +1415,19 @@ async function openModelConfig() {
   // 加载当前配置
   try {
     const proj = await window.api.getProject(projectId)
-    if (proj?.model_config_json) {
-      modelConfig.value = JSON.parse(proj.model_config_json)
+    if ((proj as Record<string, any>)?.model_config_json) {
+      modelConfig.value = JSON.parse((proj as Record<string, any>).model_config_json)
     } else {
       modelConfig.value = {}
     }
-  } catch (err) {
+  } catch (_err) {
     modelConfig.value = {}
   }
   // 加载模板
   loadModelConfigTemplates()
 }
 
-async function loadModelConfigTemplates() {
+async function loadModelConfigTemplates(): Promise<void> {
   try {
     const tabKey = modelConfigTabs[modelConfigTab.value].key
     const usageMap: Record<string, string> = {
@@ -1436,7 +1450,7 @@ async function loadModelConfigTemplates() {
   }
 }
 
-function handleModelConfigSave() {
+function handleModelConfigSave(): void {
   try {
     window.api.updateProject(projectId, { modelConfigJson: JSON.stringify(modelConfig.value) })
     ElMessage.success('模型配置已保存')
@@ -1447,11 +1461,11 @@ function handleModelConfigSave() {
   }
 }
 
-function getModelConfigField(key: string, field: string, defaultValue: any = '') {
+function getModelConfigField(key: string, field: string, defaultValue: any = ''): any {
   return modelConfig.value[key]?.[field] ?? defaultValue
 }
 
-function setModelConfigField(key: string, field: string, value: any) {
+function setModelConfigField(key: string, field: string, value: any): void {
   if (!modelConfig.value[key]) modelConfig.value[key] = {}
   modelConfig.value[key][field] = value
 }
@@ -2500,30 +2514,21 @@ onUnmounted(() => {
           <div
             class="gen-record-tab"
             :class="{ active: genRecordTab === 'video' }"
-            @click="
-              genRecordTab = 'video'
-              genRecordTypeFilter = 'all'
-            "
+            @click="setGenRecordTab('video')"
           >
             视频
           </div>
           <div
             class="gen-record-tab"
             :class="{ active: genRecordTab === 'image' }"
-            @click="
-              genRecordTab = 'image'
-              genRecordTypeFilter = 'all'
-            "
+            @click="setGenRecordTab('image')"
           >
             图片
           </div>
           <div
             class="gen-record-tab"
             :class="{ active: genRecordTab === 'other' }"
-            @click="
-              genRecordTab = 'other'
-              genRecordTypeFilter = 'all'
-            "
+            @click="setGenRecordTab('other')"
           >
             其他
           </div>
@@ -2685,10 +2690,7 @@ onUnmounted(() => {
               :key="tab.key"
               class="model-config-tab"
               :class="{ active: modelConfigTab === idx }"
-              @click="
-                modelConfigTab = idx
-                loadModelConfigTemplates()
-              "
+              @click="setModelConfigTab(idx)"
             >
               {{ tab.label }}
             </div>

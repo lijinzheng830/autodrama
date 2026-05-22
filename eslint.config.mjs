@@ -19,10 +19,29 @@ export default defineConfig(
         extraFileExtensions: ['.vue'],
         parser: tseslint.parser
       }
+    },
+    rules: {
+      'vue/no-v-html': 'off',
+      '@typescript-eslint/no-explicit-any': 'off'
     }
   },
   {
-    files: ['**/*.{ts,mts,tsx,vue}'],
+    files: ['**/*.{ts,mts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ]
+    }
+  },
+  {
+    files: ['**/*.vue'],
     rules: {
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
@@ -32,6 +51,15 @@ export default defineConfig(
           script: {
             lang: 'ts'
           }
+        }
+      ],
+      '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
         }
       ]
     }

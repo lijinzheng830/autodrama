@@ -1,7 +1,7 @@
 import { getDb } from './db'
 import { getProvider } from './providers'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
-import { updateProjectScript } from './project'
+import { updateProjectScript, Character, Scene, Prop } from './project'
 import { checkLicense } from '../utils/license'
 
 export interface AutoProcessOptions {
@@ -21,6 +21,40 @@ export interface ProgressData {
   step: number
   status: 'running' | 'done' | 'error'
   message: string
+}
+
+export interface ShotDataChapter {
+  title?: string
+  shots: {
+    shot_index?: number
+    description?: string
+    dialogue?: string
+    first_frame_prompt?: string
+    last_frame_prompt?: string
+    video_prompt?: string
+  }[]
+}
+
+export interface ShotData {
+  chapters: ShotDataChapter[]
+}
+
+export interface ExtractData {
+  characters?: { name?: string; description?: string }[]
+  scenes?: { name?: string; description?: string }[]
+  props?: { name?: string; description?: string }[]
+}
+
+export interface AssocItem {
+  chapter_index?: number
+  shot_index?: number
+  character_names?: string[]
+  scene_name?: string
+  prop_names?: string[]
+}
+
+export interface AssocData {
+  associations?: AssocItem[]
 }
 
 export interface AIConfig {
@@ -128,22 +162,25 @@ export async function callAI(
       throw new Error('AI 返回内容为空，请重试')
     }
     return content
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timeout)
 
-    if (err.name === 'AbortError') {
+    if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('AI 调用超时（500秒），请检查网络或换用更快的模型')
     }
 
-    if (err.message && err.message.includes('请')) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    const errName = err instanceof Error ? err.name : ''
+
+    if (errMsg.includes('请')) {
       throw err
     }
 
-    if (err.name === 'TypeError' || err.message?.includes('fetch')) {
-      throw new Error(`网络连接失败: ${err.message}`)
+    if (errName === 'TypeError' || errMsg.includes('fetch')) {
+      throw new Error(`网络连接失败: ${errMsg}`)
     }
 
-    throw new Error(`AI 调用出错: ${err.message || String(err)}`)
+    throw new Error(`AI 调用出错: ${errMsg}`)
   }
 }
 
@@ -205,7 +242,7 @@ export async function autoProcess(
   onProgress: (data: ProgressData) => void,
   sendProgress: (data: ProgressData) => void,
   options?: AutoProcessOptions
-): Promise<{ shotsData: any; extractData: any; assocData: any }> {
+): Promise<{ shotsData: ShotData; extractData: ExtractData; assocData: AssocData }> {
   const db = getDb()
   const mode = options?.mode || 'full'
 
@@ -312,9 +349,9 @@ export async function autoProcess(
 
 async function saveToDatabase(
   projectId: string,
-  shotsData: any,
-  extractData: any,
-  assocData: any,
+  shotsData: ShotData,
+  extractData: ExtractData,
+  assocData: AssocData,
   mode: 'full' | 'append' = 'full'
 ): Promise<void> {
   const db = getDb()
@@ -323,13 +360,13 @@ async function saveToDatabase(
   // 预先查询已有资产（名称 → ID 映射），用于「只创建、不覆盖」
   const existingChars = db
     .prepare('SELECT * FROM characters WHERE project_id = ?')
-    .all(projectId) as any[]
+    .all(projectId) as Character[]
   const existingScenes = db
     .prepare('SELECT * FROM scenes WHERE project_id = ?')
-    .all(projectId) as any[]
+    .all(projectId) as Scene[]
   const existingProps = db
     .prepare('SELECT * FROM props WHERE project_id = ?')
-    .all(projectId) as any[]
+    .all(projectId) as Prop[]
 
   const existingCharMap = new Map<string, string>()
   for (const c of existingChars) existingCharMap.set(c.name.trim(), c.id)
@@ -437,7 +474,7 @@ async function saveToDatabase(
       'INSERT INTO shot_props (id, shot_id, prop_id) VALUES (?, ?, ?)'
     )
 
-    const chapters: any[] = shotsData.chapters || []
+    const chapters: ShotDataChapter[] = shotsData.chapters || []
     for (let ci = 0; ci < chapters.length; ci++) {
       const chapter = chapters[ci]
       const chapterId = crypto.randomUUID()
@@ -449,7 +486,7 @@ async function saveToDatabase(
         chapter.title || `第${actualChapterIndex + 1}章`
       )
 
-      const shots: any[] = chapter.shots || []
+      const shots = chapter.shots || []
       for (const shot of shots) {
         const shotId = crypto.randomUUID()
         insertShot.run(
@@ -464,7 +501,7 @@ async function saveToDatabase(
 
         // 关联角色、场景、道具
         const assoc = (assocData.associations || []).find(
-          (a: any) => a.chapter_index === ci && a.shot_index === shot.shot_index
+          (a: AssocItem) => a.chapter_index === ci && a.shot_index === shot.shot_index
         )
         if (assoc) {
           for (const charName of assoc.character_names || []) {

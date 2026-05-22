@@ -25,7 +25,9 @@ import {
   addShotAssociation,
   createGenerationTask,
   getGenerationTasks,
-  copyImageToProject
+  copyImageToProject,
+  UpdateProjectInput,
+  UpdateShotInput
 } from './services/project'
 import {
   createCharacter,
@@ -37,7 +39,13 @@ import {
   createProp,
   updateProp,
   deleteProp,
-  getPropsByProject
+  getPropsByProject,
+  CreateCharacterInput,
+  UpdateCharacterInput,
+  CreateSceneInput,
+  UpdateSceneInput,
+  CreatePropInput,
+  UpdatePropInput
 } from './services/asset'
 import {
   getPromptTemplates,
@@ -45,7 +53,7 @@ import {
   deletePromptTemplate,
   updatePromptTemplate
 } from './services/template'
-import { autoProcess } from './services/ai'
+import { autoProcess, AutoProcessOptions, ProgressData } from './services/ai'
 import {
   getSetting,
   setSetting,
@@ -54,7 +62,8 @@ import {
   updateProvider,
   deleteProvider,
   getSystemPrompt,
-  setSystemPrompt
+  setSystemPrompt,
+  type ProviderRecord
 } from './services/settings'
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
@@ -89,6 +98,20 @@ function watchWindowShortcuts(window: BrowserWindow): void {
 }
 
 let mainWindow: BrowserWindow | null = null
+
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+  process.exit(0)
+}
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  }
+})
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -150,7 +173,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'project:update',
-    async (_, { projectId, input }: { projectId: string; input: any }) => {
+    async (_, { projectId, input }: { projectId: string; input: UpdateProjectInput }) => {
       updateProject(projectId, input)
     }
   )
@@ -159,11 +182,15 @@ app.whenReady().then(() => {
     'ai:auto-process',
     async (
       _,
-      { projectId, script, options }: { projectId: string; script: string; options?: any }
+      {
+        projectId,
+        script,
+        options
+      }: { projectId: string; script: string; options?: AutoProcessOptions }
     ) => {
       if (!mainWindow) throw new Error('主窗口未就绪')
 
-      const sendProgress = (data: any) => {
+      const sendProgress = (data: ProgressData): void => {
         for (const win of BrowserWindow.getAllWindows()) {
           win.webContents.send('ai:progress', data)
         }
@@ -172,8 +199,9 @@ app.whenReady().then(() => {
       try {
         const result = await autoProcess(projectId, script, () => {}, sendProgress, options)
         return result
-      } catch (err: any) {
-        sendProgress({ step: 0, status: 'error', message: err.message || '生成失败' })
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '生成失败'
+        sendProgress({ step: 0, status: 'error', message })
         throw err
       }
     }
@@ -243,20 +271,26 @@ app.whenReady().then(() => {
     deleteShot(shotId)
   })
 
-  ipcMain.handle('shot:update', async (_, { shotId, input }: { shotId: string; input: any }) => {
-    updateShot(shotId, input)
-  })
+  ipcMain.handle(
+    'shot:update',
+    async (_, { shotId, input }: { shotId: string; input: UpdateShotInput }) => {
+      updateShot(shotId, input)
+    }
+  )
 
   ipcMain.handle(
     'shot:associate',
     async (_, { shotId, type, assetId }: { shotId: string; type: string; assetId: string }) => {
-      addShotAssociation(shotId, type as any, assetId)
+      addShotAssociation(shotId, type as 'character' | 'scene' | 'prop', assetId)
     }
   )
 
-  ipcMain.handle('generationTask:create', async (_, input: any) => {
-    return createGenerationTask(input)
-  })
+  ipcMain.handle(
+    'generationTask:create',
+    async (_, input: Parameters<typeof createGenerationTask>[0]) => {
+      return createGenerationTask(input)
+    }
+  )
 
   ipcMain.handle('generationTask:list', async (_, projectId: string) => {
     return getGenerationTasks(projectId)
@@ -276,13 +310,13 @@ app.whenReady().then(() => {
   // Asset CRUD handlers
   ipcMain.handle(
     'asset:character:create',
-    async (_, { projectId, input }: { projectId: string; input: any }) => {
+    async (_, { projectId, input }: { projectId: string; input: CreateCharacterInput }) => {
       return createCharacter(projectId, input)
     }
   )
   ipcMain.handle(
     'asset:character:update',
-    async (_, { characterId, input }: { characterId: string; input: any }) => {
+    async (_, { characterId, input }: { characterId: string; input: UpdateCharacterInput }) => {
       updateCharacter(characterId, input)
     }
   )
@@ -292,13 +326,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'asset:scene:create',
-    async (_, { projectId, input }: { projectId: string; input: any }) => {
+    async (_, { projectId, input }: { projectId: string; input: CreateSceneInput }) => {
       return createScene(projectId, input)
     }
   )
   ipcMain.handle(
     'asset:scene:update',
-    async (_, { sceneId, input }: { sceneId: string; input: any }) => {
+    async (_, { sceneId, input }: { sceneId: string; input: UpdateSceneInput }) => {
       updateScene(sceneId, input)
     }
   )
@@ -308,13 +342,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'asset:prop:create',
-    async (_, { projectId, input }: { projectId: string; input: any }) => {
+    async (_, { projectId, input }: { projectId: string; input: CreatePropInput }) => {
       return createProp(projectId, input)
     }
   )
   ipcMain.handle(
     'asset:prop:update',
-    async (_, { propId, input }: { propId: string; input: any }) => {
+    async (_, { propId, input }: { propId: string; input: UpdatePropInput }) => {
       updateProp(propId, input)
     }
   )
@@ -335,7 +369,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'template:save',
-    async (_, { projectId, input }: { projectId: string; input: any }) => {
+    async (
+      _,
+      { projectId, input }: { projectId: string; input: Parameters<typeof savePromptTemplate>[1] }
+    ) => {
       return savePromptTemplate(projectId, input)
     }
   )
@@ -381,9 +418,12 @@ app.whenReady().then(() => {
 
   // ===== Settings: Providers =====
   ipcMain.handle('settings:getProviders', async () => getProviders())
-  ipcMain.handle('settings:addProvider', async (_, provider: any) => addProvider(provider))
-  ipcMain.handle('settings:updateProvider', async (_, { id, data }: { id: string; data: any }) =>
-    updateProvider(id, data)
+  ipcMain.handle('settings:addProvider', async (_, provider: ProviderRecord) =>
+    addProvider(provider)
+  )
+  ipcMain.handle(
+    'settings:updateProvider',
+    async (_, { id, data }: { id: string; data: ProviderRecord }) => updateProvider(id, data)
   )
   ipcMain.handle('settings:deleteProvider', async (_, id: string) => deleteProvider(id))
 
@@ -394,7 +434,13 @@ app.whenReady().then(() => {
   // ===== Template: Update =====
   ipcMain.handle(
     'template:update',
-    async (_, { templateId, input }: { templateId: string; input: any }) => {
+    async (
+      _,
+      {
+        templateId,
+        input
+      }: { templateId: string; input: Parameters<typeof updatePromptTemplate>[1] }
+    ) => {
       updatePromptTemplate(templateId, input)
     }
   )
@@ -402,7 +448,7 @@ app.whenReady().then(() => {
   // ===== Config Export / Import =====
   ipcMain.handle(
     'config:export',
-    async (_, data: { systemPrompt: string; templates: any[]; modelRoutes: any }) => {
+    async (_, data: { systemPrompt: string; templates: unknown[]; modelRoutes: unknown }) => {
       const json = JSON.stringify(data, null, 2)
       return encrypt(json)
     }
@@ -457,13 +503,18 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('dialog:showSaveDialog', async (_, options: any) => {
-    const result = await dialog.showSaveDialog(options)
+  ipcMain.handle('dialog:showSaveDialog', async (_, options: unknown) => {
+    const result = await dialog.showSaveDialog(
+      options as Parameters<typeof dialog.showSaveDialog>[0]
+    )
     return result.canceled ? null : result.filePath
   })
 
-  ipcMain.handle('dialog:showOpenDialog', async (_, options: any) => {
-    const result = await dialog.showOpenDialog({ ...options, properties: ['openFile'] })
+  ipcMain.handle('dialog:showOpenDialog', async (_, options: unknown) => {
+    const result = await dialog.showOpenDialog({
+      ...(options as Record<string, unknown>),
+      properties: ['openFile']
+    })
     return result.canceled ? null : result.filePaths[0]
   })
 

@@ -1,5 +1,11 @@
 import { getDb } from './db'
-import { PROVIDERS } from './providers'
+import { PROVIDERS, Provider } from './providers'
+
+export interface ProviderRecord extends Provider {
+  id?: string
+  created_at?: number
+  updated_at?: number
+}
 
 export function getSetting(key: string): string | null {
   const db = getDb()
@@ -15,7 +21,7 @@ export function setSetting(key: string, value: string): void {
 }
 
 // Providers CRUD
-export function getProviders(): any[] {
+export function getProviders(): ProviderRecord[] {
   const raw = getSetting('providers')
   if (!raw) return PROVIDERS
   try {
@@ -26,7 +32,7 @@ export function getProviders(): any[] {
   }
 }
 
-export function addProvider(provider: any): any {
+export function addProvider(provider: ProviderRecord): ProviderRecord {
   const providers = getProviders()
   const id = crypto.randomUUID()
   const newProvider = { id, ...provider, created_at: Date.now() }
@@ -35,9 +41,9 @@ export function addProvider(provider: any): any {
   return newProvider
 }
 
-export function updateProvider(id: string, data: any): any {
+export function updateProvider(id: string, data: ProviderRecord): ProviderRecord {
   const providers = getProviders()
-  const idx = providers.findIndex((p: any) => p.id === id)
+  const idx = providers.findIndex((p: ProviderRecord) => p.id === id)
   if (idx === -1) throw new Error('供应商不存在')
   providers[idx] = { ...providers[idx], ...data, updated_at: Date.now() }
   setSetting('providers', JSON.stringify(providers))
@@ -46,7 +52,7 @@ export function updateProvider(id: string, data: any): any {
 
 export function deleteProvider(id: string): void {
   const providers = getProviders()
-  const filtered = providers.filter((p: any) => p.id !== id)
+  const filtered = providers.filter((p: ProviderRecord) => p.id !== id)
   setSetting('providers', JSON.stringify(filtered))
 }
 

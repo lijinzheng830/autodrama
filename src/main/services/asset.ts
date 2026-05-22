@@ -1,5 +1,6 @@
 import { getDb } from './db'
 import { randomUUID } from 'crypto'
+import { Character, Scene, Prop } from './project'
 
 // ========== 辅助：改名时全局联动更新分镜提示词 ==========
 
@@ -34,7 +35,10 @@ export interface UpdateCharacterInput {
   skinImages?: string
 }
 
-export function createCharacter(projectId: string, input: CreateCharacterInput) {
+export function createCharacter(
+  projectId: string,
+  input: CreateCharacterInput
+): Record<string, unknown> {
   const db = getDb()
 
   const existing = db
@@ -56,11 +60,13 @@ export function createCharacter(projectId: string, input: CreateCharacterInput) 
 export function updateCharacter(characterId: string, input: UpdateCharacterInput): void {
   const db = getDb()
 
-  const char = db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId) as any
+  const char = db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId) as
+    | Character
+    | undefined
   if (!char) throw new Error('角色不存在')
 
   const fields: string[] = []
-  const values: any[] = []
+  const values: unknown[] = []
 
   if (input.name !== undefined) {
     const existing = db
@@ -91,7 +97,7 @@ export function updateCharacter(characterId: string, input: UpdateCharacterInput
 
   // 改名全局联动
   if (input.name !== undefined && input.name !== char.name) {
-    updateShotPrompts(char.project_id, char.name, input.name)
+    updateShotPrompts(char.project_id!, char.name, input.name)
   }
 }
 
@@ -114,7 +120,7 @@ export interface UpdateSceneInput {
   referenceImage?: string
 }
 
-export function createScene(projectId: string, input: CreateSceneInput) {
+export function createScene(projectId: string, input: CreateSceneInput): Record<string, unknown> {
   const db = getDb()
 
   const existing = db
@@ -136,11 +142,11 @@ export function createScene(projectId: string, input: CreateSceneInput) {
 export function updateScene(sceneId: string, input: UpdateSceneInput): void {
   const db = getDb()
 
-  const scene = db.prepare('SELECT * FROM scenes WHERE id = ?').get(sceneId) as any
+  const scene = db.prepare('SELECT * FROM scenes WHERE id = ?').get(sceneId) as Scene | undefined
   if (!scene) throw new Error('场景不存在')
 
   const fields: string[] = []
-  const values: any[] = []
+  const values: unknown[] = []
 
   if (input.name !== undefined) {
     const existing = db
@@ -167,7 +173,7 @@ export function updateScene(sceneId: string, input: UpdateSceneInput): void {
 
   // 改名全局联动
   if (input.name !== undefined && input.name !== scene.name) {
-    updateShotPrompts(scene.project_id, scene.name, input.name)
+    updateShotPrompts(scene.project_id!, scene.name, input.name)
   }
 }
 
@@ -190,7 +196,7 @@ export interface UpdatePropInput {
   referenceImage?: string
 }
 
-export function createProp(projectId: string, input: CreatePropInput) {
+export function createProp(projectId: string, input: CreatePropInput): Record<string, unknown> {
   const db = getDb()
 
   const existing = db
@@ -212,11 +218,11 @@ export function createProp(projectId: string, input: CreatePropInput) {
 export function updateProp(propId: string, input: UpdatePropInput): void {
   const db = getDb()
 
-  const prop = db.prepare('SELECT * FROM props WHERE id = ?').get(propId) as any
+  const prop = db.prepare('SELECT * FROM props WHERE id = ?').get(propId) as Prop | undefined
   if (!prop) throw new Error('道具不存在')
 
   const fields: string[] = []
-  const values: any[] = []
+  const values: unknown[] = []
 
   if (input.name !== undefined) {
     const existing = db
@@ -245,7 +251,7 @@ export function updateProp(propId: string, input: UpdatePropInput): void {
 
   // 改名全局联动
   if (input.name !== undefined && input.name !== prop.name) {
-    updateShotPrompts(prop.project_id, prop.name, input.name)
+    updateShotPrompts(prop.project_id!, prop.name, input.name)
   }
 }
 
@@ -254,7 +260,7 @@ export function deleteProp(propId: string): void {
   db.prepare('DELETE FROM props WHERE id = ?').run(propId)
 }
 
-export function getPropsByProject(projectId: string) {
+export function getPropsByProject(projectId: string): Prop[] {
   const db = getDb()
-  return db.prepare('SELECT * FROM props WHERE project_id = ?').all(projectId) as any[]
+  return db.prepare('SELECT * FROM props WHERE project_id = ?').all(projectId) as Prop[]
 }

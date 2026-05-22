@@ -26,7 +26,7 @@ const form = reactive({
 const baseProjectId = ref('')
 const projectPath = ref('')
 
-async function loadProjects() {
+async function loadProjects(): Promise<void> {
   try {
     const list = (await window.api.getProjects()) as Project[]
     projects.value = list
@@ -36,7 +36,7 @@ async function loadProjects() {
   }
 }
 
-async function handleSelectDirectory() {
+async function handleSelectDirectory(): Promise<void> {
   try {
     const result = await window.api.selectDirectory()
     if (result) {
@@ -48,7 +48,7 @@ async function handleSelectDirectory() {
   }
 }
 
-async function handleCreate() {
+async function handleCreate(): Promise<void> {
   if (!form.projectName.trim()) {
     ElMessage.warning('请输入项目名称')
     return
@@ -81,7 +81,7 @@ async function handleCreate() {
   }
 }
 
-async function handleDelete(projectId: string, event: MouseEvent) {
+async function handleDelete(projectId: string, event: MouseEvent): Promise<void> {
   event.stopPropagation()
   try {
     await ElMessageBox.confirm(
@@ -104,13 +104,13 @@ async function handleDelete(projectId: string, event: MouseEvent) {
   }
 }
 
-function resetForm() {
+function resetForm(): void {
   form.projectName = ''
   baseProjectId.value = ''
   projectPath.value = ''
 }
 
-function openProject(id: string) {
+function openProject(id: string): void {
   router.push(`/editor/${id}`)
 }
 

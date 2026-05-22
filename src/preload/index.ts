@@ -1,5 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type {
+  ProjectInput,
+  CharacterInput,
+  SceneInput,
+  PropInput,
+  ShotInput,
+  GenerationTaskInput,
+  ProviderInput,
+  PromptTemplateInput,
+  AutoProcessOptions
+} from '../main/types'
 
 const api = {
   createProject: (input: {
@@ -16,12 +27,12 @@ const api = {
   getProjects: () => ipcRenderer.invoke('project:list'),
   getProject: (id: string) => ipcRenderer.invoke('project:get', id),
   deleteProject: (id: string) => ipcRenderer.invoke('project:delete', id),
-  updateProject: (projectId: string, input: any) =>
+  updateProject: (projectId: string, input: ProjectInput) =>
     ipcRenderer.invoke('project:update', { projectId, input }),
-  autoProcess: (projectId: string, script: string, options?: any) =>
+  autoProcess: (projectId: string, script: string, options?: AutoProcessOptions) =>
     ipcRenderer.invoke('ai:auto-process', { projectId, script, options }),
-  onAIProgress: (callback: (data: any) => void) => {
-    const handler = (_: any, data: any) => callback(data)
+  onAIProgress: (callback: (data: unknown) => void): (() => void) => {
+    const handler = (_: unknown, data: unknown): void => callback(data)
     ipcRenderer.on('ai:progress', handler)
     return () => ipcRenderer.removeListener('ai:progress', handler)
   },
@@ -40,22 +51,22 @@ const api = {
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
 
   // Asset CRUD
-  createCharacter: (projectId: string, input: any) =>
+  createCharacter: (projectId: string, input: CharacterInput) =>
     ipcRenderer.invoke('asset:character:create', { projectId, input }),
-  updateCharacter: (characterId: string, input: any) =>
+  updateCharacter: (characterId: string, input: CharacterInput) =>
     ipcRenderer.invoke('asset:character:update', { characterId, input }),
   deleteCharacter: (characterId: string) =>
     ipcRenderer.invoke('asset:character:delete', characterId),
 
-  createScene: (projectId: string, input: any) =>
+  createScene: (projectId: string, input: SceneInput) =>
     ipcRenderer.invoke('asset:scene:create', { projectId, input }),
-  updateScene: (sceneId: string, input: any) =>
+  updateScene: (sceneId: string, input: SceneInput) =>
     ipcRenderer.invoke('asset:scene:update', { sceneId, input }),
   deleteScene: (sceneId: string) => ipcRenderer.invoke('asset:scene:delete', sceneId),
 
-  createProp: (projectId: string, input: any) =>
+  createProp: (projectId: string, input: PropInput) =>
     ipcRenderer.invoke('asset:prop:create', { projectId, input }),
-  updateProp: (propId: string, input: any) =>
+  updateProp: (propId: string, input: PropInput) =>
     ipcRenderer.invoke('asset:prop:update', { propId, input }),
   deleteProp: (propId: string) => ipcRenderer.invoke('asset:prop:delete', propId),
   getPropsByProject: (projectId: string) => ipcRenderer.invoke('asset:prop:list', projectId),
@@ -63,7 +74,7 @@ const api = {
   // Template
   getPromptTemplates: (projectId: string, usage?: string) =>
     ipcRenderer.invoke('template:list', { projectId, usage }),
-  savePromptTemplate: (projectId: string, input: any) =>
+  savePromptTemplate: (projectId: string, input: PromptTemplateInput) =>
     ipcRenderer.invoke('template:save', { projectId, input }),
   deletePromptTemplate: (templateId: string) => ipcRenderer.invoke('template:delete', templateId),
 
@@ -74,10 +85,12 @@ const api = {
   moveShotUp: (shotId: string) => ipcRenderer.invoke('shot:moveUp', shotId),
   moveShotDown: (shotId: string) => ipcRenderer.invoke('shot:moveDown', shotId),
   deleteShot: (shotId: string) => ipcRenderer.invoke('shot:delete', shotId),
-  updateShot: (shotId: string, input: any) => ipcRenderer.invoke('shot:update', { shotId, input }),
+  updateShot: (shotId: string, input: ShotInput) =>
+    ipcRenderer.invoke('shot:update', { shotId, input }),
   addShotAssociation: (shotId: string, type: string, assetId: string) =>
     ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
-  createGenerationTask: (input: any) => ipcRenderer.invoke('generationTask:create', input),
+  createGenerationTask: (input: GenerationTaskInput) =>
+    ipcRenderer.invoke('generationTask:create', input),
   getGenerationTasks: (projectId: string) => ipcRenderer.invoke('generationTask:list', projectId),
   selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath),
   selectExportDirectory: (defaultPath?: string) =>
@@ -85,23 +98,23 @@ const api = {
   copyExportFile: (src: string, dest: string) =>
     ipcRenderer.invoke('export:copyFile', { src, dest }),
   getProviders: () => ipcRenderer.invoke('settings:getProviders'),
-  addProvider: (provider: any) => ipcRenderer.invoke('settings:addProvider', provider),
-  updateProvider: (id: string, data: any) =>
+  addProvider: (provider: ProviderInput) => ipcRenderer.invoke('settings:addProvider', provider),
+  updateProvider: (id: string, data: ProviderInput) =>
     ipcRenderer.invoke('settings:updateProvider', { id, data }),
   deleteProvider: (id: string) => ipcRenderer.invoke('settings:deleteProvider', id),
   getSystemPrompt: () => ipcRenderer.invoke('settings:getSystemPrompt'),
   setSystemPrompt: (prompt: string) => ipcRenderer.invoke('settings:setSystemPrompt', prompt),
-  updatePromptTemplate: (templateId: string, input: any) =>
+  updatePromptTemplate: (templateId: string, input: PromptTemplateInput) =>
     ipcRenderer.invoke('template:update', { templateId, input }),
-  exportConfig: (data: any) => ipcRenderer.invoke('config:export', data),
+  exportConfig: (data: unknown) => ipcRenderer.invoke('config:export', data),
   importConfig: (cipherText: string) => ipcRenderer.invoke('config:import', cipherText),
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getVersions: () => ipcRenderer.invoke('app:getVersions'),
   configWriteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('config:writeFile', { filePath, content }),
   configReadFile: (filePath: string) => ipcRenderer.invoke('config:readFile', filePath),
-  showSaveDialog: (options: any) => ipcRenderer.invoke('dialog:showSaveDialog', options),
-  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
+  showSaveDialog: (options: unknown) => ipcRenderer.invoke('dialog:showSaveDialog', options),
+  showOpenDialog: (options: unknown) => ipcRenderer.invoke('dialog:showOpenDialog', options)
 }
 
 if (process.contextIsolated) {

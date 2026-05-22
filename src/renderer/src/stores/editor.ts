@@ -8,9 +8,9 @@ export interface ProgressItem {
 }
 
 export interface ResultData {
-  shotsData: any
-  extractData: any
-  assocData: any
+  shotsData: unknown
+  extractData: unknown
+  assocData: unknown
 }
 
 const defaultProgress: ProgressItem[] = [
@@ -27,28 +27,32 @@ export const useEditorStore = defineStore('editor', () => {
   const showResult = ref(false)
   const scriptText = ref('')
 
-  function resetProgress() {
+  function resetProgress(): void {
     progressSteps.value = [...defaultProgress]
   }
 
-  function resetResult() {
+  function resetResult(): void {
     showResult.value = false
     resultData.value = null
     resetProgress()
   }
 
-  function setGenerating(val: boolean) {
+  function setGenerating(val: boolean): void {
     generating.value = val
   }
 
-  function updateProgressStep(stepIndex: number, status: ProgressItem['status'], message: string) {
+  function updateProgressStep(
+    stepIndex: number,
+    status: ProgressItem['status'],
+    message: string
+  ): void {
     if (stepIndex >= 0 && stepIndex < progressSteps.value.length) {
       progressSteps.value[stepIndex].status = status
       progressSteps.value[stepIndex].message = message
     }
   }
 
-  function markPreviousStepsDone(currentStepIndex: number) {
+  function markPreviousStepsDone(currentStepIndex: number): void {
     for (let i = 0; i < currentStepIndex; i++) {
       if (progressSteps.value[i].status !== 'error') {
         progressSteps.value[i].status = 'done'
@@ -56,7 +60,7 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
-  function setResult(data: ResultData | null) {
+  function setResult(data: ResultData | null): void {
     resultData.value = data
     showResult.value = !!data
   }

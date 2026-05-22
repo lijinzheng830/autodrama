@@ -95,7 +95,9 @@ export function createProject(input: CreateProjectInput): Project {
     const parentId = input.parentProjectId
 
     // 复制 characters
-    const chars = db.prepare(`SELECT * FROM characters WHERE project_id = ?`).all(parentId) as any[]
+    const chars = db
+      .prepare(`SELECT * FROM characters WHERE project_id = ?`)
+      .all(parentId) as Character[]
     const insertChar = db.prepare(`
       INSERT INTO characters (id, project_id, name, description, reference_image, skin_images)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -112,7 +114,7 @@ export function createProject(input: CreateProjectInput): Project {
     }
 
     // 复制 scenes
-    const scenes = db.prepare(`SELECT * FROM scenes WHERE project_id = ?`).all(parentId) as any[]
+    const scenes = db.prepare(`SELECT * FROM scenes WHERE project_id = ?`).all(parentId) as Scene[]
     const insertScene = db.prepare(`
       INSERT INTO scenes (id, project_id, name, description, reference_image)
       VALUES (?, ?, ?, ?, ?)
@@ -122,7 +124,7 @@ export function createProject(input: CreateProjectInput): Project {
     }
 
     // 复制 props
-    const props = db.prepare(`SELECT * FROM props WHERE project_id = ?`).all(parentId) as any[]
+    const props = db.prepare(`SELECT * FROM props WHERE project_id = ?`).all(parentId) as Prop[]
     const insertProp = db.prepare(`
       INSERT INTO props (id, project_id, name, description, reference_image)
       VALUES (?, ?, ?, ?, ?)
@@ -151,7 +153,7 @@ export function getProject(id: string): Project | null {
 export function updateProject(projectId: string, input: UpdateProjectInput): void {
   const db = getDb()
   const fields: string[] = []
-  const values: any[] = []
+  const values: unknown[] = []
 
   if (input.styleName !== undefined) {
     fields.push('style_name = ?')
@@ -199,31 +201,31 @@ export function updateProjectScript(projectId: string, script: string): void {
   )
 }
 
-export function getChaptersByProject(projectId: string) {
+export function getChaptersByProject(projectId: string): unknown[] {
   const db = getDb()
   return db
     .prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY chapter_index')
-    .all(projectId) as any[]
+    .all(projectId) as unknown[]
 }
 
-export function getShotsByChapter(chapterId: string) {
+export function getShotsByChapter(chapterId: string): unknown[] {
   const db = getDb()
   return db
     .prepare('SELECT * FROM shots WHERE chapter_id = ? ORDER BY shot_index')
-    .all(chapterId) as any[]
+    .all(chapterId) as unknown[]
 }
 
-export function getCharactersByProject(projectId: string) {
+export function getCharactersByProject(projectId: string): Character[] {
   const db = getDb()
-  return db.prepare('SELECT * FROM characters WHERE project_id = ?').all(projectId) as any[]
+  return db.prepare('SELECT * FROM characters WHERE project_id = ?').all(projectId) as Character[]
 }
 
-export function getScenesByProject(projectId: string) {
+export function getScenesByProject(projectId: string): Scene[] {
   const db = getDb()
-  return db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as any[]
+  return db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as Scene[]
 }
 
-export function getShotCharacters(shotId: string) {
+export function getShotCharacters(shotId: string): unknown[] {
   const db = getDb()
   return db
     .prepare(
@@ -233,10 +235,10 @@ export function getShotCharacters(shotId: string) {
       WHERE sc.shot_id = ?
     `
     )
-    .all(shotId) as any[]
+    .all(shotId) as unknown[]
 }
 
-export function getShotScenes(shotId: string) {
+export function getShotScenes(shotId: string): unknown[] {
   const db = getDb()
   return db
     .prepare(
@@ -246,10 +248,10 @@ export function getShotScenes(shotId: string) {
       WHERE ss.shot_id = ?
     `
     )
-    .all(shotId) as any[]
+    .all(shotId) as unknown[]
 }
 
-export function getShotCharactersByProject(projectId: string) {
+export function getShotCharactersByProject(projectId: string): unknown[] {
   const db = getDb()
   return db
     .prepare(
@@ -262,10 +264,10 @@ export function getShotCharactersByProject(projectId: string) {
       WHERE ch.project_id = ?
     `
     )
-    .all(projectId) as any[]
+    .all(projectId) as unknown[]
 }
 
-export function getShotScenesByProject(projectId: string) {
+export function getShotScenesByProject(projectId: string): unknown[] {
   const db = getDb()
   return db
     .prepare(
@@ -278,12 +280,78 @@ export function getShotScenesByProject(projectId: string) {
       WHERE ch.project_id = ?
     `
     )
-    .all(projectId) as any[]
+    .all(projectId) as unknown[]
 }
 
 export function deleteProject(projectId: string): void {
   const db = getDb()
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId)
+}
+
+export interface Character {
+  id: string
+  project_id?: string
+  name: string
+  description?: string
+  reference_image?: string
+  skin_images?: string
+}
+
+export interface Scene {
+  id: string
+  project_id?: string
+  name: string
+  description?: string
+  reference_image?: string
+}
+
+export interface Prop {
+  id: string
+  project_id?: string
+  name: string
+  description?: string
+  reference_image?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Chapter {
+  id: string
+  project_id: string
+  chapter_index: number
+  title: string
+}
+
+export interface Shot {
+  id: string
+  chapter_id: string
+  shot_index: number
+  description?: string
+  dialogue?: string
+  first_frame_prompt?: string
+  last_frame_prompt?: string
+  video_prompt?: string
+  first_frame_image_path?: string
+  last_frame_image_path?: string
+  video_path?: string
+  voice_path?: string
+  duration_seconds?: number
+}
+
+export interface GenerationTask {
+  id: string
+  project_id: string
+  shot_id?: string
+  type: string
+  purpose: string
+  channel?: string
+  model?: string
+  status: string
+  input_params?: string
+  output_path?: string
+  error_message?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface UpdateShotInput {
@@ -297,7 +365,7 @@ export interface UpdateShotInput {
 export function updateShot(shotId: string, input: UpdateShotInput): void {
   const db = getDb()
   const fields: string[] = []
-  const values: any[] = []
+  const values: unknown[] = []
 
   if (input.description !== undefined) {
     fields.push('description = ?')
@@ -395,7 +463,7 @@ export function createGenerationTask(input: {
   return { id }
 }
 
-export function getGenerationTasks(projectId: string): any[] {
+export function getGenerationTasks(projectId: string): GenerationTask[] {
   const db = getDb()
   return db
     .prepare(
@@ -408,7 +476,7 @@ export function getGenerationTasks(projectId: string): any[] {
     ORDER BY created_at DESC
   `
     )
-    .all(projectId)
+    .all(projectId) as GenerationTask[]
 }
 
 export function copyImageToProject(srcPath: string, projectPath: string): string {
@@ -423,12 +491,19 @@ export function copyImageToProject(srcPath: string, projectPath: string): string
 
 // ========== M1-06: 分镜查询服务层 ==========
 
-function buildShotAssocMaps(db: ReturnType<typeof getDb>, shotIds: string[]) {
+function buildShotAssocMaps(
+  db: ReturnType<typeof getDb>,
+  shotIds: string[]
+): {
+  charMap: Map<string, Character[]>
+  sceneMap: Map<string, Scene[]>
+  propMap: Map<string, Prop[]>
+} {
   if (shotIds.length === 0) {
     return {
-      charMap: new Map<string, any[]>(),
-      sceneMap: new Map<string, any[]>(),
-      propMap: new Map<string, any[]>()
+      charMap: new Map<string, Character[]>(),
+      sceneMap: new Map<string, Scene[]>(),
+      propMap: new Map<string, Prop[]>()
     }
   }
   const placeholders = shotIds.map(() => '?').join(',')
@@ -442,7 +517,7 @@ function buildShotAssocMaps(db: ReturnType<typeof getDb>, shotIds: string[]) {
       WHERE sc.shot_id IN (${placeholders})
     `
     )
-    .all(...shotIds) as any[]
+    .all(...shotIds) as Record<string, unknown>[]
 
   const shotScenes = db
     .prepare(
@@ -453,7 +528,7 @@ function buildShotAssocMaps(db: ReturnType<typeof getDb>, shotIds: string[]) {
       WHERE ss.shot_id IN (${placeholders})
     `
     )
-    .all(...shotIds) as any[]
+    .all(...shotIds) as Record<string, unknown>[]
 
   const shotProps = db
     .prepare(
@@ -464,75 +539,84 @@ function buildShotAssocMaps(db: ReturnType<typeof getDb>, shotIds: string[]) {
       WHERE sp.shot_id IN (${placeholders})
     `
     )
-    .all(...shotIds) as any[]
+    .all(...shotIds) as Record<string, unknown>[]
 
-  const charMap = new Map<string, any[]>()
+  const charMap = new Map<string, Character[]>()
   for (const sc of shotChars) {
-    if (!charMap.has(sc.shot_id)) charMap.set(sc.shot_id, [])
-    charMap.get(sc.shot_id)!.push({
-      id: sc.id,
-      name: sc.name,
-      description: sc.description,
-      reference_image: sc.reference_image,
-      skin_images: sc.skin_images
+    const row = sc as Record<string, unknown>
+    const shotId = row.shot_id as string
+    if (!charMap.has(shotId)) charMap.set(shotId, [])
+    charMap.get(shotId)!.push({
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      reference_image: row.reference_image as string,
+      skin_images: row.skin_images as string
     })
   }
 
-  const sceneMap = new Map<string, any[]>()
+  const sceneMap = new Map<string, Scene[]>()
   for (const ss of shotScenes) {
-    if (!sceneMap.has(ss.shot_id)) sceneMap.set(ss.shot_id, [])
-    sceneMap.get(ss.shot_id)!.push({
-      id: ss.id,
-      name: ss.name,
-      description: ss.description,
-      reference_image: ss.reference_image
+    const row = ss as Record<string, unknown>
+    const shotId = row.shot_id as string
+    if (!sceneMap.has(shotId)) sceneMap.set(shotId, [])
+    sceneMap.get(shotId)!.push({
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      reference_image: row.reference_image as string
     })
   }
 
-  const propMap = new Map<string, any[]>()
+  const propMap = new Map<string, Prop[]>()
   for (const sp of shotProps) {
-    if (!propMap.has(sp.shot_id)) propMap.set(sp.shot_id, [])
-    propMap.get(sp.shot_id)!.push({
-      id: sp.id,
-      name: sp.name,
-      description: sp.description,
-      reference_image: sp.reference_image
+    const row = sp as Record<string, unknown>
+    const shotId = row.shot_id as string
+    if (!propMap.has(shotId)) propMap.set(shotId, [])
+    propMap.get(shotId)!.push({
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      reference_image: row.reference_image as string
     })
   }
 
   return { charMap, sceneMap, propMap }
 }
 
-export function getShotsWithAssociations(chapterId: string) {
+export function getShotsWithAssociations(chapterId: string): unknown[] {
   const db = getDb()
 
   const shots = db
     .prepare('SELECT * FROM shots WHERE chapter_id = ? ORDER BY shot_index')
-    .all(chapterId) as any[]
+    .all(chapterId) as Record<string, unknown>[]
 
-  const shotIds = shots.map((s) => s.id)
+  const shotIds = shots.map((s) => (s as Record<string, unknown>).id as string)
   const { charMap, sceneMap, propMap } = buildShotAssocMaps(db, shotIds)
 
-  return shots.map((s) => ({
-    ...s,
-    characters: charMap.get(s.id) || [],
-    scenes: sceneMap.get(s.id) || [],
-    props: propMap.get(s.id) || []
-  }))
+  return shots.map((s) => {
+    const row = s as Record<string, unknown>
+    return {
+      ...row,
+      characters: charMap.get(row.id as string) || [],
+      scenes: sceneMap.get(row.id as string) || [],
+      props: propMap.get(row.id as string) || []
+    }
+  })
 }
 
-export function getProjectData(projectId: string) {
+export function getProjectData(projectId: string): Record<string, unknown> {
   const db = getDb()
 
   const chapters = db
     .prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY chapter_index')
-    .all(projectId) as any[]
+    .all(projectId) as Record<string, unknown>[]
 
   const characters = db
     .prepare('SELECT * FROM characters WHERE project_id = ?')
-    .all(projectId) as any[]
-  const scenes = db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as any[]
-  const props = db.prepare('SELECT * FROM props WHERE project_id = ?').all(projectId) as any[]
+    .all(projectId) as Character[]
+  const scenes = db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as Scene[]
+  const props = db.prepare('SELECT * FROM props WHERE project_id = ?').all(projectId) as Prop[]
 
   const shots = db
     .prepare(
@@ -542,7 +626,7 @@ export function getProjectData(projectId: string) {
       ORDER BY chapter_id, shot_index
     `
     )
-    .all(projectId) as any[]
+    .all(projectId) as Shot[]
 
   const shotIds = shots.map((s) => s.id)
   const { charMap, sceneMap, propMap } = buildShotAssocMaps(db, shotIds)
@@ -560,7 +644,7 @@ export function getProjectData(projectId: string) {
 export function moveShotUp(shotId: string): void {
   const db = getDb()
   const tx = db.transaction(() => {
-    const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as any
+    const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as Shot
     if (!shot) return
 
     const prevShot = db
@@ -571,7 +655,7 @@ export function moveShotUp(shotId: string): void {
         ORDER BY shot_index DESC LIMIT 1
       `
       )
-      .get(shot.chapter_id, shot.shot_index) as any
+      .get(shot.chapter_id, shot.shot_index) as Shot
     if (!prevShot) return
 
     db.prepare('UPDATE shots SET shot_index = ? WHERE id = ?').run(prevShot.shot_index, shotId)
@@ -583,7 +667,7 @@ export function moveShotUp(shotId: string): void {
 export function moveShotDown(shotId: string): void {
   const db = getDb()
   const tx = db.transaction(() => {
-    const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as any
+    const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as Shot
     if (!shot) return
 
     const nextShot = db
@@ -594,7 +678,7 @@ export function moveShotDown(shotId: string): void {
         ORDER BY shot_index ASC LIMIT 1
       `
       )
-      .get(shot.chapter_id, shot.shot_index) as any
+      .get(shot.chapter_id, shot.shot_index) as Shot
     if (!nextShot) return
 
     db.prepare('UPDATE shots SET shot_index = ? WHERE id = ?').run(nextShot.shot_index, shotId)
@@ -606,7 +690,7 @@ export function moveShotDown(shotId: string): void {
 export function deleteShot(shotId: string): void {
   const db = getDb()
   const tx = db.transaction(() => {
-    const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as any
+    const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as Shot
     if (!shot) return
 
     db.prepare('DELETE FROM shots WHERE id = ?').run(shotId)
