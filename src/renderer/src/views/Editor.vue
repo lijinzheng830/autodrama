@@ -360,43 +360,47 @@ function toggleShotSelect(shotId: string) {
   else selectedShots.value.add(shotId)
 }
 
-let docClickHandler: ((e: MouseEvent) => void) | null = null
+let docMouseDownHandler: ((e: MouseEvent) => void) | null = null
+let currentEditTextarea: HTMLTextAreaElement | null = null
 
-function cleanupDocClick() {
-  if (docClickHandler) {
-    document.removeEventListener('click', docClickHandler)
-    docClickHandler = null
+function cleanupDocMouseDown() {
+  if (docMouseDownHandler) {
+    document.removeEventListener('mousedown', docMouseDownHandler)
+    docMouseDownHandler = null
   }
+  currentEditTextarea = null
 }
 
 function startEdit(shotId: string, field: string, currentText: string) {
-  cleanupDocClick()
+  cleanupDocMouseDown()
   editingCell.value = { shotId, field }
   editText.value = currentText
-  // 延迟添加点击监听，避免当前双击/点击立即触发
+  // 延迟添加监听，等 DOM 更新后获取 textarea
   setTimeout(() => {
-    docClickHandler = (e: MouseEvent) => {
-      if (!editingCell.value) {
-        cleanupDocClick()
+    const editCell = document.querySelector('.edit-cell') as HTMLElement | null
+    currentEditTextarea = editCell?.querySelector('textarea') as HTMLTextAreaElement | null
+    if (currentEditTextarea) currentEditTextarea.focus()
+
+    docMouseDownHandler = (e: MouseEvent) => {
+      if (!editingCell.value || !currentEditTextarea) {
+        cleanupDocMouseDown()
         return
       }
       const target = e.target as HTMLElement
       if (target.closest('.edit-cell')) return
-      // 点击外部，触发 blur 保存
-      const textarea = document.querySelector('.edit-cell textarea') as HTMLTextAreaElement | null
-      if (textarea) textarea.blur()
+      currentEditTextarea.blur()
     }
-    document.addEventListener('click', docClickHandler)
+    document.addEventListener('mousedown', docMouseDownHandler)
   }, 0)
 }
 
 function cancelEdit() {
-  cleanupDocClick()
+  cleanupDocMouseDown()
   editingCell.value = null
 }
 
 async function saveEdit(shotId: string, field: string) {
-  cleanupDocClick()
+  cleanupDocMouseDown()
   if (!editingCell.value) return
   try {
     const update: any = {}
@@ -1139,7 +1143,7 @@ onUnmounted(() => {
                         <el-input
                           v-model="editText"
                           type="textarea"
-                          :rows="3"
+                          :autosize="{ minRows: 3, maxRows: 12 }"
                           @blur="saveEdit(shot.id, 'description')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'description')"
                           @keydown.esc.prevent="cancelEdit"
@@ -1230,7 +1234,7 @@ onUnmounted(() => {
                         <el-input
                           v-model="editText"
                           type="textarea"
-                          :rows="3"
+                          :autosize="{ minRows: 3, maxRows: 12 }"
                           @blur="saveEdit(shot.id, 'first_frame_prompt')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'first_frame_prompt')"
                           @keydown.esc.prevent="cancelEdit"
@@ -1268,7 +1272,7 @@ onUnmounted(() => {
                         <el-input
                           v-model="editText"
                           type="textarea"
-                          :rows="3"
+                          :autosize="{ minRows: 3, maxRows: 12 }"
                           @blur="saveEdit(shot.id, 'last_frame_prompt')"
                           @keydown.enter.prevent="saveEdit(shot.id, 'last_frame_prompt')"
                           @keydown.esc.prevent="cancelEdit"
@@ -2609,6 +2613,10 @@ onUnmounted(() => {
   color: #60a5fa;
   border-radius: 3px;
   padding: 0 3px;
+}
+
+.edit-cell {
+  width: 100%;
 }
 
 .edit-cell :deep(.el-textarea__inner) {
