@@ -2687,7 +2687,7 @@ onUnmounted(() => {
 }
 
 .config-template-tab.disabled {
-  color: #6b7280;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
@@ -2719,7 +2719,7 @@ onUnmounted(() => {
 
 .config-template-empty {
   font-size: 13px;
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   padding: 16px;
 }
@@ -2759,7 +2759,7 @@ onUnmounted(() => {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #0f0f11;
+  background: rgba(255, 255, 255, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -2825,7 +2825,7 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.06);
+  background: rgba(167, 139, 250, 0.12);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -2837,7 +2837,7 @@ onUnmounted(() => {
 }
 
 .shot-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .shot-row.selected {
@@ -2936,7 +2936,7 @@ onUnmounted(() => {
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2968,7 +2968,7 @@ onUnmounted(() => {
 
 .thumb-empty {
   font-size: 13px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 /* 媒体单元格 */
@@ -2976,7 +2976,7 @@ onUnmounted(() => {
   width: 70px;
   height: 50px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3106,7 +3106,7 @@ onUnmounted(() => {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -3157,7 +3157,7 @@ onUnmounted(() => {
 
 .panel-empty {
   font-size: 13px;
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   padding: 16px;
 }
@@ -3209,7 +3209,7 @@ onUnmounted(() => {
   width: 100%;
   height: 160px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -3301,7 +3301,7 @@ onUnmounted(() => {
 
 .history-empty {
   font-size: 13px;
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   padding: 16px;
 }
@@ -3331,7 +3331,7 @@ onUnmounted(() => {
 }
 
 .parse-tab.disabled {
-  color: #6b7280;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
@@ -3457,7 +3457,7 @@ onUnmounted(() => {
   text-align: center;
   padding: 40px;
   font-size: 14px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .gen-record-list {
@@ -3649,7 +3649,7 @@ onUnmounted(() => {
 }
 
 .batch-stat-value.zero {
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .batch-count-row {
