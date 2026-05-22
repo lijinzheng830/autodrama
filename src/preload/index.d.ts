@@ -63,6 +63,20 @@ export interface Api {
   selectImage: (projectPath: string) => Promise<string | null>
   selectExportDirectory: (defaultPath?: string) => Promise<string | null>
   copyExportFile: (src: string, dest: string) => Promise<boolean>
+  getProviders: () => Promise<any[]>
+  addProvider: (provider: any) => Promise<any>
+  updateProvider: (id: string, data: any) => Promise<any>
+  deleteProvider: (id: string) => Promise<void>
+  getSystemPrompt: () => Promise<string>
+  setSystemPrompt: (prompt: string) => Promise<void>
+  updatePromptTemplate: (templateId: string, input: any) => Promise<void>
+  exportConfig: (data: any) => Promise<string>
+  importConfig: (cipherText: string) => Promise<{ success: boolean; data?: any; error?: string }>
+  getVersion: () => Promise<string>
+  getVersions: () => Promise<{ electron: string; node: string; chrome: string }>
+  configWriteFile: (filePath: string, content: string) => Promise<boolean>
+  configReadFile: (filePath: string) => Promise<string | null>
+  showSaveDialog: (options: any) => Promise<string | null>
 }
 
 declare global {

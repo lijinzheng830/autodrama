@@ -17,10 +17,11 @@ import {
   createScene, updateScene, deleteScene,
   createProp, updateProp, deleteProp, getPropsByProject
 } from './services/asset'
-import { getPromptTemplates, savePromptTemplate, deletePromptTemplate } from './services/template'
+import { getPromptTemplates, savePromptTemplate, deletePromptTemplate, updatePromptTemplate } from './services/template'
 import { autoProcess } from './services/ai'
-import { getSetting, setSetting } from './services/settings'
+import { getSetting, setSetting, getProviders, addProvider, updateProvider, deleteProvider, getSystemPrompt, setSystemPrompt } from './services/settings'
 import { PROVIDERS } from './services/providers'
+import { encrypt, decrypt } from './utils/crypto'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -302,6 +303,79 @@ app.whenReady().then(() => {
       console.error('Copy file failed:', src, '->', dest, err)
       return false
     }
+  })
+
+  // ===== Settings: Providers =====
+  ipcMain.handle('settings:getProviders', async () => getProviders())
+  ipcMain.handle('settings:addProvider', async (_, provider: any) => addProvider(provider))
+  ipcMain.handle('settings:updateProvider', async (_, { id, data }: { id: string; data: any }) => updateProvider(id, data))
+  ipcMain.handle('settings:deleteProvider', async (_, id: string) => deleteProvider(id))
+
+  // ===== Settings: System Prompt =====
+  ipcMain.handle('settings:getSystemPrompt', async () => getSystemPrompt())
+  ipcMain.handle('settings:setSystemPrompt', async (_, prompt: string) => setSystemPrompt(prompt))
+
+  // ===== Template: Update =====
+  ipcMain.handle('template:update', async (_, { templateId, input }: { templateId: string; input: any }) => {
+    updatePromptTemplate(templateId, input)
+  })
+
+  // ===== Config Export / Import =====
+  ipcMain.handle('config:export', async (_, data: { systemPrompt: string; templates: any[]; modelRoutes: any }) => {
+    const json = JSON.stringify(data, null, 2)
+    return encrypt(json)
+  })
+
+  ipcMain.handle('config:import', async (_, cipherText: string) => {
+    const json = decrypt(cipherText)
+    if (!json) return { success: false, error: '配置文件无效' }
+    try {
+      const data = JSON.parse(json)
+      return { success: true, data }
+    } catch {
+      return { success: false, error: '配置文件无效' }
+    }
+  })
+
+  // ===== App Version =====
+  ipcMain.handle('app:getVersion', async () => {
+    const pkg = await import('../../package.json')
+    return pkg.version || '1.0.0-alpha.1'
+  })
+
+  ipcMain.handle('app:getVersions', async () => {
+    return {
+      electron: process.versions.electron,
+      node: process.versions.node,
+      chrome: process.versions.chrome
+    }
+  })
+
+  // Config file read/write helpers
+  ipcMain.handle('config:writeFile', async (_, { filePath, content }: { filePath: string; content: string }) => {
+    try {
+      const fs = await import('fs')
+      fs.writeFileSync(filePath, content, 'utf8')
+      return true
+    } catch (err) {
+      console.error('Write file failed:', err)
+      return false
+    }
+  })
+
+  ipcMain.handle('config:readFile', async (_, filePath: string) => {
+    try {
+      const fs = await import('fs')
+      return fs.readFileSync(filePath, 'utf8')
+    } catch (err) {
+      console.error('Read file failed:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('dialog:showSaveDialog', async (_, options: any) => {
+    const result = await dialog.showSaveDialog(options)
+    return result.canceled ? null : result.filePath
   })
 
   createWindow()

@@ -67,7 +67,21 @@ const api = {
   getGenerationTasks: (projectId: string) => ipcRenderer.invoke('generationTask:list', projectId),
   selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath),
   selectExportDirectory: (defaultPath?: string) => ipcRenderer.invoke('export:selectDirectory', defaultPath),
-  copyExportFile: (src: string, dest: string) => ipcRenderer.invoke('export:copyFile', { src, dest })
+  copyExportFile: (src: string, dest: string) => ipcRenderer.invoke('export:copyFile', { src, dest }),
+  getProviders: () => ipcRenderer.invoke('settings:getProviders'),
+  addProvider: (provider: any) => ipcRenderer.invoke('settings:addProvider', provider),
+  updateProvider: (id: string, data: any) => ipcRenderer.invoke('settings:updateProvider', { id, data }),
+  deleteProvider: (id: string) => ipcRenderer.invoke('settings:deleteProvider', id),
+  getSystemPrompt: () => ipcRenderer.invoke('settings:getSystemPrompt'),
+  setSystemPrompt: (prompt: string) => ipcRenderer.invoke('settings:setSystemPrompt', prompt),
+  updatePromptTemplate: (templateId: string, input: any) => ipcRenderer.invoke('template:update', { templateId, input }),
+  exportConfig: (data: any) => ipcRenderer.invoke('config:export', data),
+  importConfig: (cipherText: string) => ipcRenderer.invoke('config:import', cipherText),
+  getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  getVersions: () => ipcRenderer.invoke('app:getVersions'),
+  configWriteFile: (filePath: string, content: string) => ipcRenderer.invoke('config:writeFile', { filePath, content }),
+  configReadFile: (filePath: string) => ipcRenderer.invoke('config:readFile', filePath),
+  showSaveDialog: (options: any) => ipcRenderer.invoke('dialog:showSaveDialog', options)
 }
 
 if (process.contextIsolated) {

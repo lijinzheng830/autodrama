@@ -1,118 +1,356 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { ArrowLeft, View, Hide } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ArrowLeft, Plus, Edit, Delete, Download, Upload,
+  Monitor, Setting, DocumentCopy, InfoFilled
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 
-interface ModelConfig {
-  key: string
-  name: string
-  type: 'text' | 'image' | 'video'
-  free: boolean
-}
-
-interface ProviderConfig {
-  key: string
-  name: string
-  baseURL: string
-  models: ModelConfig[]
-  implemented: boolean
-}
-
-const providers = ref<ProviderConfig[]>([])
-const selectedProvider = ref('')
-const selectedModel = ref('')
-const apiKey = ref('')
-const apiKeyVisible = ref(false)
-const loading = ref(false)
-const saving = ref(false)
+// 导航
+const navItems = [
+  { key: 'providers', label: 'API供应商 & 插件', icon: Setting },
+  { key: 'templates', label: '提示词模板', icon: DocumentCopy },
+  { key: 'routes', label: '模型路由 & 默认', icon: Monitor },
+  { key: 'about', label: '关于', icon: InfoFilled }
+]
+const activeNav = ref('providers')
 
 function goBack() {
   router.back()
 }
 
-const currentProvider = computed(() =>
-  providers.value.find(p => p.key === selectedProvider.value)
-)
-
-const availableModels = computed(() => {
-  const p = currentProvider.value
-  return p ? p.models : []
-})
+// ===== Providers =====
+const providers = ref<any[]>([])
+const providerDialogVisible = ref(false)
+const providerDialogMode = ref<'add' | 'edit'>('add')
+const providerEditId = ref('')
+const providerForm = ref({ name: '', key: '', baseURL: '', apiKey: '', models: '' })
 
 async function loadProviders() {
   try {
-    providers.value = await window.api.getProviders() as ProviderConfig[]
+    providers.value = await window.api.getProviders()
   } catch (err) {
     console.error(err)
   }
 }
 
-async function loadSettings() {
-  loading.value = true
-  try {
-    const [provider, model, key] = await Promise.all([
-      window.api.getSetting('provider'),
-      window.api.getSetting('model'),
-      window.api.getSetting('api_key_qwen')
-    ])
-    selectedProvider.value = provider || 'qwen'
-    selectedModel.value = model || 'qwen3.6-flash'
-    apiKey.value = key || ''
-  } catch (err) {
-    ElMessage.error('加载设置失败')
-    console.error(err)
-  } finally {
-    loading.value = false
-  }
+function openAddProvider() {
+  providerDialogMode.value = 'add'
+  providerEditId.value = ''
+  providerForm.value = { name: '', key: '', baseURL: '', apiKey: '', models: '' }
+  providerDialogVisible.value = true
 }
 
-async function handleSave() {
-  if (!selectedProvider.value) {
-    ElMessage.warning('请选择供应商')
+function openEditProvider(p: any) {
+  providerDialogMode.value = 'edit'
+  providerEditId.value = p.id
+  providerForm.value = {
+    name: p.name || '',
+    key: p.key || '',
+    baseURL: p.baseURL || '',
+    apiKey: p.apiKey || '',
+    models: Array.isArray(p.models) ? p.models.join('\n') : (p.models || '')
+  }
+  providerDialogVisible.value = true
+}
+
+async function saveProvider() {
+  const { name, key, baseURL, apiKey, models } = providerForm.value
+  if (!name || !key || !baseURL) {
+    ElMessage.warning('请填写名称、标识和baseURL')
     return
   }
-  if (!selectedModel.value) {
-    ElMessage.warning('请选择模型')
-    return
-  }
-
-  saving.value = true
+  const modelList = models.split('\n').map(s => s.trim()).filter(Boolean)
+  const data = { name, key, baseURL, apiKey, models: modelList }
   try {
-    await Promise.all([
-      window.api.setSetting('provider', selectedProvider.value),
-      window.api.setSetting('model', selectedModel.value),
-      window.api.setSetting(`api_key_${selectedProvider.value}`, apiKey.value.trim())
-    ])
-    ElMessage.success('设置已保存')
-  } catch (err) {
-    ElMessage.error('保存设置失败')
-    console.error(err)
-  } finally {
-    saving.value = false
+    if (providerDialogMode.value === 'add') {
+      await window.api.addProvider(data)
+      ElMessage.success('添加成功')
+    } else {
+      await window.api.updateProvider(providerEditId.value, data)
+      ElMessage.success('更新成功')
+    }
+    providerDialogVisible.value = false
+    await loadProviders()
+  } catch (err: any) {
+    ElMessage.error(err.message || '操作失败')
   }
 }
 
-watch(selectedProvider, (newVal) => {
-  const p = providers.value.find(pr => pr.key === newVal)
-  if (p && p.models.length > 0) {
-    // 如果当前选中模型不在新供应商的模型列表中，则重置为第一个
-    if (!p.models.find(m => m.key === selectedModel.value)) {
-      selectedModel.value = p.models[0].key
+async function handleDeleteProvider(id: string) {
+  try {
+    await ElMessageBox.confirm('确定删除该供应商？', '确认删除', { type: 'warning' })
+    await window.api.deleteProvider(id)
+    ElMessage.success('删除成功')
+    await loadProviders()
+  } catch {
+    // cancel
+  }
+}
+
+// ===== Templates =====
+const templateTab = ref<'official' | 'custom'>('official')
+const templates = ref<any[]>([])
+const officialTemplates = ref<any[]>([])
+const systemPrompt = ref('')
+const templateDialogVisible = ref(false)
+const templateDialogMode = ref<'add' | 'edit'>('add')
+const templateEditId = ref('')
+const templateForm = ref({ name: '', usage: 'script_parse', content: '' })
+
+const usageOptions = [
+  { label: '剧本解析', value: 'script_parse' },
+  { label: '角色生图', value: 'character_image' },
+  { label: '场景生图', value: 'scene_image' },
+  { label: '道具生图', value: 'prop_image' },
+  { label: '首帧', value: 'first_frame' },
+  { label: '尾帧', value: 'last_frame' },
+  { label: '视频', value: 'video' }
+]
+
+async function loadTemplates() {
+  try {
+    // 自定义模板
+    templates.value = await window.api.getPromptTemplates('') as any[]
+    // 官方模板
+    const all = await window.api.getPromptTemplates('') as any[]
+    officialTemplates.value = all.filter((t: any) => t.is_default === 1 || t.is_default === true)
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function loadSystemPrompt() {
+  try {
+    systemPrompt.value = await window.api.getSystemPrompt()
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function saveSystemPrompt() {
+  try {
+    await window.api.setSystemPrompt(systemPrompt.value)
+    ElMessage.success('系统预设已保存')
+  } catch (err) {
+    ElMessage.error('保存失败')
+  }
+}
+
+function openAddTemplate() {
+  templateDialogMode.value = 'add'
+  templateEditId.value = ''
+  templateForm.value = { name: '', usage: 'script_parse', content: '' }
+  templateDialogVisible.value = true
+}
+
+function openEditTemplate(t: any) {
+  templateDialogMode.value = 'edit'
+  templateEditId.value = t.id
+  templateForm.value = { name: t.name || '', usage: t.usage || 'script_parse', content: t.content || '' }
+  templateDialogVisible.value = true
+}
+
+async function saveTemplate() {
+  const { name, usage, content } = templateForm.value
+  if (!name || !content) {
+    ElMessage.warning('请填写名称和内容')
+    return
+  }
+  try {
+    if (templateDialogMode.value === 'add') {
+      await window.api.savePromptTemplate('', { usage, name, content })
+      ElMessage.success('创建成功')
+    } else {
+      await window.api.updatePromptTemplate(templateEditId.value, { name, usage, content })
+      ElMessage.success('更新成功')
+    }
+    templateDialogVisible.value = false
+    await loadTemplates()
+  } catch (err: any) {
+    ElMessage.error(err.message || '操作失败')
+  }
+}
+
+async function handleDeleteTemplate(id: string) {
+  try {
+    await ElMessageBox.confirm('确定删除该模板？', '确认删除', { type: 'warning' })
+    await window.api.deletePromptTemplate(id)
+    ElMessage.success('删除成功')
+    await loadTemplates()
+  } catch {
+    // cancel
+  }
+}
+
+async function cloneTemplate(t: any) {
+  try {
+    await window.api.savePromptTemplate('', { usage: t.usage, name: t.name + '（复制）', content: t.content })
+    ElMessage.success('已另存为我的模板')
+    await loadTemplates()
+    templateTab.value = 'custom'
+  } catch (err: any) {
+    ElMessage.error(err.message || '操作失败')
+  }
+}
+
+// Config export / import
+async function handleExportConfig() {
+  try {
+    const modelRoutes = await window.api.getSetting('model_routes') || '{}'
+    const data = {
+      systemPrompt: systemPrompt.value,
+      templates: templates.value,
+      modelRoutes: JSON.parse(modelRoutes)
+    }
+    const cipher = await window.api.exportConfig(data)
+    const filePath = await window.api.showSaveDialog({
+      title: '导出配置',
+      defaultPath: 'config.autodrama-config',
+      filters: [{ name: 'AutoDrama配置', extensions: ['autodrama-config'] }]
+    })
+    if (!filePath) return
+    const ok = await window.api.configWriteFile(filePath, cipher)
+    if (ok) ElMessage.success(`配置已导出到 ${filePath}`)
+    else ElMessage.error('写入文件失败')
+  } catch (err) {
+    ElMessage.error('导出失败')
+    console.error(err)
+  }
+}
+
+async function handleImportConfig() {
+  try {
+    const filePath = await window.api.selectExportDirectory()
+    if (!filePath) return
+    // Actually we need a file picker, not directory. Use the existing selectDirectory for now and append filename
+    // Better approach: let user pick the file directly
+    ElMessage.info('请选择 config.autodrama-config 文件所在的目录，文件名为 config.autodrama-config')
+    const cipher = await window.api.configReadFile(`${filePath}/config.autodrama-config`)
+    if (!cipher) {
+      ElMessage.error('未找到 config.autodrama-config 文件或读取失败')
+      return
+    }
+    const res = await window.api.importConfig(cipher)
+    if (!res.success) {
+      ElMessage.error(res.error || '配置文件无效')
+      return
+    }
+    // Merge
+    const data = res.data
+    if (data.systemPrompt) {
+      systemPrompt.value = data.systemPrompt
+      await window.api.setSystemPrompt(data.systemPrompt)
+    }
+    if (data.modelRoutes) {
+      await window.api.setSetting('model_routes', JSON.stringify(data.modelRoutes))
+    }
+    if (Array.isArray(data.templates)) {
+      for (const t of data.templates) {
+        try {
+          await window.api.savePromptTemplate('', { usage: t.usage, name: t.name, content: t.content })
+        } catch {
+          // ignore duplicate
+        }
+      }
+    }
+    ElMessage.success('配置导入成功')
+    await loadTemplates()
+    await loadModelRoutes()
+  } catch (err) {
+    ElMessage.error('导入失败')
+    console.error(err)
+  }
+}
+
+// ===== Model Routes =====
+const routePurposes = [
+  { key: 'character_image', label: '角色定妆照' },
+  { key: 'scene_image', label: '场景图' },
+  { key: 'prop_image', label: '道具图' },
+  { key: 'first_frame', label: '首帧' },
+  { key: 'last_frame', label: '尾帧' },
+  { key: 'video', label: '视频' }
+]
+const modelRoutes = ref<Record<string, { model: string; channel: string }>>({})
+
+async function loadModelRoutes() {
+  try {
+    const raw = await window.api.getSetting('model_routes')
+    modelRoutes.value = raw ? JSON.parse(raw) : {}
+  } catch {
+    modelRoutes.value = {}
+  }
+}
+
+async function saveModelRoutes() {
+  try {
+    await window.api.setSetting('model_routes', JSON.stringify(modelRoutes.value))
+    ElMessage.success('模型路由已保存')
+  } catch (err) {
+    ElMessage.error('保存失败')
+  }
+}
+
+const availableModels = computed(() => {
+  const list: string[] = []
+  for (const p of providers.value) {
+    if (Array.isArray(p.models)) {
+      for (const m of p.models) {
+        if (typeof m === 'string') list.push(m)
+        else if (m.name) list.push(m.name)
+        else if (m.key) list.push(m.key)
+      }
     }
   }
-  // 加载对应供应商的API Key
-  if (newVal) {
-    window.api.getSetting(`api_key_${newVal}`).then((key) => {
-      apiKey.value = key || ''
-    })
-  }
+  return [...new Set(list)]
 })
 
-onMounted(() => {
-  loadProviders().then(() => loadSettings())
+const availableChannels = computed(() => {
+  return providers.value.map(p => p.name || p.key).filter(Boolean)
+})
+
+function getRouteModel(key: string): string {
+  return modelRoutes.value[key]?.model || ''
+}
+
+function setRouteModel(key: string, val: string) {
+  if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
+  modelRoutes.value[key].model = val
+}
+
+function getRouteChannel(key: string): string {
+  return modelRoutes.value[key]?.channel || ''
+}
+
+function setRouteChannel(key: string, val: string) {
+  if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
+  modelRoutes.value[key].channel = val
+}
+
+// ===== About =====
+const appVersion = ref('')
+const electronVersion = ref('')
+const nodeVersion = ref('')
+const chromeVersion = ref('')
+
+onMounted(async () => {
+  loadProviders()
+  loadTemplates()
+  loadSystemPrompt()
+  loadModelRoutes()
+  try {
+    appVersion.value = await window.api.getVersion()
+    const versions = await window.api.getVersions()
+    electronVersion.value = versions.electron || ''
+    nodeVersion.value = versions.node || ''
+    chromeVersion.value = versions.chrome || ''
+  } catch {
+    // ignore
+  }
 })
 </script>
 
@@ -120,76 +358,313 @@ onMounted(() => {
   <div class="settings-layout">
     <header class="settings-header">
       <div class="header-left">
-        <el-button :icon="ArrowLeft" text class="back-btn" @click="goBack">
-          返回
-        </el-button>
+        <el-button :icon="ArrowLeft" text class="back-btn" @click="goBack">返回</el-button>
         <span class="page-title">设置</span>
       </div>
     </header>
 
-    <main class="settings-content">
-      <div v-if="loading" class="loading-wrap">
-        <el-skeleton :rows="6" animated />
-      </div>
+    <div class="settings-body">
+      <!-- 左侧导航 -->
+      <aside class="settings-nav">
+        <div
+          v-for="item in navItems"
+          :key="item.key"
+          class="nav-item"
+          :class="{ active: activeNav === item.key }"
+          @click="activeNav = item.key"
+        >
+          <el-icon class="nav-icon"><component :is="item.icon" /></el-icon>
+          <span class="nav-label">{{ item.label }}</span>
+        </div>
+      </aside>
 
-      <div v-else class="settings-form">
-        <h2 class="section-title">AI 模型配置</h2>
-
-        <div class="form-group">
-          <label class="form-label">AI 供应商</label>
-          <el-select v-model="selectedProvider" class="form-select" popper-class="dark-select">
-            <el-option
-              v-for="p in providers"
-              :key="p.key"
-              :label="p.name + (p.implemented ? '' : '（即将支持）')"
-              :value="p.key"
-              :disabled="!p.implemented"
-            />
-          </el-select>
-          <p class="form-hint">未实现的供应商暂时不可用</p>
+      <!-- 右侧内容 -->
+      <main class="settings-content">
+        <!-- API供应商 & 插件 -->
+        <div v-if="activeNav === 'providers'" class="settings-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">API供应商 & 插件</h2>
+            <el-button type="primary" size="small" :icon="Plus" @click="openAddProvider">添加供应商</el-button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>标识</th>
+                  <th>baseURL</th>
+                  <th>模型数</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in providers" :key="p.id">
+                  <td>{{ p.name }}</td>
+                  <td>{{ p.key }}</td>
+                  <td>{{ p.baseURL }}</td>
+                  <td>{{ Array.isArray(p.models) ? p.models.length : 0 }}</td>
+                  <td>
+                    <el-button text size="small" :icon="Edit" @click="openEditProvider(p)">编辑</el-button>
+                    <el-button text size="small" :icon="Delete" @click="handleDeleteProvider(p.id)">删除</el-button>
+                  </td>
+                </tr>
+                <tr v-if="!providers.length">
+                  <td colspan="5" class="table-empty">暂无供应商，点击上方按钮添加</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">模型</label>
-          <el-select v-model="selectedModel" class="form-select" popper-class="dark-select">
-            <el-option
-              v-for="m in availableModels"
-              :key="m.key"
-              :label="m.name + (m.free ? '（免费）' : '（付费）')"
-              :value="m.key"
+        <!-- 提示词模板 -->
+        <div v-if="activeNav === 'templates'" class="settings-panel">
+          <!-- 系统预设 -->
+          <div class="system-prompt-section">
+            <div class="section-header">
+              <h3 class="section-title">AI系统预设</h3>
+              <el-button type="primary" size="small" @click="saveSystemPrompt">保存</el-button>
+            </div>
+            <el-input
+              v-model="systemPrompt"
+              type="textarea"
+              :rows="6"
+              placeholder="输入AI系统预设（system prompt）..."
+              resize="none"
             />
-          </el-select>
+          </div>
+
+          <!-- 导出导入 -->
+          <div class="config-actions">
+            <el-button text size="small" :icon="Download" @click="handleExportConfig">导出配置</el-button>
+            <el-button text size="small" :icon="Upload" @click="handleImportConfig">导入配置</el-button>
+          </div>
+
+          <!-- 模板Tab -->
+          <div class="template-tabs">
+            <div
+              class="template-tab"
+              :class="{ active: templateTab === 'official' }"
+              @click="templateTab = 'official'"
+            >官方模板</div>
+            <div
+              class="template-tab"
+              :class="{ active: templateTab === 'custom' }"
+              @click="templateTab = 'custom'"
+            >我的模板</div>
+          </div>
+
+          <div class="panel-body">
+            <!-- 官方模板 -->
+            <div v-if="templateTab === 'official'">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>分类</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="t in officialTemplates" :key="t.id">
+                    <td>{{ t.name }}</td>
+                    <td>{{ usageOptions.find(u => u.value === t.usage)?.label || t.usage }}</td>
+                    <td>
+                      <el-button text size="small" :icon="DocumentCopy" @click="cloneTemplate(t)">另存为我的模板</el-button>
+                    </td>
+                  </tr>
+                  <tr v-if="!officialTemplates.length">
+                    <td colspan="3" class="table-empty">暂无官方模板</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 我的模板 -->
+            <div v-if="templateTab === 'custom'">
+              <div class="panel-toolbar">
+                <el-button type="primary" size="small" :icon="Plus" @click="openAddTemplate">新建模板</el-button>
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>分类</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="t in templates.filter((x: any) => !x.is_default)" :key="t.id">
+                    <td>{{ t.name }}</td>
+                    <td>{{ usageOptions.find(u => u.value === t.usage)?.label || t.usage }}</td>
+                    <td>
+                      <el-button text size="small" :icon="Edit" @click="openEditTemplate(t)">编辑</el-button>
+                      <el-button text size="small" :icon="Delete" @click="handleDeleteTemplate(t.id)">删除</el-button>
+                    </td>
+                  </tr>
+                  <tr v-if="!templates.filter((x: any) => !x.is_default && !x.is_default).length">
+                    <td colspan="3" class="table-empty">暂无自定义模板</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
+        <!-- 模型路由 & 默认 -->
+        <div v-if="activeNav === 'routes'" class="settings-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">模型路由 & 默认</h2>
+            <el-button type="primary" size="small" @click="saveModelRoutes">保存</el-button>
+          </div>
+          <div class="panel-body">
+            <table class="data-table route-table">
+              <thead>
+                <tr>
+                  <th>用途</th>
+                  <th>模型</th>
+                  <th>渠道</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="rp in routePurposes" :key="rp.key">
+                  <td>{{ rp.label }}</td>
+                  <td>
+                    <el-select
+                      :model-value="getRouteModel(rp.key)"
+                      size="small"
+                      class="dark-select"
+                      placeholder="选择模型"
+                      @update:model-value="(val: string) => setRouteModel(rp.key, val)"
+                    >
+                      <el-option label="未设置" value="" />
+                      <el-option v-for="m in availableModels" :key="m" :label="m" :value="m" />
+                    </el-select>
+                  </td>
+                  <td>
+                    <el-select
+                      :model-value="getRouteChannel(rp.key)"
+                      size="small"
+                      class="dark-select"
+                      placeholder="选择渠道"
+                      @update:model-value="(val: string) => setRouteChannel(rp.key, val)"
+                    >
+                      <el-option label="未设置" value="" />
+                      <el-option v-for="c in availableChannels" :key="c" :label="c" :value="c" />
+                    </el-select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 关于 -->
+        <div v-if="activeNav === 'about'" class="settings-panel">
+          <div class="about-section">
+            <div class="about-logo">
+              <img src="../../resources/icon.png" alt="AutoDrama" class="about-icon" />
+              <h2 class="about-title">AutoDrama</h2>
+              <p class="about-version">版本 {{ appVersion }}</p>
+            </div>
+            <div class="about-info">
+              <div class="about-row">
+                <span class="about-label">Electron</span>
+                <span class="about-value">{{ electronVersion }}</span>
+              </div>
+              <div class="about-row">
+                <span class="about-label">Node.js</span>
+                <span class="about-value">{{ nodeVersion }}</span>
+              </div>
+              <div class="about-row">
+                <span class="about-label">Chrome</span>
+                <span class="about-value">{{ chromeVersion }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 供应商弹窗 -->
+    <el-dialog
+      v-model="providerDialogVisible"
+      :title="providerDialogMode === 'add' ? '添加供应商' : '编辑供应商'"
+      width="480px"
+      class="dark-dialog"
+    >
+      <div class="dialog-form">
+        <div class="form-row">
+          <label class="form-label">名称</label>
+          <el-input v-model="providerForm.name" placeholder="如：OpenAI" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">标识</label>
+          <el-input v-model="providerForm.key" placeholder="如：openai" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">baseURL</label>
+          <el-input v-model="providerForm.baseURL" placeholder="如：https://api.openai.com/v1" />
+        </div>
+        <div class="form-row">
           <label class="form-label">API Key</label>
-          <el-input
-            v-model="apiKey"
-            :type="apiKeyVisible ? 'text' : 'password'"
-            placeholder="请输入 API Key"
-            class="form-input"
-          >
-            <template #suffix>
-              <el-button
-                text
-                :icon="apiKeyVisible ? Hide : View"
-                class="eye-btn"
-                @click="apiKeyVisible = !apiKeyVisible"
-              />
-            </template>
-          </el-input>
-          <p class="form-hint">
-            API Key 仅保存在本地数据库中，不会上传到任何服务器
-          </p>
+          <el-input v-model="providerForm.apiKey" type="password" placeholder="可选" show-password />
         </div>
-
-        <div class="form-actions">
-          <el-button type="primary" size="large" :loading="saving" @click="handleSave">
-            保存设置
-          </el-button>
+        <div class="form-row">
+          <label class="form-label">模型列表</label>
+          <el-input
+            v-model="providerForm.models"
+            type="textarea"
+            :rows="4"
+            placeholder="每行一个模型名"
+            resize="none"
+          />
         </div>
       </div>
-    </main>
+      <template #footer>
+        <el-button @click="providerDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveProvider">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 模板弹窗 -->
+    <el-dialog
+      v-model="templateDialogVisible"
+      :title="templateDialogMode === 'add' ? '新建模板' : '编辑模板'"
+      width="560px"
+      class="dark-dialog"
+    >
+      <div class="dialog-form">
+        <div class="form-row">
+          <label class="form-label">模板名称</label>
+          <el-input v-model="templateForm.name" placeholder="输入模板名称" />
+        </div>
+        <div class="form-row">
+          <label class="form-label">分类</label>
+          <el-select v-model="templateForm.usage" class="dark-select" placeholder="选择分类">
+            <el-option
+              v-for="opt in usageOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">模板内容</label>
+          <el-input
+            v-model="templateForm.content"
+            type="textarea"
+            :rows="10"
+            placeholder="输入模板内容..."
+            resize="none"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="templateDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveTemplate">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -206,8 +681,8 @@ onMounted(() => {
 .settings-header {
   display: flex;
   align-items: center;
-  height: 56px;
-  padding: 0 24px;
+  height: 48px;
+  padding: 0 20px;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
@@ -230,86 +705,291 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #f3f4f6;
+}
+
+.settings-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 0;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #9ca3af;
+  transition: all 0.2s;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5e7eb;
+}
+
+.nav-item.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+  font-weight: 500;
+}
+
+.nav-icon {
+  font-size: 16px;
 }
 
 .settings-content {
   flex: 1;
   overflow-y: auto;
-  padding: 32px 40px;
+  padding: 24px 32px;
 }
 
-.loading-wrap {
-  max-width: 600px;
+.settings-panel {
+  max-width: 800px;
 }
 
-.settings-form {
-  max-width: 560px;
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
-.section-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #f3f4f6;
-  margin: 0 0 28px 0;
-}
-
-.form-group {
-  margin-bottom: 24px;
-}
-
-.form-label {
-  display: block;
-  font-size: 14px;
+.panel-title {
+  font-size: 16px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #f3f4f6;
+  margin: 0;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-toolbar {
+  display: flex;
+  justify-content: flex-end;
   margin-bottom: 8px;
 }
 
-.form-select {
+.data-table {
   width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
 }
 
-.form-input {
-  width: 100%;
-}
-
-.form-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-}
-
-.form-input :deep(.el-input__inner) {
-  color: #e5e7eb;
-}
-
-.form-input :deep(.el-input__inner::placeholder) {
-  color: #6b7280;
-}
-
-.eye-btn {
+.data-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
   color: #9ca3af;
-  padding: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.eye-btn:hover {
-  color: #e5e7eb;
+.data-table td {
+  padding: 10px 12px;
+  color: #d1d5db;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.form-hint {
-  font-size: 12px;
+.data-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.table-empty {
+  text-align: center;
   color: #6b7280;
-  margin: 6px 0 0 0;
+  padding: 32px;
 }
 
-.form-actions {
-  margin-top: 32px;
+/* System Prompt */
+.system-prompt-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin: 0;
+}
+
+/* Config Actions */
+.config-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* Template Tabs */
+.template-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 8px;
+}
+
+.template-tab {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.template-tab:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.template-tab.active {
+  color: #fff;
+  background: rgba(167, 139, 250, 0.15);
+  font-weight: 500;
+}
+
+/* Dialog Form */
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #d1d5db;
+}
+
+/* About */
+.about-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 40px 0;
+}
+
+.about-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+}
+
+.about-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f3f4f6;
+  margin: 0;
+}
+
+.about-version {
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.about-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 280px;
+}
+
+.about-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.about-label {
+  color: #9ca3af;
+}
+
+.about-value {
+  color: #d1d5db;
+  font-family: monospace;
+}
+
+/* Route Table */
+.route-table .dark-select {
+  width: 180px;
 }
 </style>
 
 <style>
+.dark-dialog .el-dialog {
+  background: #1a1a20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.dark-dialog .el-dialog__title {
+  color: #f3f4f6;
+  font-weight: 600;
+}
+
+.dark-dialog .el-dialog__header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-right: 0;
+  padding: 16px 20px;
+}
+
+.dark-dialog .el-dialog__body {
+  padding: 20px;
+}
+
+.dark-dialog .el-dialog__footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 20px;
+}
+
 .dark-select .el-select-dropdown__list {
   background: #1a1a20;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -334,7 +1014,12 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.dark-select .el-select-dropdown__item.is-disabled {
-  color: #4b5563;
+.dark-select .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+}
+
+.dark-select .el-input__inner {
+  color: #e5e7eb !important;
 }
 </style>

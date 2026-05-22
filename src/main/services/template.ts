@@ -82,6 +82,31 @@ export function savePromptTemplate(
   return { id, project_id: projectId, ...input, is_default: 0 }
 }
 
+export function updatePromptTemplate(templateId: string, input: { name?: string; usage?: string; content?: string }): void {
+  const db = getDb()
+  const sets: string[] = []
+  const params: any[] = []
+
+  if (input.name !== undefined) {
+    sets.push('name = ?')
+    params.push(input.name)
+  }
+  if (input.usage !== undefined) {
+    sets.push('"usage" = ?')
+    params.push(input.usage)
+  }
+  if (input.content !== undefined) {
+    sets.push('content = ?')
+    params.push(input.content)
+  }
+  if (sets.length === 0) return
+
+  sets.push('updated_at = datetime(\'now\')')
+  params.push(templateId)
+
+  db.prepare(`UPDATE prompt_templates SET ${sets.join(', ')} WHERE id = ?`).run(...params)
+}
+
 export function deletePromptTemplate(templateId: string): void {
   const db = getDb()
 
