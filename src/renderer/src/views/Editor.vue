@@ -122,6 +122,7 @@ const modelConfigTab = ref(0)
 const modelConfigMode = ref('novice')
 const modelConfig = ref<Record<string, any>>({})
 const providerModels = ref<any[]>([])
+const providerChannels = ref<any[]>([])
 const modelConfigTemplates = ref<any[]>([])
 
 const modelConfigTabs = [
@@ -1238,6 +1239,11 @@ function toggleExportAsset(assetId: string): void {
 }
 
 async function handleAssetExportConfirm(): Promise<void> {
+  if (exportAssetIds.value.size === 0) {
+    ElMessage.warning('请先选择要导出的项目')
+    return
+  }
+
   const assetType =
     exportAssetType.value === 'characters'
       ? 'characters'
@@ -1291,7 +1297,7 @@ async function handleAssetExportConfirm(): Promise<void> {
 
 async function handleVideoExport(): Promise<void> {
   if (selectedShots.value.size === 0) {
-    ElMessage.warning('请先勾选分镜')
+    ElMessage.warning('请先勾选要导出的分镜')
     return
   }
 
@@ -2753,8 +2759,21 @@ onUnmounted(() => {
               </div>
               <div class="config-row">
                 <label>渠道</label>
-                <el-select size="small" style="width: 240px" disabled placeholder="MVP1占位">
-                  <el-option label="默认渠道" value="default" />
+                <el-select
+                  :model-value="getModelConfigField(modelConfigTabs[modelConfigTab].key, 'channel')"
+                  size="small"
+                  style="width: 240px"
+                  @change="
+                    (val: string) =>
+                      setModelConfigField(modelConfigTabs[modelConfigTab].key, 'channel', val)
+                  "
+                >
+                  <el-option
+                    v-for="p in providerChannels"
+                    :key="p.value"
+                    :label="p.label"
+                    :value="p.value"
+                  />
                 </el-select>
               </div>
               <div class="config-row">

@@ -189,6 +189,11 @@ app.whenReady().then(() => {
         options
       }: { projectId: string; script: string; options?: AutoProcessOptions }
     ) => {
+      // LICENSE CHECK
+      if (!checkLicense()) {
+        console.warn('License check failed, but allowing AI process in MVP1')
+      }
+
       if (!mainWindow) throw new Error('主窗口未就绪')
 
       const sendProgress = (data: ProgressData): void => {
