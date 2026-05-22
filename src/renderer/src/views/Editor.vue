@@ -408,9 +408,13 @@ async function saveEdit(shotId: string, field: string) {
     else if (field === 'first_frame_prompt') update.first_frame_prompt = editText.value
     else if (field === 'last_frame_prompt') update.last_frame_prompt = editText.value
     await window.api.updateShot(shotId, update)
-    // 智能关联
-    await checkAndCreateAssociations(shotId, editText.value)
-    await loadEpisodesData()
+    // 前端直接更新当前 shot，避免全量刷新导致闪烁
+    const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
+    if (shot) {
+      Object.assign(shot, update)
+    }
+    // 智能关联（异步，不阻塞 UI 退出）
+    checkAndCreateAssociations(shotId, editText.value).catch(console.error)
   } catch (err) {
     ElMessage.error('保存失败')
     console.error(err)
@@ -419,28 +423,41 @@ async function saveEdit(shotId: string, field: string) {
   }
 }
 
-async function checkAndCreateAssociations(shotId: string, text: string) {
+async function checkAndCreateAssociations(shotId: string, text: string): Promise<boolean> {
   const chars = projectData.value?.characters || []
   const scenes = projectData.value?.scenes || []
   const props = projectData.value?.props || []
   const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
-  if (!shot) return
+  if (!shot) return false
+
+  let created = false
 
   for (const c of chars) {
     if (text.includes(c.name) && !shot.characters?.some((sc: any) => sc.id === c.id)) {
       await window.api.addShotAssociation(shotId, 'character', c.id)
+      if (!shot.characters) shot.characters = []
+      shot.characters.push(c)
+      created = true
     }
   }
   for (const s of scenes) {
     if (text.includes(s.name) && !shot.scenes?.some((ss: any) => ss.id === s.id)) {
       await window.api.addShotAssociation(shotId, 'scene', s.id)
+      if (!shot.scenes) shot.scenes = []
+      shot.scenes.push(s)
+      created = true
     }
   }
   for (const p of props) {
     if (text.includes(p.name) && !shot.props?.some((sp: any) => sp.id === p.id)) {
       await window.api.addShotAssociation(shotId, 'prop', p.id)
+      if (!shot.props) shot.props = []
+      shot.props.push(p)
+      created = true
     }
   }
+
+  return created
 }
 
 function getHighlightText(text: string, shot: any) {
