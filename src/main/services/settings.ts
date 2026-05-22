@@ -1,4 +1,5 @@
 import { getDb } from './db'
+import { PROVIDERS } from './providers'
 
 export function getSetting(key: string): string | null {
   const db = getDb()
@@ -14,11 +15,12 @@ export function setSetting(key: string, value: string): void {
 // Providers CRUD
 export function getProviders(): any[] {
   const raw = getSetting('providers')
-  if (!raw) return []
+  if (!raw) return PROVIDERS
   try {
-    return JSON.parse(raw)
+    const userProviders = JSON.parse(raw)
+    return userProviders.length > 0 ? userProviders : PROVIDERS
   } catch {
-    return []
+    return PROVIDERS
   }
 }
 

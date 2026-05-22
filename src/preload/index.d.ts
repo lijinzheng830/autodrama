@@ -20,7 +20,6 @@ export interface Api {
   onAIProgress: (callback: (data: any) => void) => () => void
   getSetting: (key: string) => Promise<string | null>
   setSetting: (key: string, value: string) => Promise<void>
-  getProviders: () => Promise<unknown[]>
   getChapters: (projectId: string) => Promise<unknown[]>
   getShots: (chapterId: string) => Promise<unknown[]>
   getCharacters: (projectId: string) => Promise<unknown[]>
