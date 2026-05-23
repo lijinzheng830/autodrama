@@ -107,7 +107,24 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     if (!channel) channel = purposeConfig.channel
   }
 
-  // 第3级：全局默认（settings 中的 provider/model）
+  // 第3级：全局模型路由（settings 中的 model_routes）
+  if (!model || !channel) {
+    const modelRoutesRaw = getSetting('model_routes')
+    if (modelRoutesRaw) {
+      try {
+        const modelRoutes = JSON.parse(modelRoutesRaw as string)
+        const routeConfig = modelRoutes[purposeKey]
+        if (routeConfig) {
+          if (!model && routeConfig.model) model = routeConfig.model
+          if (!channel && routeConfig.channel) channel = routeConfig.channel
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+  }
+
+  // 第4级：全局默认（settings 中的 provider/model）
   if (!model || !channel) {
     const globalProvider = getSetting('provider')
     const globalModel = getSetting('model')
@@ -336,7 +353,7 @@ async function callImageGenerationAPI(
     }
   )
 
-  const data = resp.data?.data || []
+  const data = resp.data?.data || resp.data?.images || []
   const urls: string[] = []
   for (const item of data) {
     if (item.url) urls.push(item.url)

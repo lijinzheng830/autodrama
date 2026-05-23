@@ -1544,6 +1544,22 @@ async function openModelConfig(): Promise<void> {
   } catch (_err) {
     modelConfig.value = {}
   }
+  // 如果项目配置为空，自动加载全局 model_routes 作为默认值
+  try {
+    const modelRoutesRaw = await window.api.getSetting('model_routes')
+    if (modelRoutesRaw) {
+      const modelRoutes = JSON.parse(modelRoutesRaw as string)
+      for (const [key, route] of Object.entries(modelRoutes)) {
+        if (!modelConfig.value[key]?.model && !modelConfig.value[key]?.channel) {
+          if (!modelConfig.value[key]) modelConfig.value[key] = {}
+          if ((route as any).model) modelConfig.value[key].model = (route as any).model
+          if ((route as any).channel) modelConfig.value[key].channel = (route as any).channel
+        }
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
   // 加载模板
   loadModelConfigTemplates()
 }
@@ -2424,7 +2440,7 @@ onUnmounted(() => {
                   <div class="detail-media">
                     <img
                       v-if="detailData?.reference_image"
-                      :src="detailData.reference_image"
+                      :src="toFileUrl(detailData.reference_image)"
                       class="detail-img"
                     />
                     <div v-else class="detail-placeholder">{{ detailData?.name }}</div>
