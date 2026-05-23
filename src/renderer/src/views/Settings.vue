@@ -430,6 +430,20 @@ function getRouteChannel(key: string): string {
 function setRouteChannel(key: string, val: string): void {
   if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
   modelRoutes.value[key].channel = val
+
+  // 自动匹配该渠道下的第一个模型
+  if (val) {
+    const provider = providers.value.find((p) => (p.key || p.id) === val)
+    if (provider && Array.isArray(provider.models) && provider.models.length > 0) {
+      const firstModel = provider.models[0]
+      const modelName = typeof firstModel === 'string' ? firstModel : (firstModel.name || firstModel.key || '')
+      modelRoutes.value[key].model = modelName
+    } else {
+      modelRoutes.value[key].model = ''
+    }
+  } else {
+    modelRoutes.value[key].model = ''
+  }
 }
 
 // ===== About =====

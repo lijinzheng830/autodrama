@@ -1587,9 +1587,27 @@ async function loadModelConfigTemplates(): Promise<void> {
   }
 }
 
-function handleModelConfigSave(): void {
+async function handleModelConfigSave(): Promise<void> {
   try {
-    window.api.updateProject(projectId, { modelConfigJson: JSON.stringify(modelConfig.value) })
+    await window.api.updateProject(projectId, { modelConfigJson: JSON.stringify(modelConfig.value) })
+
+    // 同步到全局 model_routes（单向广播：模型配置为真相源）
+    const sharedKeys = ['language_model', 'character_image', 'scene_image', 'prop_image', 'video']
+    const routesUpdate: Record<string, { model: string; channel: string }> = {}
+    for (const key of sharedKeys) {
+      const cfg = modelConfig.value[key]
+      if (cfg?.model || cfg?.channel) {
+        routesUpdate[key] = {
+          model: cfg.model || '',
+          channel: cfg.channel || ''
+        }
+      }
+    }
+    const existingRoutesRaw = await window.api.getSetting('model_routes')
+    const existingRoutes = existingRoutesRaw ? JSON.parse(existingRoutesRaw as string) : {}
+    const mergedRoutes = { ...existingRoutes, ...routesUpdate }
+    await window.api.setSetting('model_routes', JSON.stringify(mergedRoutes))
+
     ElMessage.success('模型配置已保存')
     modelConfigVisible.value = false
   } catch (err) {
@@ -1612,6 +1630,16 @@ function handleModelConfigModelChange(tabKey: string, val: string): void {
   const matched = providerModels.value.find((m) => m.value === val)
   if (matched?.provider) {
     setModelConfigField(tabKey, 'channel', matched.provider)
+  }
+}
+
+function handleModelConfigChannelChange(tabKey: string, val: string): void {
+  setModelConfigField(tabKey, 'channel', val)
+  const firstModel = providerModels.value.find((m) => m.provider === val)
+  if (firstModel) {
+    setModelConfigField(tabKey, 'model', firstModel.value)
+  } else {
+    setModelConfigField(tabKey, 'model', '')
   }
 }
 
@@ -2912,7 +2940,7 @@ onUnmounted(() => {
                   style="width: 240px"
                   @change="
                     (val: string) =>
-                      setModelConfigField(modelConfigTabs[modelConfigTab].key, 'channel', val)
+                      handleModelConfigChannelChange(modelConfigTabs[modelConfigTab].key, val)
                   "
                 >
                   <el-option
