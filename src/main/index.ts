@@ -102,6 +102,11 @@ function watchWindowShortcuts(window: BrowserWindow): void {
 
 let mainWindow: BrowserWindow | null = null
 
+// 确保 dev 模式下直接运行 electron 也能使用正确的 app name / userData 路径
+if (!app.name || app.name === 'Electron') {
+  app.name = 'electron-app'
+}
+
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
