@@ -131,7 +131,8 @@ const modelConfigTabs = [
   { key: 'character_image', label: '角色生图模型' },
   { key: 'scene_image', label: '场景生图模型' },
   { key: 'prop_image', label: '道具生图模型' },
-  { key: 'shot_image', label: '分镜图生图模型' },
+  { key: 'first_frame', label: '首帧生图模型' },
+  { key: 'last_frame', label: '尾帧生图模型' },
   { key: 'video', label: '视频生成模型' }
 ]
 
@@ -785,14 +786,24 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   const type = batchType.value
   let createdCount = 0
 
-  // 计算总任务数（用于进度显示）
-  let totalTasks = 0
+  // 收集任务列表
+  const tasks: Array<() => Promise<unknown>> = []
+
   if (batchMode.value === 'asset') {
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
     const assets = projectData.value?.[assetKey] || []
+    const assetType = type === '人物' ? 'character' : type === '场景' ? 'scene' : 'prop'
     for (const asset of assets) {
       if (mode === 'missing' && asset.reference_image) continue
-      totalTasks++
+      tasks.push(() =>
+        window.api.generateImage({
+          projectId,
+          type: assetType,
+          assetId: asset.id,
+          description: asset.description || asset.name || '',
+          count: batchCount.value
+        })
+      )
     }
   } else {
     const selectedShotIds = Array.from(selectedShots.value)
@@ -802,12 +813,46 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       if (type === '首帧' && mode === 'missing' && shot.first_frame_image_path) continue
       if (type === '尾帧' && mode === 'missing' && shot.last_frame_image_path) continue
       if (type === '视频' && mode === 'missing' && shot.video_path) continue
-      totalTasks++
+
+      switch (type) {
+        case '首帧':
+          tasks.push(() =>
+            window.api.generateShotImage({
+              projectId,
+              shotId: shot.id,
+              frameType: 'first',
+              count: batchCount.value
+            })
+          )
+          break
+        case '尾帧':
+          tasks.push(() =>
+            window.api.generateShotImage({
+              projectId,
+              shotId: shot.id,
+              frameType: 'last',
+              count: batchCount.value
+            })
+          )
+          break
+        case '视频':
+          tasks.push(() =>
+            window.api.createGenerationTask({
+              projectId,
+              shotId: shot.id,
+              type: 'video',
+              purpose: 'video',
+              inputParams: JSON.stringify({ count: batchCount.value })
+            })
+          )
+          break
+      }
     }
   }
-  batchProgress.value = { current: 0, total: totalTasks }
 
-  // 辅助函数：带429重试的生图调用
+  batchProgress.value = { current: 0, total: tasks.length }
+
+  // 辅助函数：带429重试
   async function tryGenerate(generateFn: () => Promise<unknown>): Promise<boolean> {
     try {
       await generateFn()
@@ -815,7 +860,6 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     } catch (err: any) {
       const msg = (err?.message || '').toLowerCase()
       if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many requests')) {
-        // 429限流，等待5秒后重试一次
         await new Promise((r) => setTimeout(r, 5000))
         try {
           await generateFn()
@@ -830,91 +874,30 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     }
   }
 
-  if (batchMode.value === 'asset') {
-    // 资产模式：遍历项目全部资产，真实调用生图服务
-    const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
-    const assets = projectData.value?.[assetKey] || []
-    const assetType = type === '人物' ? 'character' : type === '场景' ? 'scene' : 'prop'
+  // 并发队列：3并发 + 每个完成后3秒间隔
+  let index = 0
+  const total = tasks.length
 
-    for (const asset of assets) {
-      if (mode === 'missing' && asset.reference_image) continue
-      const success = await tryGenerate(() =>
-        window.api.generateImage({
-          projectId,
-          type: assetType,
-          assetId: asset.id,
-          description: asset.description || asset.name || '',
-          count: batchCount.value
-        })
-      )
+  async function worker(): Promise<void> {
+    while (index < total) {
+      const taskIndex = index++
+      const success = await tryGenerate(tasks[taskIndex])
       if (success) {
         createdCount++
-        batchProgress.value.current = createdCount
       }
-      // 间隔 3 秒，避免 API 限流，同时让 UI 有机会刷新
-      await new Promise((r) => setTimeout(r, 3000))
-      await new Promise((r) => requestAnimationFrame(r))
-    }
-  } else {
-    // 分镜模式：遍历选中的分镜
-    const selectedShotIds = Array.from(selectedShots.value)
-    const shots = projectData.value?.shots || []
-
-    for (const shot of shots) {
-      if (!selectedShotIds.includes(shot.id)) continue
-
-      switch (type) {
-        case '首帧': {
-          if (mode === 'missing' && shot.first_frame_image_path) continue
-          const success = await tryGenerate(() =>
-            window.api.generateShotImage({
-              projectId,
-              shotId: shot.id,
-              frameType: 'first',
-              count: batchCount.value
-            })
-          )
-          if (success) {
-            createdCount++
-            batchProgress.value.current = createdCount
-          }
-          break
-        }
-        case '尾帧': {
-          if (mode === 'missing' && shot.last_frame_image_path) continue
-          const success = await tryGenerate(() =>
-            window.api.generateShotImage({
-              projectId,
-              shotId: shot.id,
-              frameType: 'last',
-              count: batchCount.value
-            })
-          )
-          if (success) {
-            createdCount++
-            batchProgress.value.current = createdCount
-          }
-          break
-        }
-        case '视频': {
-          if (mode === 'missing' && shot.video_path) continue
-          await window.api.createGenerationTask({
-            projectId,
-            shotId: shot.id,
-            type: 'video',
-            purpose: 'video',
-            inputParams: JSON.stringify({ count: batchCount.value })
-          })
-          createdCount++
-          batchProgress.value.current = createdCount
-          break
-        }
-      }
+      batchProgress.value = { current: Math.min(batchProgress.value.current + 1, total), total }
       // 间隔 3 秒，避免 API 限流，同时让 UI 有机会刷新
       await new Promise((r) => setTimeout(r, 3000))
       await new Promise((r) => requestAnimationFrame(r))
     }
   }
+
+  const workerCount = Math.min(3, total)
+  const workers: Promise<void>[] = []
+  for (let i = 0; i < workerCount; i++) {
+    workers.push(worker())
+  }
+  await Promise.all(workers)
 
   if (batchMode.value === 'asset' && createdCount > 0) {
     ElMessage.success(`已成功生成 ${createdCount} 个资产的图片`)
@@ -923,7 +906,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     ElMessage.success(`已成功生成 ${createdCount} 个分镜图片`)
     await loadEpisodesData()
   } else {
-    ElMessage.info(`已创建 ${createdCount} 个生成任务`)
+    ElMessage.info(`已创建 ${tasks.length > 0 ? 0 : 0} 个生成任务`)
   }
   batchDialogVisible.value = false
   batchProgress.value = { current: 0, total: 0 }
@@ -1856,6 +1839,11 @@ async function openModelConfig(): Promise<void> {
   } catch (_err) {
     modelConfig.value = {}
   }
+
+  // 兼容旧数据：shot_image 映射到 first_frame
+  if (modelConfig.value.shot_image && !modelConfig.value.first_frame?.model) {
+    modelConfig.value.first_frame = { ...modelConfig.value.shot_image }
+  }
   // 如果项目配置为空，自动加载全局 model_routes 作为默认值
   try {
     const modelRoutesRaw = await window.api.getSetting('model_routes')
@@ -1885,7 +1873,8 @@ async function loadModelConfigTemplates(): Promise<void> {
       character_image: 'character_image',
       scene_image: 'scene_image',
       prop_image: 'prop_image',
-      shot_image: 'shot_image',
+      first_frame: 'shot_image',
+      last_frame: 'shot_image',
       video: 'video'
     }
     const list = (await window.api.getPromptTemplates(
@@ -1904,7 +1893,7 @@ async function handleModelConfigSave(): Promise<void> {
     await window.api.updateProject(projectId, { modelConfigJson: JSON.stringify(modelConfig.value) })
 
     // 同步到全局 model_routes（单向广播：模型配置为真相源）
-    const sharedKeys = ['language_model', 'character_image', 'scene_image', 'prop_image', 'video']
+    const sharedKeys = ['language_model', 'character_image', 'scene_image', 'prop_image', 'first_frame', 'last_frame', 'video']
     const routesUpdate: Record<string, { model: string; channel: string }> = {}
     for (const key of sharedKeys) {
       const cfg = modelConfig.value[key]
