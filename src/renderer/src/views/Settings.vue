@@ -53,7 +53,7 @@ const providers = ref<ProviderItem[]>([])
 const providerDialogVisible = ref(false)
 const providerDialogMode = ref<'add' | 'edit'>('add')
 const providerEditId = ref('')
-const providerForm = ref({ name: '', key: '', baseURL: '', apiKey: '', models: '' })
+const providerForm = ref({ name: '', baseURL: '', apiKey: '', models: '' })
 
 async function loadProviders(): Promise<void> {
   try {
@@ -66,7 +66,7 @@ async function loadProviders(): Promise<void> {
 function openAddProvider(): void {
   providerDialogMode.value = 'add'
   providerEditId.value = ''
-  providerForm.value = { name: '', key: '', baseURL: '', apiKey: '', models: '' }
+  providerForm.value = { name: '', baseURL: '', apiKey: '', models: '' }
   providerDialogVisible.value = true
 }
 
@@ -75,7 +75,6 @@ function openEditProvider(p: ProviderItem): void {
   providerEditId.value = p.id
   providerForm.value = {
     name: p.name || '',
-    key: p.key || '',
     baseURL: p.baseURL || '',
     apiKey: p.apiKey || '',
     models: Array.isArray(p.models) ? p.models.join('\n') : p.models || ''
@@ -83,12 +82,45 @@ function openEditProvider(p: ProviderItem): void {
   providerDialogVisible.value = true
 }
 
+function extractKeyFromBaseURL(baseURL: string): string {
+  try {
+    const url = new URL(baseURL)
+    let hostname = url.hostname
+    // 去掉常见前缀
+    hostname = hostname.replace(/^api\./, '').replace(/^www\./, '').replace(/^openai\./, '')
+    // 取第一段（品牌名通常在第一段）
+    const firstPart = hostname.split('.')[0]
+    return firstPart || 'custom'
+  } catch {
+    return 'custom'
+  }
+}
+
+function generateUniqueKey(baseKey: string, existingKeys: string[]): string {
+  if (!existingKeys.includes(baseKey)) return baseKey
+  let suffix = 2
+  while (existingKeys.includes(`${baseKey}_${suffix}`)) {
+    suffix++
+  }
+  return `${baseKey}_${suffix}`
+}
+
 async function saveProvider(): Promise<void> {
-  const { name, key, baseURL, apiKey, models } = providerForm.value
-  if (!name || !key || !baseURL) {
-    ElMessage.warning('请填写名称、标识和baseURL')
+  const { name, baseURL, apiKey, models } = providerForm.value
+  if (!name || !baseURL) {
+    ElMessage.warning('请填写名称和baseURL')
     return
   }
+
+  // 自动从baseURL提取标识
+  const extractedKey = extractKeyFromBaseURL(baseURL)
+  const allProviders = await window.api.getProviders()
+  const existingKeys = allProviders
+    .filter((p: any) => p.id !== providerEditId.value)
+    .map((p: any) => p.key)
+    .filter(Boolean) as string[]
+  const key = generateUniqueKey(extractedKey, existingKeys)
+
   const modelList = models
     .split('\n')
     .map((s) => s.trim())
@@ -377,6 +409,18 @@ function getRouteModel(key: string): string {
 function setRouteModel(key: string, val: string): void {
   if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
   modelRoutes.value[key].model = val
+  // 自动匹配渠道：根据模型名反查供应商key
+  for (const p of providers.value) {
+    if (Array.isArray(p.models)) {
+      for (const m of p.models) {
+        const modelKey = typeof m === 'string' ? m : m.key
+        if (modelKey === val) {
+          modelRoutes.value[key].channel = p.key || p.id || ''
+          return
+        }
+      }
+    }
+  }
 }
 
 function getRouteChannel(key: string): string {
@@ -682,10 +726,6 @@ onMounted(async () => {
         <div class="form-row">
           <label class="form-label">名称</label>
           <el-input v-model="providerForm.name" placeholder="如：OpenAI" />
-        </div>
-        <div class="form-row">
-          <label class="form-label">标识</label>
-          <el-input v-model="providerForm.key" placeholder="如：openai" />
         </div>
         <div class="form-row">
           <label class="form-label">baseURL</label>

@@ -45,6 +45,16 @@ export const PROVIDERS: Provider[] = [
       { key: 'deepseek-chat', name: 'DeepSeek Chat', type: 'text', free: true },
       { key: 'deepseek-reasoner', name: 'DeepSeek Reasoner', type: 'text', free: false }
     ]
+  },
+  {
+    key: 'siliconflow',
+    name: '硅基流动',
+    baseURL: 'https://api.siliconflow.cn/v1',
+    implemented: false,
+    models: [
+      { key: 'Kwai-Kolors/Kolors', name: 'Kolors', type: 'image', free: false },
+      { key: 'stabilityai/stable-diffusion-3-medium', name: 'SD3 Medium', type: 'image', free: false }
+    ]
   }
 ]
 
