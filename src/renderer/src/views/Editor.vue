@@ -150,6 +150,7 @@ const batchMode = ref<'asset' | 'shot'>('shot')
 const batchCount = ref(1)
 const batchMissingCount = ref(0)
 const batchTotalAssets = ref(0)
+const batchProgress = ref({ current: 0, total: 0 })
 
 // 导出功能
 const exportAssetMode = ref(false)
@@ -807,6 +808,28 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     // ignore
   }
 
+  // 计算总任务数（用于进度显示）
+  let totalTasks = 0
+  if (batchMode.value === 'asset') {
+    const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
+    const assets = projectData.value?.[assetKey] || []
+    for (const asset of assets) {
+      if (mode === 'missing' && asset.reference_image) continue
+      totalTasks++
+    }
+  } else {
+    const selectedShotIds = Array.from(selectedShots.value)
+    const shots = projectData.value?.shots || []
+    for (const shot of shots) {
+      if (!selectedShotIds.includes(shot.id)) continue
+      if (type === '首帧' && mode === 'missing' && shot.first_frame_image_path) continue
+      if (type === '尾帧' && mode === 'missing' && shot.last_frame_image_path) continue
+      if (type === '视频' && mode === 'missing' && shot.video_path) continue
+      totalTasks++
+    }
+  }
+  batchProgress.value = { current: 0, total: totalTasks }
+
   if (batchMode.value === 'asset') {
     // 资产模式：遍历项目全部资产，真实调用生图服务
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
@@ -826,10 +849,14 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
           channel: defaultChannel
         })
         createdCount++
+        batchProgress.value.current = createdCount
       } catch (err: any) {
         console.error(`批量生成 ${asset.name} 失败:`, err)
         // 继续下一个，不中断
       }
+      // 间隔 1.5 秒，避免 API 限流，同时让 UI 有机会刷新
+      await new Promise((r) => setTimeout(r, 1500))
+      await new Promise((r) => requestAnimationFrame(r))
     }
   } else {
     // 分镜模式：遍历选中的分镜
@@ -852,6 +879,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
               count: batchCount.value
             })
             createdCount++
+            batchProgress.value.current = createdCount
           } catch (err: any) {
             console.error(`批量生成首帧失败 [shot ${shot.id}]:`, err)
           }
@@ -869,6 +897,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
               count: batchCount.value
             })
             createdCount++
+            batchProgress.value.current = createdCount
           } catch (err: any) {
             console.error(`批量生成尾帧失败 [shot ${shot.id}]:`, err)
           }
@@ -885,9 +914,13 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
             inputParams: JSON.stringify({ count: batchCount.value })
           })
           createdCount++
+          batchProgress.value.current = createdCount
           break
         }
       }
+      // 间隔 1.5 秒，避免 API 限流，同时让 UI 有机会刷新
+      await new Promise((r) => setTimeout(r, 1500))
+      await new Promise((r) => requestAnimationFrame(r))
     }
   }
 
@@ -898,9 +931,10 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     ElMessage.success(`已成功生成 ${createdCount} 个分镜图片`)
     await loadEpisodesData()
   } else {
-    ElMessage.success(`已创建 ${createdCount} 个生成任务`)
+    ElMessage.info(`已创建 ${createdCount} 个生成任务`)
   }
   batchDialogVisible.value = false
+  batchProgress.value = { current: 0, total: 0 }
 }
 
 // ===== 右侧面板 =====
@@ -1261,15 +1295,15 @@ async function handleSelectHistoryImage(type: string, assetId: string, imageId: 
   const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
   try {
     await window.api.selectAssetImage(assetType, assetId, imageId)
-    await loadAssetImages(type, assetId)
-    await loadEpisodesData()
-    // 刷新详情数据
-    const updatedAsset = projectData.value?.[
-      type === 'character' ? 'characters' : type === 'scene' ? 'scenes' : 'props'
-    ]?.find((a: any) => a.id === assetId)
-    if (updatedAsset) {
-      detailData.value = { ...detailData.value, reference_image: updatedAsset.reference_image }
+    // 先读取新数据，一次性更新本地状态，避免中间空白闪烁
+    const images = (await window.api.getAssetImages(assetType, assetId)) as Array<{ id: string; image_path: string; is_selected: number }>
+    assetImages.value = images || []
+    const selectedImg = images?.find((img) => img.is_selected)
+    if (selectedImg) {
+      detailData.value = { ...detailData.value, reference_image: selectedImg.image_path }
     }
+    // 异步更新项目数据，不阻塞当前 UI 刷新
+    loadEpisodesData()
   } catch (err) {
     ElMessage.error('切换图片失败')
     console.error(err)
@@ -2961,7 +2995,7 @@ onUnmounted(() => {
                         @click="handleSelectHistoryImage(detailType, detailData?.id, img.id)"
                       >
                         <img :src="toFileUrl(img.image_path)" class="history-img" />
-                        <div v-if="img.is_selected" class="history-selected-badge">✓</div>
+                        <div v-show="img.is_selected" class="history-selected-badge">✓</div>
                       </div>
                     </div>
                   </div>
@@ -3106,7 +3140,7 @@ onUnmounted(() => {
                         @click="handleSelectShotImage(detailData?.id, 'first', img.id)"
                       >
                         <img :src="toFileUrl(img.image_path)" class="history-img" />
-                        <div v-if="img.is_selected" class="history-selected-badge">✓</div>
+                        <div v-show="img.is_selected" class="history-selected-badge">✓</div>
                       </div>
                     </div>
                   </div>
@@ -3251,7 +3285,7 @@ onUnmounted(() => {
                         @click="handleSelectShotImage(detailData?.id, 'last', img.id)"
                       >
                         <img :src="toFileUrl(img.image_path)" class="history-img" />
-                        <div v-if="img.is_selected" class="history-selected-badge">✓</div>
+                        <div v-show="img.is_selected" class="history-selected-badge">✓</div>
                       </div>
                     </div>
                   </div>
@@ -3775,6 +3809,15 @@ onUnmounted(() => {
           >
             缺失生成
           </el-button>
+        </div>
+
+        <div v-if="batchProgress.total > 0" class="batch-progress">
+          <el-progress
+            :percentage="Math.round((batchProgress.current / batchProgress.total) * 100)"
+            :stroke-width="8"
+            class="batch-progress-bar"
+          />
+          <span class="batch-progress-text">{{ batchProgress.current }} / {{ batchProgress.total }}</span>
         </div>
 
         <div class="batch-hint">批量执行任务前，请先调试效果至符合预期后再执行</div>
@@ -5858,5 +5901,23 @@ onUnmounted(() => {
   color: #9ca3af;
   text-align: center;
   padding-top: 4px;
+}
+
+.batch-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.batch-progress-bar {
+  flex: 1;
+}
+
+.batch-progress-text {
+  font-size: 12px;
+  color: #9ca3af;
+  min-width: 48px;
+  text-align: right;
 }
 </style>

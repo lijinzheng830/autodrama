@@ -401,20 +401,30 @@ const routeTypeMap: Record<string, string> = {
   video: 'video'
 }
 
-function getRouteModelOptions(purposeKey: string): string[] {
+function getRouteModelOptions(purposeKey: string): { label: string; value: string }[] {
   const neededType = routeTypeMap[purposeKey]
-  const list: string[] = []
+  const list: { label: string; value: string }[] = []
   for (const p of providers.value) {
     if (Array.isArray(p.models)) {
       for (const m of p.models) {
         const modelType = typeof m === 'string' ? 'text' : (m.type || 'text')
         if (neededType && modelType !== neededType) continue
-        const name = typeof m === 'string' ? m : (m.name || m.key || '')
-        if (name) list.push(name)
+        const modelKey = typeof m === 'string' ? m : (m.key || '')
+        const modelName = typeof m === 'string' ? m : (m.name || m.key || '')
+        const providerKey = p.key || p.id
+        if (modelKey && providerKey) {
+          list.push({ label: modelName, value: `${providerKey}:${modelKey}` })
+        }
       }
     }
   }
-  return [...new Set(list)]
+  // 去重：按 value 去重
+  const seen = new Set<string>()
+  return list.filter((item) => {
+    if (seen.has(item.value)) return false
+    seen.add(item.value)
+    return true
+  })
 }
 
 function getRouteChannelOptions(purposeKey: string): { label: string; value: string }[] {
@@ -447,14 +457,19 @@ function getRouteModel(key: string): string {
 function setRouteModel(key: string, val: string): void {
   if (!modelRoutes.value[key]) modelRoutes.value[key] = { model: '', channel: '' }
   modelRoutes.value[key].model = val
-  // 自动匹配渠道：根据模型名反查供应商key
-  for (const p of providers.value) {
-    if (Array.isArray(p.models)) {
-      for (const m of p.models) {
-        const modelKey = typeof m === 'string' ? m : m.key
-        if (modelKey === val) {
-          modelRoutes.value[key].channel = p.key || p.id || ''
-          return
+  // 从 providerKey:modelKey 格式中解析渠道
+  if (val.includes(':')) {
+    modelRoutes.value[key].channel = val.split(':')[0]
+  } else {
+    // 兜底：兼容旧数据（裸名）
+    for (const p of providers.value) {
+      if (Array.isArray(p.models)) {
+        for (const m of p.models) {
+          const modelKey = typeof m === 'string' ? m : m.key
+          if (modelKey === val) {
+            modelRoutes.value[key].channel = p.key || p.id || ''
+            return
+          }
         }
       }
     }
@@ -719,7 +734,7 @@ onMounted(async () => {
                       @update:model-value="(val: string) => setRouteModel(rp.key, val)"
                     >
                       <el-option label="未设置" value="" />
-                      <el-option v-for="m in getRouteModelOptions(rp.key)" :key="m" :label="m" :value="m" />
+                      <el-option v-for="m in getRouteModelOptions(rp.key)" :key="m.value" :label="m.label" :value="m.value" />
                     </el-select>
                   </td>
                   <td>
