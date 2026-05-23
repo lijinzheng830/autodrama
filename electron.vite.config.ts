@@ -3,8 +3,20 @@ import { defineConfig } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
-  main: {},
-  preload: {},
+  main: {
+    build: {
+      rollupOptions: {
+        external: ['electron']
+      }
+    }
+  },
+  preload: {
+    build: {
+      rollupOptions: {
+        external: ['electron']
+      }
+    }
+  },
   renderer: {
     resolve: {
       alias: {

@@ -89,6 +89,19 @@ export interface AutoProcessOptions {
   aspectRatio?: string
 }
 
+export interface GenerateImageInput {
+  projectId: string
+  type: 'character' | 'scene' | 'prop'
+  assetId: string
+  description: string
+  stylePrompt?: string
+  eraPrompt?: string
+  model?: string
+  channel?: string
+  apiKey?: string
+  count?: number
+}
+
 export interface Api {
   createProject: (input: ProjectInput) => Promise<unknown>
   getProjects: () => Promise<unknown[]>
@@ -131,7 +144,7 @@ export interface Api {
   // Shot & project data
   getShotsWithAssociations: (chapterId: string) => Promise<unknown[]>
   getProjectData: (projectId: string) => Promise<unknown>
-  getProjectStats: (projectId: string) => Promise<{ scenes: number; props: number; chapters: number; shots: number }>
+  getProjectStats: (projectId: string) => Promise<{ characters: number; scenes: number; props: number; chapters: number; shots: number }>
   moveShotUp: (shotId: string) => Promise<void>
   moveShotDown: (shotId: string) => Promise<void>
   deleteShot: (shotId: string) => Promise<void>
@@ -159,6 +172,11 @@ export interface Api {
   configReadFile: (filePath: string) => Promise<string | null>
   showSaveDialog: (options: unknown) => Promise<string | null>
   showOpenDialog: (options: unknown) => Promise<string | null>
+
+  // Image Generation
+  generateImage: (input: GenerateImageInput) => Promise<{ taskId: string; imagePaths: string[] }>
+  getAssetImages: (assetType: 'character' | 'scene' | 'prop', assetId: string) => Promise<unknown[]>
+  selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) => Promise<void>
 }
 
 declare global {

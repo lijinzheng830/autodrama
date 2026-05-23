@@ -659,9 +659,10 @@ export function getProjectData(projectId: string): Record<string, unknown> {
   return { chapters, characters, scenes, props, shots: shotsWithAssoc }
 }
 
-export function getProjectStats(projectId: string): { scenes: number; props: number; chapters: number; shots: number } {
+export function getProjectStats(projectId: string): { characters: number; scenes: number; props: number; chapters: number; shots: number } {
   const db = getDb()
 
+  const charactersRow = db.prepare('SELECT COUNT(*) as count FROM characters WHERE project_id = ?').get(projectId) as { count: number }
   const scenesRow = db.prepare('SELECT COUNT(*) as count FROM scenes WHERE project_id = ?').get(projectId) as { count: number }
   const propsRow = db.prepare('SELECT COUNT(*) as count FROM props WHERE project_id = ?').get(projectId) as { count: number }
   const chaptersRow = db.prepare('SELECT COUNT(*) as count FROM chapters WHERE project_id = ?').get(projectId) as { count: number }
@@ -672,6 +673,7 @@ export function getProjectStats(projectId: string): { scenes: number; props: num
     .get(projectId) as { count: number }
 
   return {
+    characters: charactersRow.count,
     scenes: scenesRow.count,
     props: propsRow.count,
     chapters: chaptersRow.count,

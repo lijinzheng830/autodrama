@@ -58,7 +58,7 @@ const projectData = ref<any>(null)
 const episodesLoading = ref(false)
 
 // 项目统计
-const projectStats = ref({ scenes: 0, props: 0, chapters: 0, shots: 0 })
+const projectStats = ref({ characters: 0, scenes: 0, props: 0, chapters: 0, shots: 0 })
 
 // 全选
 const selectedShots = ref<Set<string>>(new Set())
@@ -324,7 +324,7 @@ async function loadProject(): Promise<void> {
       if (data.script_text) store.scriptText = data.script_text
     }
     const stats = await window.api.getProjectStats(projectId)
-    projectStats.value = stats as { scenes: number; props: number; chapters: number; shots: number }
+    projectStats.value = stats as { characters: number; scenes: number; props: number; chapters: number; shots: number }
     const savedDir = await window.api.getSetting('last_export_dir')
     if (savedDir) lastExportDir.value = savedDir
   } catch (err) {
@@ -805,35 +805,26 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   }
 
   if (batchMode.value === 'asset') {
-    // 资产模式：遍历项目全部资产，shotId 为 null
+    // 资产模式：遍历项目全部资产，真实调用生图服务
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
     const assets = projectData.value?.[assetKey] || []
-    const purposeMap: Record<string, string> = {
-      人物: 'character_reference',
-      场景: 'scene_reference',
-      道具: 'prop_reference'
-    }
-    const idKeyMap: Record<string, string> = {
-      人物: 'characterId',
-      场景: 'sceneId',
-      道具: 'propId'
-    }
-    const purpose = purposeMap[type]
-    const idKey = idKeyMap[type]
+    const assetType = type === '人物' ? 'character' : type === '场景' ? 'scene' : 'prop'
 
     for (const asset of assets) {
       if (mode === 'missing' && asset.reference_image) continue
-      const inputParams: any = { count: batchCount.value }
-      inputParams[idKey] = asset.id
-      await window.api.createGenerationTask({
-        projectId,
-        shotId: null,
-        type: 'image',
-        purpose,
-        model: defaultModel,
-        inputParams: JSON.stringify(inputParams)
-      })
-      createdCount++
+      try {
+        await window.api.generateImage({
+          projectId,
+          type: assetType,
+          assetId: asset.id,
+          description: asset.description || asset.name || '',
+          count: batchCount.value
+        })
+        createdCount++
+      } catch (err: any) {
+        console.error(`批量生成 ${asset.name} 失败:`, err)
+        // 继续下一个，不中断
+      }
     }
   } else {
     // 分镜模式：遍历选中的分镜
@@ -887,17 +878,26 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     }
   }
 
-  ElMessage.success(`已创建 ${createdCount} 个生成任务，图片生成将在后续版本开放`)
+  if (batchMode.value === 'asset' && createdCount > 0) {
+    ElMessage.success(`已成功生成 ${createdCount} 个资产的图片`)
+    await loadEpisodesData()
+  } else {
+    ElMessage.success(`已创建 ${createdCount} 个生成任务`)
+  }
   batchDialogVisible.value = false
 }
 
 // ===== 右侧面板 =====
 
-function showDetail(type: string, data: any): void {
+async function showDetail(type: string, data: any): Promise<void> {
   panelMode.value = 'detail'
   detailType.value = type
   detailData.value = data
   genCount.value = 1
+  assetImages.value = []
+  if (['character', 'scene', 'prop'].includes(type) && data?.id) {
+    await loadAssetImages(type, data.id)
+  }
 }
 
 function backToResident(): void {
@@ -1029,20 +1029,83 @@ function handleImportAsset(): void {
   ElMessage.info('从其他项目导入功能后续版本开放')
 }
 
-// 生图按钮（MVP1占位）
-async function handleGenerateImage(type: string, shotId?: string): Promise<void> {
+// 生图loading状态
+const genLoading = ref(false)
+
+// 历史图片记录
+const assetImages = ref<any[]>([])
+
+async function loadAssetImages(type: string, assetId: string): Promise<void> {
+  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
   try {
-    await window.api.createGenerationTask({
-      projectId,
-      shotId,
-      type: 'image',
-      purpose: type,
-      inputParams: JSON.stringify({ count: genCount.value })
-    })
-    ElMessage.success('已加入生成队列，图片生成将在后续版本开放')
+    const images = await window.api.getAssetImages(assetType, assetId)
+    assetImages.value = images || []
   } catch (err) {
-    ElMessage.error('创建生成任务失败')
+    console.error('加载历史图片失败', err)
+    assetImages.value = []
+  }
+}
+
+async function handleSelectHistoryImage(type: string, assetId: string, imageId: string): Promise<void> {
+  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
+  try {
+    await window.api.selectAssetImage(assetType, assetId, imageId)
+    await loadAssetImages(type, assetId)
+    await loadEpisodesData()
+    // 刷新详情数据
+    const updatedAsset = projectData.value?.[
+      type === 'character' ? 'characters' : type === 'scene' ? 'scenes' : 'props'
+    ]?.find((a: any) => a.id === assetId)
+    if (updatedAsset) {
+      detailData.value = { ...detailData.value, reference_image: updatedAsset.reference_image }
+    }
+  } catch (err) {
+    ElMessage.error('切换图片失败')
     console.error(err)
+  }
+}
+
+// 生图按钮（MVP2真实服务）
+async function handleGenerateImage(type: string, assetId?: string): Promise<void> {
+  if (!assetId) return
+  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
+  const asset = projectData.value?.[
+    assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+  ]?.find((a: any) => a.id === assetId)
+  if (!asset) {
+    ElMessage.error('资产不存在')
+    return
+  }
+
+  genLoading.value = true
+  try {
+    await window.api.generateImage({
+      projectId,
+      type: assetType,
+      assetId,
+      description: asset.description || asset.name || '',
+      count: genCount.value
+    })
+    ElMessage.success('图片生成成功')
+    // 刷新历史记录和资产数据
+    await loadAssetImages(type, assetId)
+    await loadEpisodesData()
+    // 更新详情数据
+    const updatedAsset = projectData.value?.[
+      assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+    ]?.find((a: any) => a.id === assetId)
+    if (updatedAsset) {
+      detailData.value = { ...detailData.value, reference_image: updatedAsset.reference_image }
+    }
+    // 自动弹出生成记录弹窗
+    genRecordTab.value = 'image'
+    genRecordVisible.value = true
+    await loadGenerationRecords()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '图片生成失败')
+    console.error(err)
+  } finally {
+    genLoading.value = false
   }
 }
 
@@ -1578,6 +1641,10 @@ onUnmounted(() => {
           <div class="section-block">
             <span class="section-title">项目统计</span>
             <div class="stat-grid">
+              <div class="stat-card">
+                <span class="stat-value">{{ projectStats.characters }}</span>
+                <span class="stat-label">角色</span>
+              </div>
               <div class="stat-card">
                 <span class="stat-value">{{ projectStats.scenes }}</span>
                 <span class="stat-label">场景</span>
@@ -2363,11 +2430,12 @@ onUnmounted(() => {
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount++" />
+                      <el-button text :icon="Plus" @click="genCount = Math.min(4, genCount + 1)" />
                     </div>
                     <el-button
                       type="primary"
                       class="gen-btn"
+                      :loading="genLoading"
                       @click="handleGenerateImage(detailType, detailData?.id)"
                     >
                       AI生图
@@ -2375,7 +2443,19 @@ onUnmounted(() => {
                   </div>
                   <div class="history-section">
                     <div class="history-title">历史记录</div>
-                    <div class="history-empty">暂无生成记录</div>
+                    <div v-if="assetImages.length === 0" class="history-empty">暂无生成记录</div>
+                    <div v-else class="history-grid">
+                      <div
+                        v-for="img in assetImages"
+                        :key="img.id"
+                        class="history-item"
+                        :class="{ selected: img.is_selected }"
+                        @click="handleSelectHistoryImage(detailType, detailData?.id, img.id)"
+                      >
+                        <img :src="img.image_path" class="history-img" />
+                        <div v-if="img.is_selected" class="history-selected-badge">✓</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4366,6 +4446,51 @@ onUnmounted(() => {
   color: #9ca3af;
   text-align: center;
   padding: 16px;
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.history-item {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s ease;
+  aspect-ratio: 1;
+}
+
+.history-item:hover {
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+.history-item.selected {
+  border-color: #a78bfa;
+}
+
+.history-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.history-selected-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #a78bfa;
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 弹窗 */

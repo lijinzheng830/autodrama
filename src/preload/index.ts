@@ -9,7 +9,8 @@ import type {
   GenerationTaskInput,
   ProviderInput,
   PromptTemplateInput,
-  AutoProcessOptions
+  AutoProcessOptions,
+  GenerateImageInput
 } from '../main/types'
 
 const api = {
@@ -116,7 +117,14 @@ const api = {
     ipcRenderer.invoke('config:writeFile', { filePath, content }),
   configReadFile: (filePath: string) => ipcRenderer.invoke('config:readFile', filePath),
   showSaveDialog: (options: unknown) => ipcRenderer.invoke('dialog:showSaveDialog', options),
-  showOpenDialog: (options: unknown) => ipcRenderer.invoke('dialog:showOpenDialog', options)
+  showOpenDialog: (options: unknown) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+
+  // Image Generation
+  generateImage: (input: GenerateImageInput) => ipcRenderer.invoke('image:generate', input),
+  getAssetImages: (assetType: 'character' | 'scene' | 'prop', assetId: string) =>
+    ipcRenderer.invoke('image:getAssetImages', { assetType, assetId }),
+  selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) =>
+    ipcRenderer.invoke('image:selectAssetImage', { assetType, assetId, imageId })
 }
 
 if (process.contextIsolated) {

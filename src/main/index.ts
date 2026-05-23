@@ -69,6 +69,8 @@ import {
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
+import { generateImage, getAssetImages, selectAssetImage } from './services/imageGenerator'
+import type { GenerateImageInput } from './types'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -526,6 +528,19 @@ app.whenReady().then(() => {
       properties: ['openFile']
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+
+  // ===== Image Generation =====
+  ipcMain.handle('image:generate', async (_, input: GenerateImageInput) => {
+    return generateImage(input)
+  })
+
+  ipcMain.handle('image:getAssetImages', async (_, { assetType, assetId }: { assetType: 'character' | 'scene' | 'prop'; assetId: string }) => {
+    return getAssetImages(assetType, assetId)
+  })
+
+  ipcMain.handle('image:selectAssetImage', async (_, { assetType, assetId, imageId }: { assetType: 'character' | 'scene' | 'prop'; assetId: string; imageId: string }) => {
+    selectAssetImage(assetType, assetId, imageId)
   })
 
   // LICENSE CHECK

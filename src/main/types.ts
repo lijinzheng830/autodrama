@@ -78,6 +78,19 @@ export interface Provider {
   updatedAt: number
 }
 
+export interface GenerateImageInput {
+  projectId: string
+  type: 'character' | 'scene' | 'prop'
+  assetId: string
+  description: string
+  stylePrompt?: string
+  eraPrompt?: string
+  model?: string
+  channel?: string
+  apiKey?: string
+  count?: number
+}
+
 export interface AutoProcessOptions {
   mode?: 'full' | 'append'
   provider?: string
