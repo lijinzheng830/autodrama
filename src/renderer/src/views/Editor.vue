@@ -1040,6 +1040,140 @@ const genLoading = ref(false)
 // 历史图片记录
 const assetImages = ref<any[]>([])
 
+// ===== 全屏大图预览 =====
+const fullscreenImageVisible = ref(false)
+const fullscreenImageSrc = ref('')
+
+function openFullscreenImage(src: string): void {
+  if (!src) return
+  fullscreenImageSrc.value = src
+  fullscreenImageVisible.value = true
+}
+
+function closeFullscreenImage(): void {
+  fullscreenImageVisible.value = false
+  fullscreenImageSrc.value = ''
+}
+
+function handleFullscreenKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') {
+    closeFullscreenImage()
+  }
+}
+
+// ===== 齿轮弹窗（临时生图配置） =====
+const gearVisible = ref(false)
+const gearModel = ref('')
+const gearChannel = ref('')
+const gearCount = ref(1)
+
+async function initGearDefaults(): Promise<void> {
+  const purposeMap: Record<string, string> = {
+    character: 'character_image',
+    scene: 'scene_image',
+    prop: 'prop_image'
+  }
+  const purposeKey = purposeMap[detailType.value]
+  if (!purposeKey) return
+
+  // 先读模型配置
+  try {
+    const proj = await window.api.getProject(projectId)
+    const raw = (proj as Record<string, any>)?.model_config_json
+    if (raw) {
+      const cfg = JSON.parse(raw)
+      const pc = cfg[purposeKey]
+      if (pc?.model) {
+        gearModel.value = pc.model
+        gearChannel.value = pc.channel || ''
+        return
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 再读模型路由
+  try {
+    const routesRaw = await window.api.getSetting('model_routes')
+    if (routesRaw) {
+      const routes = JSON.parse(routesRaw as string)
+      const rc = routes[purposeKey]
+      if (rc?.model) {
+        gearModel.value = rc.model
+        gearChannel.value = rc.channel || ''
+        return
+      }
+    }
+  } catch { /* ignore */ }
+
+  gearModel.value = ''
+  gearChannel.value = ''
+}
+
+function handleGearModelChange(val: string): void {
+  gearModel.value = val
+  const matched = providerModels.value.find((m) => m.value === val)
+  if (matched?.provider) {
+    gearChannel.value = matched.provider
+  }
+}
+
+function handleGearChannelChange(val: string): void {
+  gearChannel.value = val
+  const firstModel = providerModels.value.find((m) => m.provider === val)
+  if (firstModel) {
+    gearModel.value = firstModel.value
+  } else {
+    gearModel.value = ''
+  }
+}
+
+async function handleGearGenerate(): Promise<void> {
+  const type = detailType.value
+  const assetId = detailData.value?.id
+  if (!assetId || !['character', 'scene', 'prop'].includes(type)) return
+
+  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
+  const asset = projectData.value?.[
+    assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+  ]?.find((a: any) => a.id === assetId)
+  if (!asset) {
+    ElMessage.error('资产不存在')
+    return
+  }
+
+  gearVisible.value = false
+  genLoading.value = true
+  try {
+    await window.api.generateImage({
+      projectId,
+      type: assetType,
+      assetId,
+      description: asset.description || asset.name || '',
+      count: gearCount.value,
+      model: gearModel.value || undefined,
+      channel: gearChannel.value || undefined
+    })
+    ElMessage.success('图片生成成功')
+    await loadAssetImages(type, assetId)
+    await loadEpisodesData()
+    const updatedAsset = projectData.value?.[
+      assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+    ]?.find((a: any) => a.id === assetId)
+    if (updatedAsset) {
+      detailData.value = { ...detailData.value, reference_image: updatedAsset.reference_image }
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '生图失败')
+    console.error(err)
+  } finally {
+    genLoading.value = false
+    // 清空临时选择
+    gearModel.value = ''
+    gearChannel.value = ''
+    gearCount.value = 1
+  }
+}
+
 async function loadAssetImages(type: string, assetId: string): Promise<void> {
   const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
   try {
@@ -1650,15 +1784,25 @@ onMounted(() => {
   store.scriptText = ''
   loadProject().then(() => loadEpisodesData())
   loadModelName()
+  window.addEventListener('keydown', handleFullscreenKeydown)
 })
 
 onUnmounted(() => {
   if (removeAIProgress) removeAIProgress()
+  window.removeEventListener('keydown', handleFullscreenKeydown)
 })
 </script>
 
 <template>
   <div class="editor-layout">
+    <!-- 全屏图片预览 -->
+    <div
+      v-if="fullscreenImageVisible"
+      class="fullscreen-image-overlay"
+      @click="closeFullscreenImage"
+    >
+      <img :src="fullscreenImageSrc" class="fullscreen-image" @click.stop />
+    </div>
     <!-- 顶部栏 -->
     <header class="editor-header">
       <div class="header-left">
@@ -2478,6 +2622,7 @@ onUnmounted(() => {
                       v-if="detailData?.reference_image"
                       :src="toFileUrl(detailData.reference_image)"
                       class="detail-img"
+                      @click="openFullscreenImage(toFileUrl(detailData.reference_image))"
                     />
                     <div v-else class="detail-placeholder">{{ detailData?.name }}</div>
                     <div class="detail-upload">
@@ -2517,11 +2662,84 @@ onUnmounted(() => {
                   <!-- 生图控制栏 -->
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button
-                        text
-                        :icon="Tools"
-                        @click="ElMessage.info('模型选择后续版本开放')"
-                      />
+                      <el-popover
+                        v-model:visible="gearVisible"
+                        placement="bottom-start"
+                        :width="280"
+                        trigger="click"
+                        @show="initGearDefaults"
+                      >
+                        <template #reference>
+                          <el-button text :icon="Tools" />
+                        </template>
+                        <div class="gear-panel">
+                          <div class="gear-row">
+                            <label>模型</label>
+                            <el-select
+                              :model-value="gearModel"
+                              size="small"
+                              style="width: 180px"
+                              @change="handleGearModelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="m in providerModels"
+                                :key="m.value"
+                                :label="m.label"
+                                :value="m.value"
+                              />
+                            </el-select>
+                          </div>
+                          <div class="gear-row">
+                            <label>渠道</label>
+                            <el-select
+                              :model-value="gearChannel"
+                              size="small"
+                              style="width: 180px"
+                              @change="handleGearChannelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="p in providerChannels"
+                                :key="p.value"
+                                :label="p.label"
+                                :value="p.value"
+                              />
+                            </el-select>
+                          </div>
+                          <div class="gear-row">
+                            <label>张数</label>
+                            <div class="gear-count-row">
+                              <el-button
+                                text
+                                :icon="Minus"
+                                size="small"
+                                @click="gearCount = Math.max(1, gearCount - 1)"
+                              />
+                              <el-input
+                                v-model.number="gearCount"
+                                size="small"
+                                class="gear-count-input"
+                              />
+                              <el-button
+                                text
+                                :icon="Plus"
+                                size="small"
+                                @click="gearCount = Math.min(10, gearCount + 1)"
+                              />
+                            </div>
+                          </div>
+                          <el-button
+                            type="primary"
+                            size="small"
+                            class="gear-gen-btn"
+                            :loading="genLoading"
+                            @click="handleGearGenerate"
+                          >
+                            AI生图
+                          </el-button>
+                        </div>
+                      </el-popover>
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
@@ -4586,6 +4804,68 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 全屏图片预览 */
+.fullscreen-image-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+.fullscreen-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  cursor: default;
+}
+
+/* 齿轮面板 */
+.gear-panel {
+  padding: 4px;
+}
+
+.gear-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gear-row label {
+  font-size: 12px;
+  color: #9ca3af;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.gear-count-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.gear-count-row .gear-count-input {
+  width: 50px;
+}
+
+.gear-count-row .gear-count-input :deep(.el-input__inner) {
+  text-align: center;
+  padding: 0 4px;
+}
+
+.gear-gen-btn {
+  width: 100%;
+  margin-top: 4px;
 }
 
 /* 弹窗 */
