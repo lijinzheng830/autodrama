@@ -25,14 +25,14 @@ function resolveProviderConfig(providerKey: string): { baseURL: string; apiKey: 
   if (userProvider) {
     const apiKey = (userProvider as any)?.apiKey
     if (apiKey && userProvider.baseURL) {
-      return { baseURL: userProvider.baseURL, apiKey }
+      return { baseURL: userProvider.baseURL.trim(), apiKey }
     }
   }
 
   // 2. fallback 到硬编码配置
   const hardcoded = getProvider(providerKey)
   if (hardcoded?.baseURL) {
-    return { baseURL: hardcoded.baseURL, apiKey: '' }
+    return { baseURL: hardcoded.baseURL.trim(), apiKey: '' }
   }
 
   return null

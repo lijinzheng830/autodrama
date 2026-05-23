@@ -1607,6 +1607,14 @@ function setModelConfigField(key: string, field: string, value: any): void {
   modelConfig.value[key][field] = value
 }
 
+function handleModelConfigModelChange(tabKey: string, val: string): void {
+  setModelConfigField(tabKey, 'model', val)
+  const matched = providerModels.value.find((m) => m.value === val)
+  if (matched?.provider) {
+    setModelConfigField(tabKey, 'channel', matched.provider)
+  }
+}
+
 const scriptCharCount = computed(() => parseScriptText.value.length)
 
 onMounted(() => {
@@ -2885,7 +2893,7 @@ onUnmounted(() => {
                   style="width: 240px"
                   @change="
                     (val: string) =>
-                      setModelConfigField(modelConfigTabs[modelConfigTab].key, 'model', val)
+                      handleModelConfigModelChange(modelConfigTabs[modelConfigTab].key, val)
                   "
                 >
                   <el-option
