@@ -10,7 +10,8 @@ import type {
   ProviderInput,
   PromptTemplateInput,
   AutoProcessOptions,
-  GenerateImageInput
+  GenerateImageInput,
+  GenerateShotImageInput
 } from '../main/types'
 
 const api = {
@@ -124,7 +125,12 @@ const api = {
   getAssetImages: (assetType: 'character' | 'scene' | 'prop', assetId: string) =>
     ipcRenderer.invoke('image:getAssetImages', { assetType, assetId }),
   selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) =>
-    ipcRenderer.invoke('image:selectAssetImage', { assetType, assetId, imageId })
+    ipcRenderer.invoke('image:selectAssetImage', { assetType, assetId, imageId }),
+  generateShotImage: (input: GenerateShotImageInput) => ipcRenderer.invoke('image:generateShot', input),
+  getShotImages: (shotId: string, frameType: 'first' | 'last') =>
+    ipcRenderer.invoke('image:getShotImages', { shotId, frameType }),
+  selectShotImage: (shotId: string, frameType: 'first' | 'last', imageId: string) =>
+    ipcRenderer.invoke('image:selectShotImage', { shotId, frameType, imageId })
 }
 
 if (process.contextIsolated) {

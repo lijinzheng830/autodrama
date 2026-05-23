@@ -91,6 +91,15 @@ export interface GenerateImageInput {
   count?: number
 }
 
+export interface GenerateShotImageInput {
+  projectId: string
+  shotId: string
+  frameType: 'first' | 'last'
+  model?: string
+  channel?: string
+  count?: number
+}
+
 export interface AutoProcessOptions {
   mode?: 'full' | 'append'
   provider?: string

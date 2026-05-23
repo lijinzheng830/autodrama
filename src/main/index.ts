@@ -69,7 +69,7 @@ import {
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
-import { generateImage, getAssetImages, selectAssetImage } from './services/imageGenerator'
+import { generateImage, getAssetImages, selectAssetImage, generateShotImage, getShotImages, selectShotImage } from './services/imageGenerator'
 import type { GenerateImageInput } from './types'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
@@ -547,6 +547,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('image:selectAssetImage', async (_, { assetType, assetId, imageId }: { assetType: 'character' | 'scene' | 'prop'; assetId: string; imageId: string }) => {
     selectAssetImage(assetType, assetId, imageId)
+  })
+
+  ipcMain.handle('image:generateShot', async (_, input) => {
+    return generateShotImage(input)
+  })
+
+  ipcMain.handle('image:getShotImages', async (_, { shotId, frameType }: { shotId: string; frameType: 'first' | 'last' }) => {
+    return getShotImages(shotId, frameType)
+  })
+
+  ipcMain.handle('image:selectShotImage', async (_, { shotId, frameType, imageId }: { shotId: string; frameType: 'first' | 'last'; imageId: string }) => {
+    selectShotImage(shotId, frameType, imageId)
   })
 
   // LICENSE CHECK

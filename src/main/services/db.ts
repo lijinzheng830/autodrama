@@ -289,7 +289,8 @@ export function initDatabase(): Database.Database {
     { table: 'shots', column: 'video_path', type: 'TEXT' },
     { table: 'shots', column: 'voice_path', type: 'TEXT' },
     { table: 'characters', column: 'skin_images', type: 'TEXT' },
-    { table: 'generation_tasks', column: 'started_at', type: 'TEXT' }
+    { table: 'generation_tasks', column: 'started_at', type: 'TEXT' },
+    { table: 'shot_images', column: 'type', type: 'TEXT' }
   ]
 
   for (const m of migrations) {

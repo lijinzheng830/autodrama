@@ -796,8 +796,8 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       人物: 'character_image',
       场景: 'scene_image',
       道具: 'prop_image',
-      首帧: 'shot_image',
-      尾帧: 'shot_image',
+      首帧: 'first_frame',
+      尾帧: 'last_frame',
       视频: 'video'
     }
     const purposeConfig = config[purposeMap[type]] || {}
@@ -842,28 +842,36 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       switch (type) {
         case '首帧': {
           if (mode === 'missing' && shot.first_frame_image_path) continue
-          await window.api.createGenerationTask({
-            projectId,
-            shotId: shot.id,
-            type: 'image',
-            purpose: 'first_frame',
-            model: defaultModel,
-            inputParams: JSON.stringify({ count: batchCount.value })
-          })
-          createdCount++
+          try {
+            await window.api.generateShotImage({
+              projectId,
+              shotId: shot.id,
+              frameType: 'first',
+              model: defaultModel,
+              channel: defaultChannel,
+              count: batchCount.value
+            })
+            createdCount++
+          } catch (err: any) {
+            console.error(`批量生成首帧失败 [shot ${shot.id}]:`, err)
+          }
           break
         }
         case '尾帧': {
           if (mode === 'missing' && shot.last_frame_image_path) continue
-          await window.api.createGenerationTask({
-            projectId,
-            shotId: shot.id,
-            type: 'image',
-            purpose: 'last_frame',
-            model: defaultModel,
-            inputParams: JSON.stringify({ count: batchCount.value })
-          })
-          createdCount++
+          try {
+            await window.api.generateShotImage({
+              projectId,
+              shotId: shot.id,
+              frameType: 'last',
+              model: defaultModel,
+              channel: defaultChannel,
+              count: batchCount.value
+            })
+            createdCount++
+          } catch (err: any) {
+            console.error(`批量生成尾帧失败 [shot ${shot.id}]:`, err)
+          }
           break
         }
         case '视频': {
@@ -886,6 +894,9 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   if (batchMode.value === 'asset' && createdCount > 0) {
     ElMessage.success(`已成功生成 ${createdCount} 个资产的图片`)
     await loadEpisodesData()
+  } else if (createdCount > 0) {
+    ElMessage.success(`已成功生成 ${createdCount} 个分镜图片`)
+    await loadEpisodesData()
   } else {
     ElMessage.success(`已创建 ${createdCount} 个生成任务`)
   }
@@ -902,6 +913,9 @@ async function showDetail(type: string, data: any): Promise<void> {
   assetImages.value = []
   if (['character', 'scene', 'prop'].includes(type) && data?.id) {
     await loadAssetImages(type, data.id)
+  }
+  if ((type === 'firstFrame' || type === 'lastFrame') && data?.id) {
+    await loadShotImages(data.id, type === 'firstFrame' ? 'first' : 'last')
   }
 }
 
@@ -1091,7 +1105,9 @@ async function initGearDefaults(): Promise<void> {
   const purposeMap: Record<string, string> = {
     character: 'character_image',
     scene: 'scene_image',
-    prop: 'prop_image'
+    prop: 'prop_image',
+    firstFrame: 'first_frame',
+    lastFrame: 'last_frame'
   }
   const purposeKey = purposeMap[detailType.value]
   if (!purposeKey) return
@@ -1163,7 +1179,9 @@ async function handleGearRestoreDefault(): Promise<void> {
   const purposeMap: Record<string, string> = {
     character: 'character_image',
     scene: 'scene_image',
-    prop: 'prop_image'
+    prop: 'prop_image',
+    firstFrame: 'first_frame',
+    lastFrame: 'last_frame'
   }
   const purposeKey = purposeMap[detailType.value]
   if (purposeKey) {
@@ -1178,7 +1196,9 @@ const filteredGearModels = computed(() => {
   const typeMap: Record<string, string> = {
     character: 'image',
     scene: 'image',
-    prop: 'image'
+    prop: 'image',
+    firstFrame: 'image',
+    lastFrame: 'image'
   }
   const neededType = typeMap[detailType.value]
   if (!neededType) return providerModels.value
@@ -1202,7 +1222,9 @@ function handleGearConfirm(): void {
   const purposeMap: Record<string, string> = {
     character: 'character_image',
     scene: 'scene_image',
-    prop: 'prop_image'
+    prop: 'prop_image',
+    firstFrame: 'first_frame',
+    lastFrame: 'last_frame'
   }
   const purposeKey = purposeMap[type]
   if (gearModel.value && purposeKey) {
@@ -1221,6 +1243,16 @@ async function loadAssetImages(type: string, assetId: string): Promise<void> {
     assetImages.value = images || []
   } catch (err) {
     console.error('加载历史图片失败', err)
+    assetImages.value = []
+  }
+}
+
+async function loadShotImages(shotId: string, frameType: 'first' | 'last'): Promise<void> {
+  try {
+    const images = await window.api.getShotImages(shotId, frameType)
+    assetImages.value = images || []
+  } catch (err) {
+    console.error('加载分镜历史图片失败', err)
     assetImages.value = []
   }
 }
@@ -1244,9 +1276,84 @@ async function handleSelectHistoryImage(type: string, assetId: string, imageId: 
   }
 }
 
+async function handleSelectShotImage(shotId: string, frameType: 'first' | 'last', imageId: string): Promise<void> {
+  try {
+    await window.api.selectShotImage(shotId, frameType, imageId)
+    await loadShotImages(shotId, frameType)
+    await loadEpisodesData()
+    // 刷新详情数据
+    const updatedShot = projectData.value?.shots?.find((s: any) => s.id === shotId)
+    if (updatedShot) {
+      const key = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
+      detailData.value = { ...detailData.value, [key]: updatedShot[key] }
+    }
+  } catch (err) {
+    ElMessage.error('切换图片失败')
+    console.error(err)
+  }
+}
+
 // 生图按钮（MVP2真实服务）
 async function handleGenerateImage(type: string, assetId?: string): Promise<void> {
   if (!assetId) return
+
+  // 首帧/尾帧生图
+  if (type === 'firstFrame' || type === 'lastFrame') {
+    const frameType = type === 'firstFrame' ? 'first' : 'last'
+    const purposeKey = type === 'firstFrame' ? 'first_frame' : 'last_frame'
+
+    // 读取项目模型配置
+    let modelConfig: any = {}
+    try {
+      const proj = await window.api.getProject(projectId)
+      const raw = (proj as Record<string, any>)?.model_config_json
+      if (raw) modelConfig = JSON.parse(raw)
+    } catch { /* ignore */ }
+
+    // 优先读会话级覆盖
+    const override = sessionOverrides.value[purposeKey]
+    let model = override?.model || ''
+    let channel = override?.channel || ''
+
+    // 无覆盖时回退到项目模型配置
+    if (!model || !channel) {
+      const purposeConfig = modelConfig[purposeKey] || {}
+      if (!model) model = purposeConfig.model || ''
+      if (!channel) channel = purposeConfig.channel || ''
+    }
+
+    genLoading.value = true
+    try {
+      await window.api.generateShotImage({
+        projectId,
+        shotId: assetId,
+        frameType,
+        count: genCount.value,
+        model: model || undefined,
+        channel: channel || undefined
+      })
+      ElMessage.success('图片生成成功')
+      await loadShotImages(assetId, frameType)
+      await loadEpisodesData()
+      // 刷新详情数据
+      const updatedShot = projectData.value?.shots?.find((s: any) => s.id === assetId)
+      if (updatedShot) {
+        const key = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
+        detailData.value = { ...detailData.value, [key]: updatedShot[key] }
+      }
+      genRecordTab.value = 'image'
+      genRecordVisible.value = true
+      await loadGenerationRecords()
+    } catch (err: any) {
+      ElMessage.error(err?.message || '图片生成失败')
+      console.error(err)
+    } finally {
+      genLoading.value = false
+    }
+    return
+  }
+
+  // 资产生图（character/scene/prop）
   const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
   const asset = projectData.value?.[
     assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
@@ -2888,19 +2995,100 @@ onUnmounted(() => {
                   </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button
-                        text
-                        :icon="Tools"
-                        @click="ElMessage.info('模型选择后续版本开放')"
-                      />
+                      <el-popover
+                        v-model:visible="gearVisible"
+                        placement="bottom-start"
+                        :width="280"
+                        trigger="click"
+                        @show="initGearDefaults"
+                      >
+                        <template #reference>
+                          <el-button text :icon="Tools" />
+                        </template>
+                        <div class="gear-panel">
+                          <div class="gear-effective">
+                            <div class="gear-effective-label">当前生效</div>
+                            <div class="gear-effective-value">{{ gearEffectiveDisplay }}</div>
+                          </div>
+                          <div class="gear-row">
+                            <label>模型</label>
+                            <el-select
+                              :model-value="gearModel"
+                              size="small"
+                              style="width: 180px"
+                              :teleported="false"
+                              @change="handleGearModelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="m in filteredGearModels"
+                                :key="m.value"
+                                :label="m.label"
+                                :value="m.value"
+                              />
+                            </el-select>
+                          </div>
+                          <div class="gear-row">
+                            <label>渠道</label>
+                            <el-select
+                              :model-value="gearChannel"
+                              size="small"
+                              style="width: 180px"
+                              :teleported="false"
+                              @change="handleGearChannelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="p in filteredGearChannels"
+                                :key="p.value"
+                                :label="p.label"
+                                :value="p.value"
+                              />
+                            </el-select>
+                          </div>
+                          <div class="gear-row">
+                            <label>张数</label>
+                            <div class="gear-count-row">
+                              <el-button
+                                text
+                                :icon="Minus"
+                                size="small"
+                                @click="gearCount = Math.max(1, gearCount - 1)"
+                              />
+                              <el-input
+                                v-model.number="gearCount"
+                                size="small"
+                                class="gear-count-input"
+                              />
+                              <el-button
+                                text
+                                :icon="Plus"
+                                size="small"
+                                @click="gearCount = Math.min(10, gearCount + 1)"
+                              />
+                            </div>
+                          </div>
+                          <div class="gear-actions">
+                            <el-button text size="small" @click="handleGearRestoreDefault">恢复默认</el-button>
+                            <el-button
+                              type="primary"
+                              size="small"
+                              @click="handleGearConfirm"
+                            >
+                              确认
+                            </el-button>
+                          </div>
+                        </div>
+                      </el-popover>
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount++" />
+                      <el-button text :icon="Plus" @click="genCount = Math.min(4, genCount + 1)" />
                     </div>
                     <el-button
                       type="primary"
                       class="gen-btn"
+                      :loading="genLoading"
                       @click="handleGenerateImage('firstFrame', detailData?.id)"
                     >
                       AI生图
@@ -2908,7 +3096,19 @@ onUnmounted(() => {
                   </div>
                   <div class="history-section">
                     <div class="history-title">历史记录</div>
-                    <div class="history-empty">暂无生成记录</div>
+                    <div v-if="assetImages.length === 0" class="history-empty">暂无生成记录</div>
+                    <div v-else class="history-grid">
+                      <div
+                        v-for="img in assetImages"
+                        :key="img.id"
+                        class="history-item"
+                        :class="{ selected: img.is_selected }"
+                        @click="handleSelectShotImage(detailData?.id, 'first', img.id)"
+                      >
+                        <img :src="toFileUrl(img.image_path)" class="history-img" />
+                        <div v-if="img.is_selected" class="history-selected-badge">✓</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -2940,19 +3140,100 @@ onUnmounted(() => {
                   </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button
-                        text
-                        :icon="Tools"
-                        @click="ElMessage.info('模型选择后续版本开放')"
-                      />
+                      <el-popover
+                        v-model:visible="gearVisible"
+                        placement="bottom-start"
+                        :width="280"
+                        trigger="click"
+                        @show="initGearDefaults"
+                      >
+                        <template #reference>
+                          <el-button text :icon="Tools" />
+                        </template>
+                        <div class="gear-panel">
+                          <div class="gear-effective">
+                            <div class="gear-effective-label">当前生效</div>
+                            <div class="gear-effective-value">{{ gearEffectiveDisplay }}</div>
+                          </div>
+                          <div class="gear-row">
+                            <label>模型</label>
+                            <el-select
+                              :model-value="gearModel"
+                              size="small"
+                              style="width: 180px"
+                              :teleported="false"
+                              @change="handleGearModelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="m in filteredGearModels"
+                                :key="m.value"
+                                :label="m.label"
+                                :value="m.value"
+                              />
+                            </el-select>
+                          </div>
+                          <div class="gear-row">
+                            <label>渠道</label>
+                            <el-select
+                              :model-value="gearChannel"
+                              size="small"
+                              style="width: 180px"
+                              :teleported="false"
+                              @change="handleGearChannelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="p in filteredGearChannels"
+                                :key="p.value"
+                                :label="p.label"
+                                :value="p.value"
+                              />
+                            </el-select>
+                          </div>
+                          <div class="gear-row">
+                            <label>张数</label>
+                            <div class="gear-count-row">
+                              <el-button
+                                text
+                                :icon="Minus"
+                                size="small"
+                                @click="gearCount = Math.max(1, gearCount - 1)"
+                              />
+                              <el-input
+                                v-model.number="gearCount"
+                                size="small"
+                                class="gear-count-input"
+                              />
+                              <el-button
+                                text
+                                :icon="Plus"
+                                size="small"
+                                @click="gearCount = Math.min(10, gearCount + 1)"
+                              />
+                            </div>
+                          </div>
+                          <div class="gear-actions">
+                            <el-button text size="small" @click="handleGearRestoreDefault">恢复默认</el-button>
+                            <el-button
+                              type="primary"
+                              size="small"
+                              @click="handleGearConfirm"
+                            >
+                              确认
+                            </el-button>
+                          </div>
+                        </div>
+                      </el-popover>
                       <span class="gen-label">生成张数</span>
                       <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
                       <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount++" />
+                      <el-button text :icon="Plus" @click="genCount = Math.min(4, genCount + 1)" />
                     </div>
                     <el-button
                       type="primary"
                       class="gen-btn"
+                      :loading="genLoading"
                       @click="handleGenerateImage('lastFrame', detailData?.id)"
                     >
                       AI生图
@@ -2960,7 +3241,19 @@ onUnmounted(() => {
                   </div>
                   <div class="history-section">
                     <div class="history-title">历史记录</div>
-                    <div class="history-empty">暂无生成记录</div>
+                    <div v-if="assetImages.length === 0" class="history-empty">暂无生成记录</div>
+                    <div v-else class="history-grid">
+                      <div
+                        v-for="img in assetImages"
+                        :key="img.id"
+                        class="history-item"
+                        :class="{ selected: img.is_selected }"
+                        @click="handleSelectShotImage(detailData?.id, 'last', img.id)"
+                      >
+                        <img :src="toFileUrl(img.image_path)" class="history-img" />
+                        <div v-if="img.is_selected" class="history-selected-badge">✓</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

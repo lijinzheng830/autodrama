@@ -102,6 +102,15 @@ export interface GenerateImageInput {
   count?: number
 }
 
+export interface GenerateShotImageInput {
+  projectId: string
+  shotId: string
+  frameType: 'first' | 'last'
+  model?: string
+  channel?: string
+  count?: number
+}
+
 export interface Api {
   createProject: (input: ProjectInput) => Promise<unknown>
   getProjects: () => Promise<unknown[]>
@@ -177,6 +186,9 @@ export interface Api {
   generateImage: (input: GenerateImageInput) => Promise<{ taskId: string; imagePaths: string[] }>
   getAssetImages: (assetType: 'character' | 'scene' | 'prop', assetId: string) => Promise<unknown[]>
   selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) => Promise<void>
+  generateShotImage: (input: GenerateShotImageInput) => Promise<{ taskId: string; imagePaths: string[] }>
+  getShotImages: (shotId: string, frameType: 'first' | 'last') => Promise<unknown[]>
+  selectShotImage: (shotId: string, frameType: 'first' | 'last', imageId: string) => Promise<void>
 }
 
 declare global {
