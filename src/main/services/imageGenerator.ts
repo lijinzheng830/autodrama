@@ -1,6 +1,6 @@
 import { getDb } from './db'
 import { getProject } from './project'
-import { getProviders } from './settings'
+import { getProviders, getSetting } from './settings'
 import { getProvider } from './providers'
 import { join } from 'path'
 import { mkdirSync, writeFileSync } from 'fs'
@@ -81,27 +81,57 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     .filter((s) => s.trim())
     .join(', ')
 
-  // 3. 解析模型配置（从项目配置或输入参数）
+  // 3. 解析模型配置（四级降级）
+  const purposeMap: Record<string, string> = {
+    character: 'character_image',
+    scene: 'scene_image',
+    prop: 'prop_image'
+  }
+  const purposeKey = purposeMap[type]
+  const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
+
   let model = inputModel
   let channel = inputChannel
   let apiKey = inputApiKey
 
-  if (!model || !apiKey) {
-    const config = project.model_config_json ? JSON.parse(project.model_config_json) : {}
-    const purposeMap: Record<string, string> = {
-      character: 'character_image',
-      scene: 'scene_image',
-      prop: 'prop_image'
-    }
-    const purposeKey = purposeMap[type]
-    const purposeConfig = config[purposeKey] || {}
-
+  // 第1级：input 参数（前端传入）
+  // 第2级：项目配置
+  if (!model || !channel) {
+    const purposeConfig = projectConfig[purposeKey] || {}
     if (!model) model = purposeConfig.model
     if (!channel) channel = purposeConfig.channel
   }
 
+  // 第3级：全局默认（settings 中的 provider/model）
+  if (!model || !channel) {
+    const globalProvider = getSetting('provider')
+    const globalModel = getSetting('model')
+    if (globalProvider && globalModel) {
+      if (!model) model = `${globalProvider}:${globalModel}`
+      if (!channel) channel = globalProvider
+    }
+  }
+
+  // 第4级：自动从供应商列表匹配第一个有 apiKey 的供应商
+  if (!model || !channel) {
+    const providers = getProviders()
+    for (const p of providers) {
+      const pApiKey = (p as any).apiKey
+      if (pApiKey && p.baseURL) {
+        const firstModel = p.models?.[0]
+        if (firstModel) {
+          const modelKey = typeof firstModel === 'string' ? firstModel : firstModel.key
+          const pKey = p.key || p.id
+          if (!channel) channel = pKey
+          if (!model) model = `${pKey}:${modelKey}`
+          break
+        }
+      }
+    }
+  }
+
   // 4. 统一解析 providerKey，从供应商配置读取 apiKey 和 baseURL
-  const providerKey = channel || model?.split(':')[0]
+  const providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
   if (!apiKey && providerKey) {
     const resolved = resolveProviderConfig(providerKey)
     if (resolved?.apiKey) {

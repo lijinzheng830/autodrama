@@ -784,8 +784,9 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   const type = batchType.value
   let createdCount = 0
 
-  // 从模型配置读取默认模型（MVP1简化）
-  let defaultModel: string | null = null
+  // 从模型配置读取默认模型和渠道
+  let defaultModel: string | undefined = undefined
+  let defaultChannel: string | undefined = undefined
   try {
     const proj = await window.api.getProject(projectId)
     const config = (proj as Record<string, any>)?.model_config_json
@@ -799,7 +800,9 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       尾帧: 'shot_image',
       视频: 'video'
     }
-    defaultModel = config[purposeMap[type]]?.model || null
+    const purposeConfig = config[purposeMap[type]] || {}
+    defaultModel = purposeConfig.model || undefined
+    defaultChannel = purposeConfig.channel || undefined
   } catch {
     // ignore
   }
@@ -818,7 +821,9 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
           type: assetType,
           assetId: asset.id,
           description: asset.description || asset.name || '',
-          count: batchCount.value
+          count: batchCount.value,
+          model: defaultModel,
+          channel: defaultChannel
         })
         createdCount++
       } catch (err: any) {
@@ -1077,6 +1082,21 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     return
   }
 
+  // 读取项目模型配置（优先传给后端，减少后端猜测）
+  let modelConfig: any = {}
+  try {
+    const proj = await window.api.getProject(projectId)
+    const raw = (proj as Record<string, any>)?.model_config_json
+    if (raw) modelConfig = JSON.parse(raw)
+  } catch { /* ignore */ }
+
+  const purposeMap: Record<string, string> = {
+    character: 'character_image',
+    scene: 'scene_image',
+    prop: 'prop_image'
+  }
+  const purposeConfig = modelConfig[purposeMap[assetType]] || {}
+
   genLoading.value = true
   try {
     await window.api.generateImage({
@@ -1084,7 +1104,9 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
       type: assetType,
       assetId,
       description: asset.description || asset.name || '',
-      count: genCount.value
+      count: genCount.value,
+      model: purposeConfig.model,
+      channel: purposeConfig.channel
     })
     ElMessage.success('图片生成成功')
     // 刷新历史记录和资产数据
