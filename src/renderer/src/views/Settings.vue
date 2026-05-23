@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -391,25 +391,54 @@ async function saveModelRoutes(): Promise<void> {
   }
 }
 
-const availableModels = computed(() => {
+const routeTypeMap: Record<string, string> = {
+  language_model: 'text',
+  character_image: 'image',
+  scene_image: 'image',
+  prop_image: 'image',
+  first_frame: 'image',
+  last_frame: 'image',
+  video: 'video'
+}
+
+function getRouteModelOptions(purposeKey: string): string[] {
+  const neededType = routeTypeMap[purposeKey]
   const list: string[] = []
   for (const p of providers.value) {
     if (Array.isArray(p.models)) {
       for (const m of p.models) {
-        if (typeof m === 'string') list.push(m)
-        else if (m.name) list.push(m.name)
-        else if (m.key) list.push(m.key)
+        const modelType = typeof m === 'string' ? 'text' : (m.type || 'text')
+        if (neededType && modelType !== neededType) continue
+        const name = typeof m === 'string' ? m : (m.name || m.key || '')
+        if (name) list.push(name)
       }
     }
   }
   return [...new Set(list)]
-})
+}
 
-const availableChannels = computed(() => {
+function getRouteChannelOptions(purposeKey: string): { label: string; value: string }[] {
+  const neededType = routeTypeMap[purposeKey]
+  if (!neededType) {
+    return providers.value
+      .map((p) => ({ label: p.name || '', value: p.key || p.id }))
+      .filter((p) => p.value)
+  }
+  const providersWithType = new Set<string>()
+  for (const p of providers.value) {
+    if (Array.isArray(p.models)) {
+      for (const m of p.models) {
+        const modelType = typeof m === 'string' ? 'text' : (m.type || 'text')
+        if (modelType === neededType) {
+          providersWithType.add(p.key || p.id)
+        }
+      }
+    }
+  }
   return providers.value
-    .map((p) => ({ label: p.name, value: p.key || p.id }))
-    .filter((p) => p.value)
-})
+    .map((p) => ({ label: p.name || '', value: p.key || p.id }))
+    .filter((p) => p.value && providersWithType.has(p.value))
+}
 
 function getRouteModel(key: string): string {
   return modelRoutes.value[key]?.model || ''
@@ -690,7 +719,7 @@ onMounted(async () => {
                       @update:model-value="(val: string) => setRouteModel(rp.key, val)"
                     >
                       <el-option label="未设置" value="" />
-                      <el-option v-for="m in availableModels" :key="m" :label="m" :value="m" />
+                      <el-option v-for="m in getRouteModelOptions(rp.key)" :key="m" :label="m" :value="m" />
                     </el-select>
                   </td>
                   <td>
@@ -702,7 +731,7 @@ onMounted(async () => {
                       @update:model-value="(val: string) => setRouteChannel(rp.key, val)"
                     >
                       <el-option label="未设置" value="" />
-                      <el-option v-for="c in availableChannels" :key="c.value" :label="c.label" :value="c.value" />
+                      <el-option v-for="c in getRouteChannelOptions(rp.key)" :key="c.value" :label="c.label" :value="c.value" />
                     </el-select>
                   </td>
                 </tr>

@@ -1853,9 +1853,30 @@ function handleModelConfigModelChange(tabKey: string, val: string): void {
   }
 }
 
+const configTypeMap: Record<string, string> = {
+  language_model: 'text',
+  character_image: 'image',
+  scene_image: 'image',
+  prop_image: 'image',
+  first_frame: 'image',
+  last_frame: 'image',
+  video: 'video'
+}
+
+const filteredConfigModels = computed(() => {
+  const neededType = configTypeMap[modelConfigTabs[modelConfigTab.value]?.key]
+  if (!neededType) return providerModels.value
+  return providerModels.value.filter((m) => m.modelType === neededType)
+})
+
+const filteredConfigChannels = computed(() => {
+  const providers = new Set(filteredConfigModels.value.map((m) => m.provider))
+  return providerChannels.value.filter((c) => providers.has(c.value))
+})
+
 function handleModelConfigChannelChange(tabKey: string, val: string): void {
   setModelConfigField(tabKey, 'channel', val)
-  const firstModel = providerModels.value.find((m) => m.provider === val)
+  const firstModel = filteredConfigModels.value.find((m) => m.provider === val)
   if (firstModel) {
     setModelConfigField(tabKey, 'model', firstModel.value)
   } else {
@@ -2769,6 +2790,7 @@ onUnmounted(() => {
                               :model-value="gearModel"
                               size="small"
                               style="width: 180px"
+                              :teleported="false"
                               @change="handleGearModelChange"
                             >
                               <el-option label="未设置" value="" />
@@ -2786,6 +2808,7 @@ onUnmounted(() => {
                               :model-value="gearChannel"
                               size="small"
                               style="width: 180px"
+                              :teleported="false"
                               @change="handleGearChannelChange"
                             >
                               <el-option label="未设置" value="" />
@@ -3229,13 +3252,14 @@ onUnmounted(() => {
                   :model-value="getModelConfigField(modelConfigTabs[modelConfigTab].key, 'model')"
                   size="small"
                   style="width: 240px"
+                  :teleported="false"
                   @change="
                     (val: string) =>
                       handleModelConfigModelChange(modelConfigTabs[modelConfigTab].key, val)
                   "
                 >
                   <el-option
-                    v-for="m in providerModels"
+                    v-for="m in filteredConfigModels"
                     :key="m.value"
                     :label="m.label"
                     :value="m.value"
@@ -3248,13 +3272,14 @@ onUnmounted(() => {
                   :model-value="getModelConfigField(modelConfigTabs[modelConfigTab].key, 'channel')"
                   size="small"
                   style="width: 240px"
+                  :teleported="false"
                   @change="
                     (val: string) =>
                       handleModelConfigChannelChange(modelConfigTabs[modelConfigTab].key, val)
                   "
                 >
                   <el-option
-                    v-for="p in providerChannels"
+                    v-for="p in filteredConfigChannels"
                     :key="p.value"
                     :label="p.label"
                     :value="p.value"
