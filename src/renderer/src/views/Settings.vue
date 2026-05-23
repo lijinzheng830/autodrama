@@ -365,7 +365,9 @@ const availableModels = computed(() => {
 })
 
 const availableChannels = computed(() => {
-  return providers.value.map((p) => p.name || p.key).filter(Boolean)
+  return providers.value
+    .map((p) => ({ label: p.name, value: p.key || p.id }))
+    .filter((p) => p.value)
 })
 
 function getRouteModel(key: string): string {
@@ -633,7 +635,7 @@ onMounted(async () => {
                       @update:model-value="(val: string) => setRouteChannel(rp.key, val)"
                     >
                       <el-option label="未设置" value="" />
-                      <el-option v-for="c in availableChannels" :key="c" :label="c" :value="c" />
+                      <el-option v-for="c in availableChannels" :key="c.value" :label="c.label" :value="c.value" />
                     </el-select>
                   </td>
                 </tr>

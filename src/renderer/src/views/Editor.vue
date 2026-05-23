@@ -1519,10 +1519,11 @@ async function openModelConfig(): Promise<void> {
       for (const m of (p as Record<string, any>).models || []) {
         const modelKey = typeof m === 'string' ? m : m.key
         const modelName = typeof m === 'string' ? m : m.name
+        const pKey = p.key || p.id
         models.push({
           label: `${p.name} / ${modelName}`,
-          value: `${p.key}:${modelKey}`,
-          provider: p.key,
+          value: `${pKey}:${modelKey}`,
+          provider: pKey,
           modelKey: modelKey
         })
       }
