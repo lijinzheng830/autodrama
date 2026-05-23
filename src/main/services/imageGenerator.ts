@@ -11,25 +11,41 @@ import axios from 'axios'
  * 统一解析供应商配置：从用户配置 → 硬编码 fallback
  */
 function resolveProviderConfig(providerKey: string): { baseURL: string; apiKey: string } | null {
-  if (!providerKey) return null
+  console.log(`[imageGen] resolveProviderConfig called, providerKey="${providerKey}"`)
+  if (!providerKey) {
+    console.log(`[imageGen] resolveProviderConfig: providerKey empty, returning null`)
+    return null
+  }
 
   // 1. 从用户配置的供应商中匹配
   const userProviders = getProviders()
+  console.log(`[imageGen] resolveProviderConfig: got ${userProviders.length} providers`)
+  for (const p of userProviders) {
+    console.log(`[imageGen]   provider key="${(p as any).key}" id="${(p as any).id}" name="${p.name}" baseURL="${p.baseURL}" hasApiKey=${!!(p as any).apiKey}`)
+  }
+
   const userProvider = userProviders.find((p: any) => p.key === providerKey || p.id === providerKey)
 
   if (userProvider) {
     const apiKey = (userProvider as any)?.apiKey
+    console.log(`[imageGen] resolveProviderConfig: matched userProvider name="${userProvider.name}" hasApiKey=${!!apiKey} hasBaseURL=${!!userProvider.baseURL}`)
     if (apiKey && userProvider.baseURL) {
+      console.log(`[imageGen] resolveProviderConfig: returning user config`)
       return { baseURL: userProvider.baseURL, apiKey }
     }
+    console.log(`[imageGen] resolveProviderConfig: userProvider matched but missing apiKey or baseURL`)
+  } else {
+    console.log(`[imageGen] resolveProviderConfig: no userProvider matched for key="${providerKey}"`)
   }
 
   // 2. fallback 到硬编码配置
   const hardcoded = getProvider(providerKey)
   if (hardcoded?.baseURL) {
+    console.log(`[imageGen] resolveProviderConfig: fallback to hardcoded baseURL="${hardcoded.baseURL}"`)
     return { baseURL: hardcoded.baseURL, apiKey: '' }
   }
 
+  console.log(`[imageGen] resolveProviderConfig: no config found for "${providerKey}"`)
   return null
 }
 
@@ -94,6 +110,8 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   let channel = inputChannel
   let apiKey = inputApiKey
 
+  console.log(`[imageGen] generateImage start: inputModel="${inputModel}" inputChannel="${inputChannel}" inputApiKey="${inputApiKey ? '***' : ''}"`)
+
   // 第1级：input 参数（前端传入）
   // 第2级：项目配置
   if (!model || !channel) {
@@ -101,43 +119,54 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     if (!model) model = purposeConfig.model
     if (!channel) channel = purposeConfig.channel
   }
+  console.log(`[imageGen] after level2(projectConfig): model="${model}" channel="${channel}" purposeKey="${purposeKey}" projectConfig=${JSON.stringify(projectConfig[purposeKey] || {})}`)
 
   // 第3级：全局默认（settings 中的 provider/model）
   if (!model || !channel) {
     const globalProvider = getSetting('provider')
     const globalModel = getSetting('model')
+    console.log(`[imageGen] level3(global): globalProvider="${globalProvider}" globalModel="${globalModel}"`)
     if (globalProvider && globalModel) {
       if (!model) model = `${globalProvider}:${globalModel}`
       if (!channel) channel = globalProvider
     }
   }
+  console.log(`[imageGen] after level3(global): model="${model}" channel="${channel}"`)
 
   // 第4级：自动从供应商列表匹配第一个有 apiKey 的供应商
   if (!model || !channel) {
     const providers = getProviders()
+    console.log(`[imageGen] level4(auto-match): scanning ${providers.length} providers`)
     for (const p of providers) {
       const pApiKey = (p as any).apiKey
+      const pKey = p.key || p.id
+      const hasModel = p.models && p.models.length > 0
+      console.log(`[imageGen]   checking provider key="${pKey}" name="${p.name}" hasApiKey=${!!pApiKey} hasBaseURL=${!!p.baseURL} hasModels=${hasModel}`)
       if (pApiKey && p.baseURL) {
         const firstModel = p.models?.[0]
         if (firstModel) {
           const modelKey = typeof firstModel === 'string' ? firstModel : firstModel.key
-          const pKey = p.key || p.id
           if (!channel) channel = pKey
           if (!model) model = `${pKey}:${modelKey}`
+          console.log(`[imageGen]   -> auto-selected provider="${pKey}" model="${model}"`)
           break
         }
       }
     }
   }
+  console.log(`[imageGen] after level4(auto-match): model="${model}" channel="${channel}"`)
 
   // 4. 统一解析 providerKey，从供应商配置读取 apiKey 和 baseURL
   const providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
+  console.log(`[imageGen] resolved providerKey="${providerKey}"`)
   if (!apiKey && providerKey) {
     const resolved = resolveProviderConfig(providerKey)
+    console.log(`[imageGen] resolveProviderConfig result: ${resolved ? `baseURL="${resolved.baseURL}" hasApiKey=${!!resolved.apiKey}` : 'null'}`)
     if (resolved?.apiKey) {
       apiKey = resolved.apiKey
     }
   }
+  console.log(`[imageGen] final before check: model="${model}" channel="${channel}" providerKey="${providerKey}" apiKey="${apiKey ? '***' : ''}"`)
 
   // 5. 创建 generation_tasks 记录（pending）
   const taskId = randomUUID()
@@ -161,17 +190,20 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   )
 
   // 6. 如果没有 API Key 或模型，标记失败并返回
+  const providers = getProviders()
   if (!apiKey) {
+    const errDetail = `未配置 API Key [model=${model}, channel=${channel}, providerKey=${providerKey}, providers=${providers.length}]`
     db.prepare(
       `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
-    ).run('未配置 API Key', taskId)
-    throw new Error('未配置 API Key，请在设置页配置供应商')
+    ).run(errDetail, taskId)
+    throw new Error(`${errDetail}，请在设置页配置供应商`)
   }
   if (!model) {
+    const errDetail = `未配置生图模型 [channel=${channel}, providerKey=${providerKey}, providers=${providers.length}]`
     db.prepare(
       `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
-    ).run('未配置生图模型', taskId)
-    throw new Error('未配置生图模型，请在模型配置中选择')
+    ).run(errDetail, taskId)
+    throw new Error(`${errDetail}，请在模型配置中选择`)
   }
 
   // 7. 更新状态为 running，设置 started_at
@@ -279,7 +311,7 @@ async function callImageGenerationAPI(
   }
 
   if (!baseURL) {
-    throw new Error('无法确定 API 基础地址，请检查供应商配置')
+    throw new Error(`无法确定 API 基础地址 [model=${model}, providerKey=${providerKey}]，请检查供应商配置`)
   }
 
   const url = `${baseURL.replace(/\/$/, '')}/images/generations`
