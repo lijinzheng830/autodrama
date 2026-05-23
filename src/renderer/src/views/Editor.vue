@@ -785,29 +785,6 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   const type = batchType.value
   let createdCount = 0
 
-  // 从模型配置读取默认模型和渠道
-  let defaultModel: string | undefined = undefined
-  let defaultChannel: string | undefined = undefined
-  try {
-    const proj = await window.api.getProject(projectId)
-    const config = (proj as Record<string, any>)?.model_config_json
-      ? JSON.parse((proj as Record<string, any>).model_config_json)
-      : {}
-    const purposeMap: Record<string, string> = {
-      人物: 'character_image',
-      场景: 'scene_image',
-      道具: 'prop_image',
-      首帧: 'first_frame',
-      尾帧: 'last_frame',
-      视频: 'video'
-    }
-    const purposeConfig = config[purposeMap[type]] || {}
-    defaultModel = purposeConfig.model || undefined
-    defaultChannel = purposeConfig.channel || undefined
-  } catch {
-    // ignore
-  }
-
   // 计算总任务数（用于进度显示）
   let totalTasks = 0
   if (batchMode.value === 'asset') {
@@ -830,6 +807,29 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   }
   batchProgress.value = { current: 0, total: totalTasks }
 
+  // 辅助函数：带429重试的生图调用
+  async function tryGenerate(generateFn: () => Promise<unknown>): Promise<boolean> {
+    try {
+      await generateFn()
+      return true
+    } catch (err: any) {
+      const msg = (err?.message || '').toLowerCase()
+      if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many requests')) {
+        // 429限流，等待5秒后重试一次
+        await new Promise((r) => setTimeout(r, 5000))
+        try {
+          await generateFn()
+          return true
+        } catch (retryErr: any) {
+          console.error('重试失败:', retryErr)
+          return false
+        }
+      }
+      console.error('生图失败:', err)
+      return false
+    }
+  }
+
   if (batchMode.value === 'asset') {
     // 资产模式：遍历项目全部资产，真实调用生图服务
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
@@ -838,24 +838,21 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
 
     for (const asset of assets) {
       if (mode === 'missing' && asset.reference_image) continue
-      try {
-        await window.api.generateImage({
+      const success = await tryGenerate(() =>
+        window.api.generateImage({
           projectId,
           type: assetType,
           assetId: asset.id,
           description: asset.description || asset.name || '',
-          count: batchCount.value,
-          model: defaultModel,
-          channel: defaultChannel
+          count: batchCount.value
         })
+      )
+      if (success) {
         createdCount++
         batchProgress.value.current = createdCount
-      } catch (err: any) {
-        console.error(`批量生成 ${asset.name} 失败:`, err)
-        // 继续下一个，不中断
       }
-      // 间隔 1.5 秒，避免 API 限流，同时让 UI 有机会刷新
-      await new Promise((r) => setTimeout(r, 1500))
+      // 间隔 3 秒，避免 API 限流，同时让 UI 有机会刷新
+      await new Promise((r) => setTimeout(r, 3000))
       await new Promise((r) => requestAnimationFrame(r))
     }
   } else {
@@ -869,37 +866,33 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       switch (type) {
         case '首帧': {
           if (mode === 'missing' && shot.first_frame_image_path) continue
-          try {
-            await window.api.generateShotImage({
+          const success = await tryGenerate(() =>
+            window.api.generateShotImage({
               projectId,
               shotId: shot.id,
               frameType: 'first',
-              model: defaultModel,
-              channel: defaultChannel,
               count: batchCount.value
             })
+          )
+          if (success) {
             createdCount++
             batchProgress.value.current = createdCount
-          } catch (err: any) {
-            console.error(`批量生成首帧失败 [shot ${shot.id}]:`, err)
           }
           break
         }
         case '尾帧': {
           if (mode === 'missing' && shot.last_frame_image_path) continue
-          try {
-            await window.api.generateShotImage({
+          const success = await tryGenerate(() =>
+            window.api.generateShotImage({
               projectId,
               shotId: shot.id,
               frameType: 'last',
-              model: defaultModel,
-              channel: defaultChannel,
               count: batchCount.value
             })
+          )
+          if (success) {
             createdCount++
             batchProgress.value.current = createdCount
-          } catch (err: any) {
-            console.error(`批量生成尾帧失败 [shot ${shot.id}]:`, err)
           }
           break
         }
@@ -910,7 +903,6 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
             shotId: shot.id,
             type: 'video',
             purpose: 'video',
-            model: defaultModel,
             inputParams: JSON.stringify({ count: batchCount.value })
           })
           createdCount++
@@ -918,8 +910,8 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
           break
         }
       }
-      // 间隔 1.5 秒，避免 API 限流，同时让 UI 有机会刷新
-      await new Promise((r) => setTimeout(r, 1500))
+      // 间隔 3 秒，避免 API 限流，同时让 UI 有机会刷新
+      await new Promise((r) => setTimeout(r, 3000))
       await new Promise((r) => requestAnimationFrame(r))
     }
   }
@@ -1336,25 +1328,10 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     const frameType = type === 'firstFrame' ? 'first' : 'last'
     const purposeKey = type === 'firstFrame' ? 'first_frame' : 'last_frame'
 
-    // 读取项目模型配置
-    let modelConfig: any = {}
-    try {
-      const proj = await window.api.getProject(projectId)
-      const raw = (proj as Record<string, any>)?.model_config_json
-      if (raw) modelConfig = JSON.parse(raw)
-    } catch { /* ignore */ }
-
-    // 优先读会话级覆盖
+    // 只读会话级覆盖（齿轮弹窗），有覆盖才传 model/channel，否则让后端降级链全权处理
     const override = sessionOverrides.value[purposeKey]
-    let model = override?.model || ''
-    let channel = override?.channel || ''
-
-    // 无覆盖时回退到项目模型配置
-    if (!model || !channel) {
-      const purposeConfig = modelConfig[purposeKey] || {}
-      if (!model) model = purposeConfig.model || ''
-      if (!channel) channel = purposeConfig.channel || ''
-    }
+    const model = override?.model || undefined
+    const channel = override?.channel || undefined
 
     genLoading.value = true
     try {
@@ -1363,8 +1340,8 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
         shotId: assetId,
         frameType,
         count: genCount.value,
-        model: model || undefined,
-        channel: channel || undefined
+        model,
+        channel
       })
       ElMessage.success('图片生成成功')
       await loadShotImages(assetId, frameType)

@@ -196,7 +196,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       id, project_id, shot_id, type, purpose, channel, model, status,
       input_params, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
   `
   ).run(
     taskId,
@@ -212,20 +212,20 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   // 6. 如果没有 API Key 或模型，标记失败并返回
   if (!apiKey) {
     db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run('未配置 API Key', taskId)
     throw new Error('未配置 API Key，请在设置页配置供应商')
   }
   if (!model) {
     db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run('未配置生图模型', taskId)
     throw new Error('未配置生图模型，请在模型配置中选择')
   }
 
   // 7. 更新状态为 running，设置 started_at
   db.prepare(
-    `UPDATE generation_tasks SET status = 'running', started_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+    `UPDATE generation_tasks SET status = 'running', started_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?`
   ).run(taskId)
 
   try {
@@ -272,7 +272,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     // 插入新图记录
     for (const imgPath of imagePaths) {
       db.prepare(
-        `INSERT INTO ${historyTable} (id, ${idColumn}, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now'))`
+        `INSERT INTO ${historyTable} (id, ${idColumn}, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now', 'localtime'))`
       ).run(randomUUID(), assetId, imgPath)
     }
 
@@ -288,14 +288,14 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 
     // 12. 更新任务状态为 completed
     db.prepare(
-      `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run(imagePaths.join(','), taskId)
 
     return { taskId, imagePaths }
   } catch (err: any) {
     const errorMsg = err?.message || '生图失败'
     db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run(errorMsg, taskId)
     throw err
   }
@@ -576,7 +576,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       id, project_id, shot_id, type, purpose, channel, model, status,
       input_params, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
   `
   ).run(
     taskId,
@@ -591,20 +591,20 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
 
   if (!apiKey) {
     db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run('未配置 API Key', taskId)
     throw new Error('未配置 API Key，请在设置页配置供应商')
   }
   if (!model) {
     db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run('未配置生图模型', taskId)
     throw new Error('未配置生图模型，请在模型配置中选择')
   }
 
   // 7. 更新状态为 running
   db.prepare(
-    `UPDATE generation_tasks SET status = 'running', started_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+    `UPDATE generation_tasks SET status = 'running', started_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?`
   ).run(taskId)
 
   try {
@@ -639,7 +639,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
 
     for (const imgPath of imagePaths) {
       db.prepare(
-        `INSERT INTO shot_images (id, shot_id, image_path, type, is_selected, created_at) VALUES (?, ?, ?, ?, 1, datetime('now'))`
+        `INSERT INTO shot_images (id, shot_id, image_path, type, is_selected, created_at) VALUES (?, ?, ?, ?, 1, datetime('now', 'localtime'))`
       ).run(randomUUID(), shotId, imgPath, frameType)
     }
 
@@ -651,14 +651,14 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
 
     // 12. 更新任务状态为 completed
     db.prepare(
-      `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run(imagePaths.join(','), taskId)
 
     return { taskId, imagePaths }
   } catch (err: any) {
     const errorMsg = err?.message || '生图失败'
     db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run(errorMsg, taskId)
     throw err
   }

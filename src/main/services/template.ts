@@ -97,7 +97,7 @@ export function savePromptTemplate(
   db.prepare(
     `
     INSERT INTO prompt_templates (id, project_id, "usage", name, content, is_default, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 0, datetime('now'), datetime('now'))
+    VALUES (?, ?, ?, ?, ?, 0, datetime('now', 'localtime'), datetime('now', 'localtime'))
   `
   ).run(id, dbProjectId, input.usage, input.name, input.content)
 
@@ -126,7 +126,7 @@ export function updatePromptTemplate(
   }
   if (sets.length === 0) return
 
-  sets.push("updated_at = datetime('now')")
+  sets.push("updated_at = datetime('now', 'localtime')")
   params.push(templateId)
 
   db.prepare(`UPDATE prompt_templates SET ${sets.join(', ')} WHERE id = ?`).run(...params)

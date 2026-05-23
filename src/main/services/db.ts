@@ -97,9 +97,9 @@ export function initDatabase(): Database.Database {
       name TEXT NOT NULL,
       description TEXT DEFAULT '',
       reference_image TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
       started_at TEXT DEFAULT NULL,
-      updated_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
@@ -124,8 +124,8 @@ export function initDatabase(): Database.Database {
       input_params TEXT DEFAULT '{}',
       output_path TEXT DEFAULT NULL,
       error_message TEXT DEFAULT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
@@ -136,8 +136,8 @@ export function initDatabase(): Database.Database {
       name TEXT NOT NULL,
       content TEXT NOT NULL,
       is_default INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
 
     CREATE TABLE IF NOT EXISTS character_images (
@@ -145,7 +145,7 @@ export function initDatabase(): Database.Database {
       character_id TEXT NOT NULL,
       image_path TEXT NOT NULL,
       is_selected INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     );
 
@@ -154,7 +154,7 @@ export function initDatabase(): Database.Database {
       scene_id TEXT NOT NULL,
       image_path TEXT NOT NULL,
       is_selected INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE
     );
 
@@ -163,7 +163,7 @@ export function initDatabase(): Database.Database {
       prop_id TEXT NOT NULL,
       image_path TEXT NOT NULL,
       is_selected INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (prop_id) REFERENCES props(id) ON DELETE CASCADE
     );
 
@@ -172,7 +172,7 @@ export function initDatabase(): Database.Database {
       shot_id TEXT NOT NULL,
       image_path TEXT NOT NULL,
       is_selected INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE
     );
 
@@ -182,7 +182,7 @@ export function initDatabase(): Database.Database {
       video_path TEXT NOT NULL,
       is_selected INTEGER DEFAULT 0,
       has_new_badge INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE
     );
   `)
@@ -214,8 +214,8 @@ export function initDatabase(): Database.Database {
           name TEXT NOT NULL,
           content TEXT NOT NULL,
           is_default INTEGER DEFAULT 0,
-          created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now'))
+          created_at TEXT DEFAULT (datetime('now', 'localtime')),
+          updated_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
       `)
 
@@ -238,7 +238,7 @@ export function initDatabase(): Database.Database {
   try {
     const insertTemplate = db.prepare(`
       INSERT OR IGNORE INTO prompt_templates (id, project_id, "usage", name, content, is_default, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
     `)
     insertTemplate.run(
       'official-shot-image-standard',

@@ -449,7 +449,7 @@ export function createGenerationTask(input: {
     INSERT INTO generation_tasks (
       id, project_id, shot_id, type, purpose, channel, model, status, input_params, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
   `
   ).run(
     id,
@@ -492,7 +492,7 @@ export function getGenerationTasks(
     params.push(filters.since)
   }
 
-  sql += ' ORDER BY created_at DESC'
+  sql += ' ORDER BY created_at DESC LIMIT 100'
 
   return db.prepare(sql).all(...params) as GenerationTask[]
 }

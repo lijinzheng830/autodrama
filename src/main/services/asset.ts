@@ -244,7 +244,7 @@ export function updateProp(propId: string, input: UpdatePropInput): void {
 
   if (fields.length === 0) return
 
-  fields.push("updated_at = datetime('now')")
+  fields.push("updated_at = datetime('now', 'localtime')")
 
   values.push(propId)
   db.prepare(`UPDATE props SET ${fields.join(', ')} WHERE id = ?`).run(...values)
