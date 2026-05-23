@@ -1,5 +1,6 @@
 import { getDb } from './db'
 import { getProvider } from './providers'
+import { getProviders } from './settings'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 import { updateProjectScript, Character, Scene, Prop } from './project'
 import { checkLicense } from '../utils/license'
@@ -94,23 +95,42 @@ export async function callAI(
   }
 
   const config = getAIConfig()
-  const provider = providerKey || config.provider
-  const model = modelKey || config.model
+  let provider = providerKey || config.provider
+  let model = modelKey || config.model
 
-  const providerConfig = getProvider(provider)
-  if (!providerConfig) {
+  // 如果 model 是 "provider:modelKey" 格式，拆分
+  if (model && model.includes(':')) {
+    const parts = model.split(':')
+    provider = parts[0]
+    model = parts.slice(1).join(':')
+  }
+
+  // 从用户配置的供应商中匹配（优先）
+  const userProviders = getProviders()
+  const userProvider = userProviders.find((p: any) => p.key === provider || p.id === provider)
+
+  let baseURL = userProvider?.baseURL
+  let apiKey = (userProvider as any)?.apiKey || config.apiKey
+
+  // fallback 到硬编码配置取 baseURL
+  if (!baseURL) {
+    const hardcoded = getProvider(provider)
+    if (hardcoded) {
+      baseURL = hardcoded.baseURL
+      if (!apiKey && hardcoded.implemented) {
+        // 硬编码供应商没有 apiKey，继续用旧配置
+      }
+    }
+  }
+
+  if (!baseURL) {
     throw new Error(`未找到供应商配置: ${provider}`)
   }
-  if (!providerConfig.implemented) {
-    throw new Error(`供应商 ${providerConfig.name} 尚未实现，请选择其他供应商`)
-  }
-
-  const apiKey = config.apiKey
   if (!apiKey) {
-    throw new Error(`未配置 ${providerConfig.name} 的 API Key，请前往设置页面配置`)
+    throw new Error(`未配置 ${provider} 的 API Key，请前往设置页面配置`)
   }
 
-  const url = `${providerConfig.baseURL}/chat/completions`
+  const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 500000)

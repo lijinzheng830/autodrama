@@ -1,10 +1,37 @@
 import { getDb } from './db'
 import { getProject } from './project'
 import { getProviders } from './settings'
+import { getProvider } from './providers'
 import { join } from 'path'
 import { mkdirSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import axios from 'axios'
+
+/**
+ * 统一解析供应商配置：从用户配置 → 硬编码 fallback
+ */
+function resolveProviderConfig(providerKey: string): { baseURL: string; apiKey: string } | null {
+  if (!providerKey) return null
+
+  // 1. 从用户配置的供应商中匹配
+  const userProviders = getProviders()
+  const userProvider = userProviders.find((p: any) => p.key === providerKey || p.id === providerKey)
+
+  if (userProvider) {
+    const apiKey = (userProvider as any)?.apiKey
+    if (apiKey && userProvider.baseURL) {
+      return { baseURL: userProvider.baseURL, apiKey }
+    }
+  }
+
+  // 2. fallback 到硬编码配置
+  const hardcoded = getProvider(providerKey)
+  if (hardcoded?.baseURL) {
+    return { baseURL: hardcoded.baseURL, apiKey: '' }
+  }
+
+  return null
+}
 
 export interface GenerateImageInput {
   projectId: string
@@ -73,13 +100,12 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     if (!channel) channel = purposeConfig.channel
   }
 
-  // 4. 如果没有直接传入 apiKey，从供应商配置读取
-  if (!apiKey) {
-    const providers = getProviders()
-    const providerKey = channel || model?.split(':')[0]
-    const provider = providers.find((p: any) => p.key === providerKey || p.id === providerKey)
-    if ((provider as any)?.apiKey) {
-      apiKey = (provider as any).apiKey
+  // 4. 统一解析 providerKey，从供应商配置读取 apiKey 和 baseURL
+  const providerKey = channel || model?.split(':')[0]
+  if (!apiKey && providerKey) {
+    const resolved = resolveProviderConfig(providerKey)
+    if (resolved?.apiKey) {
+      apiKey = resolved.apiKey
     }
   }
 
@@ -210,23 +236,16 @@ async function callImageGenerationAPI(
   let baseURL = ''
   let actualModel = model
 
-  if (model.includes(':')) {
-    const [providerKey, modelKey] = model.split(':')
-    actualModel = modelKey
-    const providers = getProviders()
-    const provider = providers.find((p: any) => p.key === providerKey || p.id === providerKey)
-    if (provider?.baseURL) {
-      baseURL = provider.baseURL
+  const providerKey = channel || (model.includes(':') ? model.split(':')[0] : '')
+  if (providerKey) {
+    const resolved = resolveProviderConfig(providerKey)
+    if (resolved?.baseURL) {
+      baseURL = resolved.baseURL
     }
   }
 
-  // 如果 channel 有值也尝试解析
-  if (!baseURL && channel) {
-    const providers = getProviders()
-    const provider = providers.find((p: any) => p.key === channel || p.id === channel)
-    if (provider?.baseURL) {
-      baseURL = provider.baseURL
-    }
+  if (model.includes(':')) {
+    actualModel = model.split(':').slice(1).join(':')
   }
 
   if (!baseURL) {

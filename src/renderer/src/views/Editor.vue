@@ -1470,13 +1470,30 @@ function handleCustomEraSubmit(): void {
     })
 }
 
+function toFileUrl(path: string): string {
+  if (!path) return ''
+  if (path.startsWith('file://')) return path
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) return path
+  // Windows 路径 C:\Users\... → file:///C:/Users/...
+  const normalized = path.replace(/\\/g, '/')
+  if (/^[A-Za-z]:/.test(normalized)) {
+    return `file:///${normalized}`
+  }
+  return `file://${normalized}`
+}
+
 async function openModelConfig(): Promise<void> {
   modelConfigVisible.value = true
-  // 加载模型列表
+  // 加载模型列表和渠道列表
   try {
     const providers = await window.api.getProviders()
     const models: any[] = []
+    const channels: any[] = []
     for (const p of providers as Record<string, any>[]) {
+      channels.push({
+        label: p.name,
+        value: p.key || p.id
+      })
       for (const m of (p as Record<string, any>).models || []) {
         models.push({
           label: `${p.name} / ${m.name}`,
@@ -1487,6 +1504,7 @@ async function openModelConfig(): Promise<void> {
       }
     }
     providerModels.value = models
+    providerChannels.value = channels
   } catch (err) {
     console.error('加载模型失败', err)
   }
@@ -2021,7 +2039,7 @@ onUnmounted(() => {
                         >
                           <img
                             v-if="c.reference_image"
-                            :src="c.reference_image"
+                            :src="toFileUrl(c.reference_image)"
                             class="thumb-img"
                           />
                           <div v-else class="thumb-placeholder">{{ c.name }}</div>
@@ -2041,7 +2059,7 @@ onUnmounted(() => {
                         >
                           <img
                             v-if="s.reference_image"
-                            :src="s.reference_image"
+                            :src="toFileUrl(s.reference_image)"
                             class="thumb-img"
                           />
                           <div v-else class="thumb-placeholder">{{ s.name }}</div>
@@ -2061,7 +2079,7 @@ onUnmounted(() => {
                         >
                           <img
                             v-if="p.reference_image"
-                            :src="p.reference_image"
+                            :src="toFileUrl(p.reference_image)"
                             class="thumb-img"
                           />
                           <div v-else class="thumb-placeholder">{{ p.name }}</div>
@@ -2081,7 +2099,7 @@ onUnmounted(() => {
                     <div class="td col-first">
                       <div class="media-cell" @click="showDetail('firstFrame', shot)">
                         <div v-if="shot.first_frame_image_path" class="media-preview">
-                          <img :src="shot.first_frame_image_path" />
+                          <img :src="toFileUrl(shot.first_frame_image_path)" />
                         </div>
                         <div v-else class="media-placeholder">首帧</div>
                       </div>
@@ -2130,7 +2148,7 @@ onUnmounted(() => {
                     <div class="td col-last">
                       <div class="media-cell" @click="showDetail('lastFrame', shot)">
                         <div v-if="shot.last_frame_image_path" class="media-preview">
-                          <img :src="shot.last_frame_image_path" />
+                          <img :src="toFileUrl(shot.last_frame_image_path)" />
                         </div>
                         <div v-else class="media-placeholder">尾帧</div>
                       </div>
@@ -2287,7 +2305,7 @@ onUnmounted(() => {
                     >
                       <img
                         v-if="asset.reference_image"
-                        :src="asset.reference_image"
+                        :src="toFileUrl(asset.reference_image)"
                         class="asset-img"
                       />
                       <div v-else class="asset-placeholder">{{ asset.name }}</div>
@@ -2350,7 +2368,7 @@ onUnmounted(() => {
                     >
                       <img
                         v-if="asset.reference_image"
-                        :src="asset.reference_image"
+                        :src="toFileUrl(asset.reference_image)"
                         class="asset-img"
                       />
                       <div v-else class="asset-placeholder">{{ asset.name }}</div>
@@ -2452,7 +2470,7 @@ onUnmounted(() => {
                         :class="{ selected: img.is_selected }"
                         @click="handleSelectHistoryImage(detailType, detailData?.id, img.id)"
                       >
-                        <img :src="img.image_path" class="history-img" />
+                        <img :src="toFileUrl(img.image_path)" class="history-img" />
                         <div v-if="img.is_selected" class="history-selected-badge">✓</div>
                       </div>
                     </div>
@@ -2463,7 +2481,7 @@ onUnmounted(() => {
                 <div v-else-if="detailType === 'firstFrame'" class="detail-body">
                   <div class="detail-media">
                     <div v-if="detailData?.first_frame_image_path" class="detail-placeholder">
-                      <img :src="detailData.first_frame_image_path" class="detail-img" />
+                      <img :src="toFileUrl(detailData.first_frame_image_path)" class="detail-img" />
                     </div>
                     <div v-else class="detail-placeholder">首帧占位</div>
                   </div>
@@ -2515,7 +2533,7 @@ onUnmounted(() => {
                 <div v-else-if="detailType === 'lastFrame'" class="detail-body">
                   <div class="detail-media">
                     <div v-if="detailData?.last_frame_image_path" class="detail-placeholder">
-                      <img :src="detailData.last_frame_image_path" class="detail-img" />
+                      <img :src="toFileUrl(detailData.last_frame_image_path)" class="detail-img" />
                     </div>
                     <div v-else class="detail-placeholder">尾帧占位</div>
                   </div>
