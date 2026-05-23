@@ -53,7 +53,7 @@ const providers = ref<ProviderItem[]>([])
 const providerDialogVisible = ref(false)
 const providerDialogMode = ref<'add' | 'edit'>('add')
 const providerEditId = ref('')
-const providerForm = ref({ name: '', baseURL: '', apiKey: '', models: '' })
+const providerForm = ref({ name: '', baseURL: '', apiKey: '', models: [] as Array<{ name: string; type: string }> })
 
 async function loadProviders(): Promise<void> {
   try {
@@ -66,7 +66,7 @@ async function loadProviders(): Promise<void> {
 function openAddProvider(): void {
   providerDialogMode.value = 'add'
   providerEditId.value = ''
-  providerForm.value = { name: '', baseURL: '', apiKey: '', models: '' }
+  providerForm.value = { name: '', baseURL: '', apiKey: '', models: [] }
   providerDialogVisible.value = true
 }
 
@@ -77,7 +77,7 @@ function openEditProvider(p: ProviderItem): void {
     name: p.name || '',
     baseURL: p.baseURL || '',
     apiKey: p.apiKey || '',
-    models: Array.isArray(p.models) ? p.models.join('\n') : p.models || ''
+    models: Array.isArray(p.models) ? p.models.map((m: any) => typeof m === 'string' ? { name: m, type: 'text' } : { name: m.name || m.key || '', type: m.type || 'text' }) : []
   }
   providerDialogVisible.value = true
 }
@@ -105,6 +105,14 @@ function generateUniqueKey(baseKey: string, existingKeys: string[]): string {
   return `${baseKey}_${suffix}`
 }
 
+function addProviderModel(): void {
+  providerForm.value.models.push({ name: '', type: 'text' })
+}
+
+function removeProviderModel(idx: number): void {
+  providerForm.value.models.splice(idx, 1)
+}
+
 async function saveProvider(): Promise<void> {
   const { name, baseURL, apiKey, models } = providerForm.value
   if (!name || !baseURL) {
@@ -122,10 +130,9 @@ async function saveProvider(): Promise<void> {
   const key = generateUniqueKey(extractedKey, existingKeys)
 
   const modelList = models
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const data = { name, key, baseURL, apiKey, models: modelList }
+    .filter((m) => m.name.trim())
+    .map((m) => ({ key: m.name.trim(), name: m.name.trim(), type: m.type, free: false }))
+  const data = { name, key, baseURL, apiKey, models: modelList as any }
   try {
     if (providerDialogMode.value === 'add') {
       await window.api.addProvider(data)
@@ -136,6 +143,7 @@ async function saveProvider(): Promise<void> {
     }
     providerDialogVisible.value = false
     await loadProviders()
+    localStorage.setItem('providers_dirty', '1')
   } catch (_err: any) {
     ElMessage.error((_err instanceof Error ? _err.message : '操作失败') || '操作失败')
   }
@@ -147,6 +155,7 @@ async function handleDeleteProvider(id: string): Promise<void> {
     await window.api.deleteProvider(id)
     ElMessage.success('删除成功')
     await loadProviders()
+    localStorage.setItem('providers_dirty', '1')
   } catch {
     // cancel
   }
@@ -756,13 +765,19 @@ onMounted(async () => {
         </div>
         <div class="form-row">
           <label class="form-label">模型列表</label>
-          <el-input
-            v-model="providerForm.models"
-            type="textarea"
-            :rows="4"
-            placeholder="每行一个模型名"
-            resize="none"
-          />
+          <div style="flex:1">
+            <div v-for="(m, idx) in providerForm.models" :key="idx" style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+              <el-input v-model="m.name" placeholder="模型名" style="flex:1" />
+              <el-select v-model="m.type" style="width:120px">
+                <el-option label="语言模型" value="text" />
+                <el-option label="提示词模型" value="prompt" />
+                <el-option label="生图模型" value="image" />
+                <el-option label="视频模型" value="video" />
+              </el-select>
+              <el-button text size="small" @click="removeProviderModel(idx)">删除</el-button>
+            </div>
+            <el-button text size="small" @click="addProviderModel">+ 添加模型</el-button>
+          </div>
         </div>
       </div>
       <template #footer>

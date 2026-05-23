@@ -1061,13 +1061,33 @@ function handleFullscreenKeydown(e: KeyboardEvent): void {
   }
 }
 
+// ===== 会话级覆盖 =====
+const sessionOverrides = ref<Record<string, { model: string; channel: string }>>({})
+
+function setSessionOverride(key: string, model: string, channel: string): void {
+  sessionOverrides.value[key] = { model, channel }
+}
+
+function clearSessionOverride(key: string): void {
+  delete sessionOverrides.value[key]
+}
+
 // ===== 齿轮弹窗（临时生图配置） =====
 const gearVisible = ref(false)
 const gearModel = ref('')
 const gearChannel = ref('')
 const gearCount = ref(1)
+const gearEffectiveInfo = ref<{ model: string; channel: string; source: string }>({ model: '', channel: '', source: '' })
 
 async function initGearDefaults(): Promise<void> {
+  if (localStorage.getItem('providers_dirty') === '1') {
+    providerModels.value = []
+    localStorage.removeItem('providers_dirty')
+  }
+  if (providerModels.value.length === 0) {
+    await loadProviderModels()
+  }
+
   const purposeMap: Record<string, string> = {
     character: 'character_image',
     scene: 'scene_image',
@@ -1076,7 +1096,16 @@ async function initGearDefaults(): Promise<void> {
   const purposeKey = purposeMap[detailType.value]
   if (!purposeKey) return
 
-  // 先读模型配置
+  // 1. 优先读会话级覆盖
+  const override = sessionOverrides.value[purposeKey]
+  if (override?.model) {
+    gearModel.value = override.model
+    gearChannel.value = override.channel || ''
+    gearEffectiveInfo.value = { ...override, source: '会话覆盖' }
+    return
+  }
+
+  // 2. 再读模型配置（直接读数据库，保证最新）
   try {
     const proj = await window.api.getProject(projectId)
     const raw = (proj as Record<string, any>)?.model_config_json
@@ -1086,12 +1115,13 @@ async function initGearDefaults(): Promise<void> {
       if (pc?.model) {
         gearModel.value = pc.model
         gearChannel.value = pc.channel || ''
+        gearEffectiveInfo.value = { model: pc.model, channel: pc.channel || '', source: '模型配置' }
         return
       }
     }
   } catch { /* ignore */ }
 
-  // 再读模型路由
+  // 3. 再读模型路由
   try {
     const routesRaw = await window.api.getSetting('model_routes')
     if (routesRaw) {
@@ -1100,6 +1130,7 @@ async function initGearDefaults(): Promise<void> {
       if (rc?.model) {
         gearModel.value = rc.model
         gearChannel.value = rc.channel || ''
+        gearEffectiveInfo.value = { model: rc.model, channel: rc.channel || '', source: '模型路由' }
         return
       }
     }
@@ -1107,6 +1138,7 @@ async function initGearDefaults(): Promise<void> {
 
   gearModel.value = ''
   gearChannel.value = ''
+  gearEffectiveInfo.value = { model: '', channel: '', source: '' }
 }
 
 function handleGearModelChange(val: string): void {
@@ -1119,13 +1151,51 @@ function handleGearModelChange(val: string): void {
 
 function handleGearChannelChange(val: string): void {
   gearChannel.value = val
-  const firstModel = providerModels.value.find((m) => m.provider === val)
+  const firstModel = filteredGearModels.value.find((m) => m.provider === val)
   if (firstModel) {
     gearModel.value = firstModel.value
   } else {
     gearModel.value = ''
   }
 }
+
+async function handleGearRestoreDefault(): Promise<void> {
+  const purposeMap: Record<string, string> = {
+    character: 'character_image',
+    scene: 'scene_image',
+    prop: 'prop_image'
+  }
+  const purposeKey = purposeMap[detailType.value]
+  if (purposeKey) {
+    clearSessionOverride(purposeKey)
+  }
+  gearModel.value = ''
+  gearChannel.value = ''
+  await initGearDefaults()
+}
+
+const filteredGearModels = computed(() => {
+  const typeMap: Record<string, string> = {
+    character: 'image',
+    scene: 'image',
+    prop: 'image'
+  }
+  const neededType = typeMap[detailType.value]
+  if (!neededType) return providerModels.value
+  return providerModels.value.filter((m) => m.modelType === neededType)
+})
+
+const filteredGearChannels = computed(() => {
+  const modelProviders = new Set(filteredGearModels.value.map((m) => m.provider))
+  return providerChannels.value.filter((c) => modelProviders.has(c.value))
+})
+
+const gearEffectiveDisplay = computed(() => {
+  const eff = gearEffectiveInfo.value
+  if (!eff.model) return '未设置'
+  const modelLabel = providerModels.value.find((m) => m.value === eff.model)?.label || eff.model
+  return `${modelLabel}（${eff.source}）`
+})
 
 async function handleGearGenerate(): Promise<void> {
   const type = detailType.value
@@ -1141,9 +1211,20 @@ async function handleGearGenerate(): Promise<void> {
     return
   }
 
+  const purposeMap: Record<string, string> = {
+    character: 'character_image',
+    scene: 'scene_image',
+    prop: 'prop_image'
+  }
+  const purposeKey = purposeMap[type]
+
   gearVisible.value = false
   genLoading.value = true
   try {
+    // 写入会话级覆盖
+    if (gearModel.value && purposeKey) {
+      setSessionOverride(purposeKey, gearModel.value, gearChannel.value)
+    }
     await window.api.generateImage({
       projectId,
       type: assetType,
@@ -1167,9 +1248,6 @@ async function handleGearGenerate(): Promise<void> {
     console.error(err)
   } finally {
     genLoading.value = false
-    // 清空临时选择
-    gearModel.value = ''
-    gearChannel.value = ''
     gearCount.value = 1
   }
 }
@@ -1638,9 +1716,7 @@ function toFileUrl(path: string): string {
   return `file://${normalized}`
 }
 
-async function openModelConfig(): Promise<void> {
-  modelConfigVisible.value = true
-  // 加载模型列表和渠道列表
+async function loadProviderModels(): Promise<void> {
   try {
     const providers = await window.api.getProviders()
     const models: any[] = []
@@ -1653,12 +1729,14 @@ async function openModelConfig(): Promise<void> {
       for (const m of (p as Record<string, any>).models || []) {
         const modelKey = typeof m === 'string' ? m : m.key
         const modelName = typeof m === 'string' ? m : m.name
+        const modelType = typeof m === 'string' ? 'text' : (m.type || 'text')
         const pKey = p.key || p.id
         models.push({
           label: `${p.name} / ${modelName}`,
           value: `${pKey}:${modelKey}`,
           provider: pKey,
-          modelKey: modelKey
+          modelKey: modelKey,
+          modelType: modelType
         })
       }
     }
@@ -1666,6 +1744,14 @@ async function openModelConfig(): Promise<void> {
     providerChannels.value = channels
   } catch (err) {
     console.error('加载模型失败', err)
+  }
+}
+
+async function openModelConfig(): Promise<void> {
+  modelConfigVisible.value = true
+  // 加载模型列表和渠道列表
+  if (providerModels.value.length === 0) {
+    await loadProviderModels()
   }
   // 加载当前配置
   try {
@@ -2673,6 +2759,10 @@ onUnmounted(() => {
                           <el-button text :icon="Tools" />
                         </template>
                         <div class="gear-panel">
+                          <div class="gear-effective">
+                            <div class="gear-effective-label">当前生效</div>
+                            <div class="gear-effective-value">{{ gearEffectiveDisplay }}</div>
+                          </div>
                           <div class="gear-row">
                             <label>模型</label>
                             <el-select
@@ -2683,7 +2773,7 @@ onUnmounted(() => {
                             >
                               <el-option label="未设置" value="" />
                               <el-option
-                                v-for="m in providerModels"
+                                v-for="m in filteredGearModels"
                                 :key="m.value"
                                 :label="m.label"
                                 :value="m.value"
@@ -2700,7 +2790,7 @@ onUnmounted(() => {
                             >
                               <el-option label="未设置" value="" />
                               <el-option
-                                v-for="p in providerChannels"
+                                v-for="p in filteredGearChannels"
                                 :key="p.value"
                                 :label="p.label"
                                 :value="p.value"
@@ -2729,15 +2819,17 @@ onUnmounted(() => {
                               />
                             </div>
                           </div>
-                          <el-button
-                            type="primary"
-                            size="small"
-                            class="gear-gen-btn"
-                            :loading="genLoading"
-                            @click="handleGearGenerate"
-                          >
-                            AI生图
-                          </el-button>
+                          <div class="gear-actions">
+                            <el-button text size="small" @click="handleGearRestoreDefault">恢复默认</el-button>
+                            <el-button
+                              type="primary"
+                              size="small"
+                              :loading="genLoading"
+                              @click="handleGearGenerate"
+                            >
+                              AI生图
+                            </el-button>
+                          </div>
                         </div>
                       </el-popover>
                       <span class="gen-label">生成张数</span>
@@ -4863,8 +4955,28 @@ onUnmounted(() => {
   padding: 0 4px;
 }
 
-.gear-gen-btn {
-  width: 100%;
+.gear-effective {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gear-effective-label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 2px;
+}
+
+.gear-effective-value {
+  font-size: 12px;
+  color: #d1d5db;
+  line-height: 1.4;
+}
+
+.gear-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 4px;
 }
 
