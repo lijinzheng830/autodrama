@@ -13,9 +13,14 @@ import axios from 'axios'
 function resolveProviderConfig(providerKey: string): { baseURL: string; apiKey: string } | null {
   if (!providerKey) return null
 
-  // 1. 从用户配置的供应商中匹配
+  // 1. 从用户配置的供应商中匹配（先按key/id）
   const userProviders = getProviders()
-  const userProvider = userProviders.find((p: any) => p.key === providerKey || p.id === providerKey)
+  let userProvider = userProviders.find((p: any) => p.key === providerKey || p.id === providerKey)
+
+  // 兜底：旧数据可能存的是name，按name再匹配一次
+  if (!userProvider) {
+    userProvider = userProviders.find((p: any) => p.name === providerKey)
+  }
 
   if (userProvider) {
     const apiKey = (userProvider as any)?.apiKey
@@ -208,7 +213,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 
   try {
     // 8. 调用 OpenAI 兼容格式的生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, count, apiKey, channel)
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', `${type}s`)
@@ -285,7 +290,6 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 async function callImageGenerationAPI(
   prompt: string,
   model: string,
-  n: number,
   apiKey: string,
   channel?: string | null
 ): Promise<string[]> {
@@ -309,14 +313,19 @@ async function callImageGenerationAPI(
     throw new Error('无法确定 API 基础地址，请检查供应商配置')
   }
 
-  const url = `${baseURL.replace(/\/$/, '')}/images/generations`
+  // 自动补 /v1：去掉末尾斜杠后，如果不以 /v1 结尾则补上
+  let normalizedBaseURL = baseURL.replace(/\/$/, '')
+  if (!normalizedBaseURL.endsWith('/v1')) {
+    normalizedBaseURL += '/v1'
+  }
+
+  const url = `${normalizedBaseURL}/images/generations`
 
   const resp = await axios.post(
     url,
     {
       prompt,
-      model: actualModel,
-      n: Math.min(Math.max(n, 1), 4)
+      model: actualModel
     },
     {
       headers: {
