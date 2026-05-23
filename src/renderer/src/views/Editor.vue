@@ -1197,60 +1197,22 @@ const gearEffectiveDisplay = computed(() => {
   return `${modelLabel}（${eff.source}）`
 })
 
-async function handleGearGenerate(): Promise<void> {
+function handleGearConfirm(): void {
   const type = detailType.value
-  const assetId = detailData.value?.id
-  if (!assetId || !['character', 'scene', 'prop'].includes(type)) return
-
-  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
-  const asset = projectData.value?.[
-    assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
-  ]?.find((a: any) => a.id === assetId)
-  if (!asset) {
-    ElMessage.error('资产不存在')
-    return
-  }
-
   const purposeMap: Record<string, string> = {
     character: 'character_image',
     scene: 'scene_image',
     prop: 'prop_image'
   }
   const purposeKey = purposeMap[type]
-
-  gearVisible.value = false
-  genLoading.value = true
-  try {
-    // 写入会话级覆盖
-    if (gearModel.value && purposeKey) {
-      setSessionOverride(purposeKey, gearModel.value, gearChannel.value)
-    }
-    await window.api.generateImage({
-      projectId,
-      type: assetType,
-      assetId,
-      description: asset.description || asset.name || '',
-      count: gearCount.value,
-      model: gearModel.value || undefined,
-      channel: gearChannel.value || undefined
-    })
-    ElMessage.success('图片生成成功')
-    await loadAssetImages(type, assetId)
-    await loadEpisodesData()
-    const updatedAsset = projectData.value?.[
-      assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
-    ]?.find((a: any) => a.id === assetId)
-    if (updatedAsset) {
-      detailData.value = { ...detailData.value, reference_image: updatedAsset.reference_image }
-    }
-  } catch (err: any) {
-    ElMessage.error(err?.message || '生图失败')
-    console.error(err)
-  } finally {
-    genLoading.value = false
-    gearCount.value = 1
+  if (gearModel.value && purposeKey) {
+    setSessionOverride(purposeKey, gearModel.value, gearChannel.value)
+    ElMessage.success('已确认选择')
   }
+  gearVisible.value = false
 }
+
+
 
 async function loadAssetImages(type: string, assetId: string): Promise<void> {
   const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
@@ -1307,7 +1269,19 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     scene: 'scene_image',
     prop: 'prop_image'
   }
-  const purposeConfig = modelConfig[purposeMap[assetType]] || {}
+  const purposeKey = purposeMap[assetType]
+
+  // 优先读会话级覆盖（齿轮确认写入的）
+  const override = purposeKey ? sessionOverrides.value[purposeKey] : undefined
+  let model = override?.model || ''
+  let channel = override?.channel || ''
+
+  // 无覆盖时回退到项目模型配置
+  if (!model || !channel) {
+    const purposeConfig = modelConfig[purposeKey] || {}
+    if (!model) model = purposeConfig.model || ''
+    if (!channel) channel = purposeConfig.channel || ''
+  }
 
   genLoading.value = true
   try {
@@ -1317,8 +1291,8 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
       assetId,
       description: asset.description || asset.name || '',
       count: genCount.value,
-      model: purposeConfig.model,
-      channel: purposeConfig.channel
+      model: model || undefined,
+      channel: channel || undefined
     })
     ElMessage.success('图片生成成功')
     // 刷新历史记录和资产数据
@@ -2847,10 +2821,9 @@ onUnmounted(() => {
                             <el-button
                               type="primary"
                               size="small"
-                              :loading="genLoading"
-                              @click="handleGearGenerate"
+                              @click="handleGearConfirm"
                             >
-                              AI生图
+                              确认
                             </el-button>
                           </div>
                         </div>
