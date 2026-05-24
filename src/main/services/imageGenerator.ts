@@ -366,17 +366,21 @@ async function callImageGenerationAPI(
     normalizedBaseURL += '/v1'
   }
 
+  console.log('[imageGenerator] baseURL:', normalizedBaseURL, 'model:', actualModel, 'apiKey:', apiKey.substring(0, 15) + '...')
+  let lastError = ''
   // 先尝试 /v1/images/generations（标准生图端点）
   let resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
 
   // 如果 images 端点失败(404/500/网络错误)，回退到 chat completions 端点
   if (!resp) {
     console.log('[imageGenerator] /images/generations failed, falling back to /chat/completions')
+    lastError = lastImageError
     resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
+    if (!resp && lastChatError) lastError = lastChatError
   }
 
   if (!resp) {
-    throw new Error('生图 API 不可用（images 和 chat 端点均失败），请检查供应商配置')
+    throw new Error(lastError || '生图 API 不可用，请检查供应商配置和账户余额')
   }
 
   const data = resp.data?.data || resp.data?.images || resp.choices?.[0]?.message?.content || []
@@ -399,11 +403,13 @@ async function callImageGenerationAPI(
   return urls
 }
 
+let lastImageError = ''
+let lastChatError = ''
+
 async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/images/generations`
     const body: any = { prompt, model, n: 1 }
-    // 一些生图 API 支持 image 参数作为参考图
     if (refImage) {
       try {
         const fs = require('fs')
@@ -415,7 +421,10 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       timeout: 120000
     })
-  } catch (_e) {
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
+    lastImageError = typeof msg === 'string' ? msg : JSON.stringify(msg)
+    console.error('[tryImageAPI] Error:', e?.response?.status, lastImageError)
     return null
   }
 }
@@ -424,7 +433,6 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
   try {
     const url = `${baseURL}/chat/completions`
     const userContent: any[] = [{ type: 'text', text: `Generate an image based on this description: ${prompt}. Return only the image.` }]
-    // 有参考图时，以 base64 嵌入
     if (refImage) {
       try {
         const fs = require('fs')
@@ -445,7 +453,10 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       timeout: 120000
     })
-  } catch (_e) {
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
+    lastChatError = typeof msg === 'string' ? msg : JSON.stringify(msg)
+    console.error('[tryChatImageAPI] Error:', e?.response?.status, lastChatError)
     return null
   }
 }
