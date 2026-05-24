@@ -298,6 +298,48 @@ export function extractJSON(text: string): string {
   throw new Error('无法从AI返回内容中提取有效JSON，请重试')
 }
 
+// ========== 数据规范化 ==========
+
+function normalizeShotData(raw: any): ShotData {
+  if (!raw || typeof raw !== 'object') return { chapters: [] }
+
+  // Already has chapters array → return as-is
+  if (Array.isArray(raw.chapters)) {
+    return {
+      chapters: raw.chapters.map((ch: any) => ({
+        title: ch.title || ch.scene_name || '',
+        shots: (ch.shots || []).map((s: any, i: number) => ({
+          shot_index: s.shot_index ?? s.shot_id ?? i + 1,
+          description: s.description || '',
+          dialogue: s.dialogue || '',
+          first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
+          last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
+          video_prompt: s.video_prompt || s.videoPrompt || ''
+        }))
+      }))
+    }
+  }
+
+  // Has scenes array (common AI output format) → convert to chapters
+  if (Array.isArray(raw.scenes)) {
+    return {
+      chapters: raw.scenes.map((sc: any) => ({
+        title: sc.scene_name || sc.title || sc.name || '',
+        shots: (sc.shots || []).map((s: any, i: number) => ({
+          shot_index: s.shot_index ?? s.shot_id ?? i + 1,
+          description: s.description || '',
+          dialogue: s.dialogue || '',
+          first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
+          last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
+          video_prompt: s.video_prompt || s.videoPrompt || ''
+        }))
+      }))
+    }
+  }
+
+  return { chapters: [] }
+}
+
 // ========== 自动挡流程 ==========
 
 export async function autoProcess(
@@ -358,7 +400,13 @@ export async function autoProcess(
   )
   let shotsData: ShotData
   try {
-    shotsData = JSON.parse(extractJSON(shotsResult))
+    const extracted = extractJSON(shotsResult)
+    shotsData = JSON.parse(extracted)
+    // Normalize: AI may return different structures depending on the template
+    shotsData = normalizeShotData(shotsData)
+    // Debug: write parsed data to file
+    const fs = await import('fs')
+    fs.writeFileSync('C:/Users/Administrator/ai_shots_debug.log', JSON.stringify(shotsData, null, 2), 'utf8')
   } catch (e) {
     const fs = await import('fs')
     const logPath = 'C:/Users/Administrator/ai_response_debug.log'

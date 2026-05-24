@@ -348,35 +348,65 @@ async function callImageGenerationAPI(
     normalizedBaseURL += '/v1'
   }
 
-  const url = `${normalizedBaseURL}/images/generations`
+  // 先尝试 /v1/images/generations（标准生图端点）
+  let resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey)
 
-  const resp = await axios.post(
-    url,
-    {
-      prompt,
-      model: actualModel
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 120000
-    }
-  )
+  // 如果 images 端点失败(404/500/网络错误)，回退到 chat completions 端点
+  if (!resp) {
+    console.log('[imageGenerator] /images/generations failed, falling back to /chat/completions')
+    resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey)
+  }
 
-  const data = resp.data?.data || resp.data?.images || []
+  if (!resp) {
+    throw new Error('生图 API 不可用（images 和 chat 端点均失败），请检查供应商配置')
+  }
+
+  const data = resp.data?.data || resp.data?.images || resp.choices?.[0]?.message?.content || []
   const urls: string[] = []
-  for (const item of data) {
-    if (item.url) urls.push(item.url)
+  for (const item of Array.isArray(data) ? data : [data]) {
+    if (typeof item === 'string') {
+      // 可能是 base64 或 URL
+      if (item.startsWith('data:')) urls.push(item)
+      else if (item.startsWith('http')) urls.push(item)
+      else if (item.length > 100) urls.push(`data:image/png;base64,${item}`)
+    } else if (item.url) urls.push(item.url)
     else if (item.b64_json) urls.push(`data:image/png;base64,${item.b64_json}`)
+    else if (item.image_url) urls.push(item.image_url)
   }
 
   if (urls.length === 0) {
-    throw new Error('API 返回为空')
+    throw new Error('API 返回为空或无法解析图片数据')
   }
 
   return urls
+}
+
+async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string): Promise<any> {
+  try {
+    const url = `${baseURL}/images/generations`
+    return await axios.post(url, { prompt, model, n: 1 }, {
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      timeout: 120000
+    })
+  } catch (_e) {
+    return null
+  }
+}
+
+async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string): Promise<any> {
+  try {
+    const url = `${baseURL}/chat/completions`
+    return await axios.post(url, {
+      model,
+      messages: [{ role: 'user', content: `Generate an image based on this description: ${prompt}. Return only the image.` }],
+      max_tokens: 4096
+    }, {
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      timeout: 120000
+    })
+  } catch (_e) {
+    return null
+  }
 }
 
 /**
