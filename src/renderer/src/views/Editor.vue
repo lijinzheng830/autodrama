@@ -130,6 +130,31 @@ const modelConfig = ref<Record<string, any>>({})
 const providerModels = ref<any[]>([])
 const providerChannels = ref<any[]>([])
 const modelConfigTemplates = ref<any[]>([])
+const modelConfigRefImages = ref<Record<string, string>>({})
+
+function getRefImage(tabKey: string): string {
+  return modelConfigRefImages.value[tabKey] || getModelConfigField(tabKey, 'refImage') || ''
+}
+
+async function handleSelectRefImage(): Promise<void> {
+  const tabKey = modelConfigTabs[modelConfigTab.value].key
+  try {
+    const proj = await window.api.getProject(projectId) as any
+    const result = await window.api.selectImage(proj.path)
+    if (result) {
+      modelConfigRefImages.value[tabKey] = result
+      setModelConfigField(tabKey, 'refImage', result)
+    }
+  } catch (_err) {
+    ElMessage.error('选择图片失败')
+  }
+}
+
+function handleRemoveRefImage(): void {
+  const tabKey = modelConfigTabs[modelConfigTab.value].key
+  delete modelConfigRefImages.value[tabKey]
+  setModelConfigField(tabKey, 'refImage', '')
+}
 
 const modelConfigTabs = [
   { key: 'language_model', label: '语言模型' },
@@ -1963,6 +1988,7 @@ async function loadProviderModels(): Promise<void> {
 
 async function openModelConfig(): Promise<void> {
   modelConfigVisible.value = true
+  modelConfigRefImages.value = {}
   // 加载模型列表和渠道列表
   if (providerModels.value.length === 0) {
     await loadProviderModels()
@@ -3741,6 +3767,27 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- 图片参考 -->
+            <div class="config-section">
+              <div class="config-section-title">图片参考</div>
+              <div class="ref-image-area">
+                <div v-if="getRefImage(modelConfigTabs[modelConfigTab].key)" class="ref-image-preview">
+                  <img :src="'file://' + getRefImage(modelConfigTabs[modelConfigTab].key)" />
+                  <el-button
+                    text
+                    size="small"
+                    type="danger"
+                    class="ref-image-remove"
+                    @click="handleRemoveRefImage"
+                  >移除</el-button>
+                </div>
+                <div v-else class="ref-image-placeholder" @click="handleSelectRefImage">
+                  <el-icon :size="32"><Plus /></el-icon>
+                  <span>上传参考图</span>
+                </div>
+              </div>
+            </div>
+
             <!-- 模板区 -->
             <div class="config-template-section">
               <div class="config-template-tabs">
@@ -4718,6 +4765,65 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.config-section-title {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.ref-image-area {
+  min-height: 100px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ref-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.ref-image-placeholder:hover {
+  color: #a78bfa;
+  border-color: #a78bfa;
+  background: rgba(167, 139, 250, 0.05);
+}
+
+.ref-image-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.ref-image-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+
+.ref-image-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ref-image-preview:hover .ref-image-remove {
+  opacity: 1;
 }
 
 .config-row {

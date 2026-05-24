@@ -64,7 +64,7 @@ export function getPromptTemplates(projectId: string, usage?: string): PromptTem
   const params: unknown[] = []
 
   if (projectId) {
-    sql = 'SELECT * FROM prompt_templates WHERE project_id = ? AND is_default = 0'
+    sql = 'SELECT * FROM prompt_templates WHERE (project_id = ? OR project_id IS NULL) AND is_default = 0'
     params.push(projectId)
   } else {
     sql = 'SELECT * FROM prompt_templates WHERE project_id IS NULL AND is_default = 0'

@@ -633,6 +633,8 @@ onMounted(async () => {
             >
               我的模板
             </div>
+            <div style="flex:1"></div>
+            <el-button type="primary" size="small" :icon="Plus" @click="openAddTemplate">新建模板</el-button>
           </div>
 
           <div class="panel-body">
@@ -665,11 +667,6 @@ onMounted(async () => {
 
             <!-- 我的模板 -->
             <div v-if="templateTab === 'custom'">
-              <div class="panel-toolbar">
-                <el-button type="primary" size="small" :icon="Plus" @click="openAddTemplate"
-                  >新建模板</el-button
-                >
-              </div>
               <table class="data-table">
                 <thead>
                   <tr>
