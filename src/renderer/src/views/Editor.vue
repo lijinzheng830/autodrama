@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft,
+  ArrowRight,
+  Close,
   Setting,
   Plus,
   VideoPlay,
@@ -1169,21 +1171,50 @@ const assetImages = ref<any[]>([])
 // ===== 全屏大图预览 =====
 const fullscreenImageVisible = ref(false)
 const fullscreenImageSrc = ref('')
+const fullscreenImageList = ref<string[]>([])
+const fullscreenImageIndex = ref(0)
 
-function openFullscreenImage(src: string): void {
+function openFullscreenImage(src: string, list?: string[]): void {
   if (!src) return
   fullscreenImageSrc.value = src
   fullscreenImageVisible.value = true
+  if (list && list.length > 0) {
+    fullscreenImageList.value = list
+    fullscreenImageIndex.value = list.indexOf(src)
+    if (fullscreenImageIndex.value < 0) fullscreenImageIndex.value = 0
+  } else {
+    fullscreenImageList.value = [src]
+    fullscreenImageIndex.value = 0
+  }
 }
 
 function closeFullscreenImage(): void {
   fullscreenImageVisible.value = false
   fullscreenImageSrc.value = ''
+  fullscreenImageList.value = []
+}
+
+function fullscreenPrev(): void {
+  if (fullscreenImageList.value.length < 2) return
+  const idx = fullscreenImageIndex.value - 1
+  fullscreenImageIndex.value = idx < 0 ? fullscreenImageList.value.length - 1 : idx
+  fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value]
+}
+
+function fullscreenNext(): void {
+  if (fullscreenImageList.value.length < 2) return
+  const idx = fullscreenImageIndex.value + 1
+  fullscreenImageIndex.value = idx >= fullscreenImageList.value.length ? 0 : idx
+  fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value]
 }
 
 function handleFullscreenKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
     closeFullscreenImage()
+  } else if (e.key === 'ArrowLeft') {
+    fullscreenPrev()
+  } else if (e.key === 'ArrowRight') {
+    fullscreenNext()
   }
 }
 
@@ -2165,8 +2196,39 @@ onUnmounted(() => {
     <div
       v-if="fullscreenImageVisible"
       class="fullscreen-image-overlay"
-      @click="closeFullscreenImage"
+      @keydown="handleFullscreenKeydown"
+      tabindex="0"
     >
+      <!-- 关闭按钮 -->
+      <el-button
+        class="fullscreen-close-btn"
+        :icon="Close"
+        circle
+        size="large"
+        @click="closeFullscreenImage"
+      />
+      <!-- 上一张 -->
+      <el-button
+        v-if="fullscreenImageList.length > 1"
+        class="fullscreen-nav-btn fullscreen-prev"
+        :icon="ArrowLeft"
+        circle
+        size="large"
+        @click.stop="fullscreenPrev"
+      />
+      <!-- 下一张 -->
+      <el-button
+        v-if="fullscreenImageList.length > 1"
+        class="fullscreen-nav-btn fullscreen-next"
+        :icon="ArrowRight"
+        circle
+        size="large"
+        @click.stop="fullscreenNext"
+      />
+      <!-- 计数器 -->
+      <div v-if="fullscreenImageList.length > 1" class="fullscreen-counter">
+        {{ fullscreenImageIndex + 1 }} / {{ fullscreenImageList.length }}
+      </div>
       <img :src="fullscreenImageSrc" class="fullscreen-image" @click.stop />
     </div>
     <!-- 顶部栏 -->
@@ -3010,7 +3072,7 @@ onUnmounted(() => {
                       v-if="detailData?.reference_image"
                       :src="toFileUrl(detailData.reference_image)"
                       class="detail-img"
-                      @click="openFullscreenImage(toFileUrl(detailData.reference_image))"
+                      @click="openFullscreenImage(toFileUrl(detailData.reference_image), assetImages.map((ai: any) => toFileUrl(ai.image_path)))"
                     />
                     <div v-else class="detail-placeholder">{{ detailData?.name }}</div>
                     <div class="detail-upload">
@@ -3171,7 +3233,8 @@ onUnmounted(() => {
                 <div v-else-if="detailType === 'firstFrame'" class="detail-body">
                   <div class="detail-media">
                     <div v-if="detailData?.first_frame_image_path" class="detail-placeholder">
-                      <img :src="toFileUrl(detailData.first_frame_image_path)" class="detail-img" />
+                      <img :src="toFileUrl(detailData.first_frame_image_path)" class="detail-img"
+                        @click="openFullscreenImage(toFileUrl(detailData.first_frame_image_path), assetImages.map((ai: any) => toFileUrl(ai.image_path)))" />
                     </div>
                     <div v-else class="detail-placeholder">首帧占位</div>
                   </div>
@@ -3316,7 +3379,8 @@ onUnmounted(() => {
                 <div v-else-if="detailType === 'lastFrame'" class="detail-body">
                   <div class="detail-media">
                     <div v-if="detailData?.last_frame_image_path" class="detail-placeholder">
-                      <img :src="toFileUrl(detailData.last_frame_image_path)" class="detail-img" />
+                      <img :src="toFileUrl(detailData.last_frame_image_path)" class="detail-img"
+                        @click="openFullscreenImage(toFileUrl(detailData.last_frame_image_path), assetImages.map((ai: any) => toFileUrl(ai.image_path)))" />
                     </div>
                     <div v-else class="detail-placeholder">尾帧占位</div>
                   </div>
@@ -5545,19 +5609,65 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.92);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: zoom-out;
+  outline: none;
+}
+
+.fullscreen-close-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10001;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+.fullscreen-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.fullscreen-nav-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10001;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+.fullscreen-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+.fullscreen-prev {
+  left: 16px;
+}
+.fullscreen-next {
+  right: 16px;
+}
+
+.fullscreen-counter {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 16px;
+  border-radius: 12px;
 }
 
 .fullscreen-image {
-  max-width: 90vw;
-  max-height: 90vh;
+  max-width: 85vw;
+  max-height: 85vh;
   object-fit: contain;
   cursor: default;
+  user-select: none;
 }
 
 /* 齿轮面板 */
