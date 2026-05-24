@@ -50,6 +50,8 @@ export interface GenerateImageInput {
   apiKey?: string
   count?: number
   taskId?: string
+  templateId?: string
+  refImage?: string
 }
 
 export interface GenerateImageResult {
@@ -73,7 +75,8 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     channel: inputChannel,
     apiKey: inputApiKey,
     count = 1,
-    taskId: inputTaskId
+    taskId: inputTaskId,
+    templateId
   } = input
 
   // 1. 读取项目信息（风格/年代/模型配置）
@@ -83,10 +86,24 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const finalStylePrompt = stylePrompt || project.style_prompt || ''
   const finalEraPrompt = eraPrompt || project.era || ''
 
-  // 2. 拼接最终 prompt
-  const finalPrompt = [description, finalStylePrompt, finalEraPrompt]
-    .filter((s) => s.trim())
-    .join(', ')
+  // 2. 加载模板内容（如有指定）
+  let templateContent = ''
+  if (templateId) {
+    try {
+      const template = db.prepare('SELECT content FROM prompt_templates WHERE id = ?').get(templateId) as { content: string } | undefined
+      if (template) templateContent = template.content
+    } catch { /* ignore */ }
+  }
+
+  // 3. 拼接最终 prompt：模板替换变量 + 描述 + 风格 + 年代
+  let finalPrompt = templateContent
+    ? templateContent.replace(/\{\{描述\}\}/g, description).replace(/\{\{角色描述\}\}/g, description)
+    : description
+  if (templateContent && finalPrompt === templateContent) {
+    // 模板不含变量，追加描述
+    finalPrompt = templateContent + '\n' + description
+  }
+  finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt].filter((s) => s.trim()).join(', ')
 
   // 3. 解析模型配置（四级降级）
   const purposeMap: Record<string, string> = {
@@ -242,7 +259,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 
   try {
     // 8. 调用 OpenAI 兼容格式的生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel)
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, input.refImage)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', `${type}s`)
@@ -320,7 +337,8 @@ async function callImageGenerationAPI(
   prompt: string,
   model: string,
   apiKey: string,
-  channel?: string | null
+  channel?: string | null,
+  refImage?: string | null
 ): Promise<string[]> {
   // 解析 provider 和 modelKey
   let baseURL = ''
@@ -349,12 +367,12 @@ async function callImageGenerationAPI(
   }
 
   // 先尝试 /v1/images/generations（标准生图端点）
-  let resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey)
+  let resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
 
   // 如果 images 端点失败(404/500/网络错误)，回退到 chat completions 端点
   if (!resp) {
     console.log('[imageGenerator] /images/generations failed, falling back to /chat/completions')
-    resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey)
+    resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
   }
 
   if (!resp) {
@@ -381,10 +399,19 @@ async function callImageGenerationAPI(
   return urls
 }
 
-async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string): Promise<any> {
+async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/images/generations`
-    return await axios.post(url, { prompt, model, n: 1 }, {
+    const body: any = { prompt, model, n: 1 }
+    // 一些生图 API 支持 image 参数作为参考图
+    if (refImage) {
+      try {
+        const fs = require('fs')
+        const imgBuffer = fs.readFileSync(refImage)
+        body.image = imgBuffer.toString('base64')
+      } catch { /* refImage file not readable, skip */ }
+    }
+    return await axios.post(url, body, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       timeout: 120000
     })
@@ -393,12 +420,26 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
   }
 }
 
-async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string): Promise<any> {
+async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/chat/completions`
+    const userContent: any[] = [{ type: 'text', text: `Generate an image based on this description: ${prompt}. Return only the image.` }]
+    // 有参考图时，以 base64 嵌入
+    if (refImage) {
+      try {
+        const fs = require('fs')
+        const imgBuffer = fs.readFileSync(refImage)
+        const ext = refImage.split('.').pop()?.toLowerCase() || 'png'
+        const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png'
+        userContent.unshift({
+          type: 'image_url',
+          image_url: { url: `data:${mime};base64,${imgBuffer.toString('base64')}` }
+        })
+      } catch { /* refImage file not readable, skip */ }
+    }
     return await axios.post(url, {
       model,
-      messages: [{ role: 'user', content: `Generate an image based on this description: ${prompt}. Return only the image.` }],
+      messages: [{ role: 'user', content: userContent }],
       max_tokens: 4096
     }, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

@@ -90,6 +90,8 @@ export interface GenerateImageInput {
   apiKey?: string
   count?: number
   taskId?: string
+  templateId?: string
+  refImage?: string
 }
 
 export interface GenerateShotImageInput {

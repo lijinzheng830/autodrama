@@ -1489,6 +1489,11 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
 
   genLoading.value = true
   try {
+    // 读取该用途的模板和参考图
+    const purposeConfig = modelConfig[purposeKey] || {}
+    const templateId = purposeConfig.templateId || ''
+    const refImage = purposeConfig.refImage || ''
+
     await window.api.generateImage({
       projectId,
       type: assetType,
@@ -1496,7 +1501,9 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
       description: asset.description || asset.name || '',
       count: genCount.value,
       model: model || undefined,
-      channel: channel || undefined
+      channel: channel || undefined,
+      templateId,
+      refImage
     })
     ElMessage.success('图片生成成功')
     // 刷新历史记录和资产数据
