@@ -337,7 +337,11 @@ export async function autoProcess(
     )
   }
 
-  const storyboardPrompt = options?.promptTemplate || STORYBOARD_PROMPT
+  let storyboardPrompt = options?.promptTemplate || STORYBOARD_PROMPT
+  // 确保 prompt 包含 "json" 关键词，满足 response_format: json_object 的要求
+  if (!/json/i.test(storyboardPrompt)) {
+    storyboardPrompt += '\n请以 JSON 格式返回'
+  }
   const modelOverride = options?.model
 
   // 步骤1：分镜
