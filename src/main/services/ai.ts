@@ -145,7 +145,8 @@ export async function callAI(
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.7
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
       }),
       signal: controller.signal
     })
@@ -177,10 +178,14 @@ export async function callAI(
     }
 
     const data = await response.json()
+    console.log('[callAI] Response status:', response.status, 'model:', model)
+    console.log('[callAI] Response data keys:', Object.keys(data))
     const content = data.choices?.[0]?.message?.content
     if (!content) {
+      console.error('[callAI] Unexpected response structure:', JSON.stringify(data).substring(0, 500))
       throw new Error('AI 返回内容为空，请重试')
     }
+    console.log('[callAI] Content received, length:', content.length)
     return content
   } catch (err: unknown) {
     clearTimeout(timeout)
@@ -204,6 +209,31 @@ export async function callAI(
   }
 }
 
+function cleanJSON(text: string): string {
+  // 移除 BOM 和首尾空白
+  let cleaned = text.trim()
+  // 移除 markdown 代码块标记（可能跨多行或单行）
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+  // 修复常见问题：尾部多余逗号
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1')
+  // 修复单引号键名
+  cleaned = cleaned.replace(/'([^']+)'\s*:/g, '"$1":')
+  // 修复没有引号的键名
+  cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":')
+  // 移除 JSON 前后的解释性文字（尝试找到真正的 JSON 起始位置）
+  const jsonStart = cleaned.search(/[\{\[]/)
+  if (jsonStart > 0) {
+    cleaned = cleaned.slice(jsonStart)
+  }
+  const lastBrace = cleaned.lastIndexOf('}')
+  const lastBracket = cleaned.lastIndexOf(']')
+  const jsonEnd = Math.max(lastBrace, lastBracket)
+  if (jsonEnd > 0 && jsonEnd < cleaned.length - 1) {
+    cleaned = cleaned.slice(0, jsonEnd + 1)
+  }
+  return cleaned.trim()
+}
+
 export function extractJSON(text: string): string {
   // 尝试直接解析
   try {
@@ -213,10 +243,21 @@ export function extractJSON(text: string): string {
     // continue
   }
 
-  // 提取 ```json ... ``` 包裹的内容
+  // 提取 ```json ... ``` 或 ``` ... ``` 包裹的内容
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
   if (codeBlockMatch) {
-    const candidate = codeBlockMatch[1].trim()
+    const candidate = cleanJSON(codeBlockMatch[1])
+    try {
+      JSON.parse(candidate)
+      return candidate
+    } catch {
+      // continue
+    }
+  }
+
+  // 尝试 cleaning 后直接解析
+  {
+    const candidate = cleanJSON(text)
     try {
       JSON.parse(candidate)
       return candidate
@@ -229,7 +270,7 @@ export function extractJSON(text: string): string {
   const firstBrace = text.indexOf('{')
   const lastBrace = text.lastIndexOf('}')
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    const candidate = text.slice(firstBrace, lastBrace + 1).trim()
+    const candidate = cleanJSON(text.slice(firstBrace, lastBrace + 1))
     try {
       JSON.parse(candidate)
       return candidate
@@ -242,7 +283,7 @@ export function extractJSON(text: string): string {
   const firstBracket = text.indexOf('[')
   const lastBracket = text.lastIndexOf(']')
   if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-    const candidate = text.slice(firstBracket, lastBracket + 1).trim()
+    const candidate = cleanJSON(text.slice(firstBracket, lastBracket + 1))
     try {
       JSON.parse(candidate)
       return candidate
@@ -250,6 +291,9 @@ export function extractJSON(text: string): string {
       // continue
     }
   }
+
+  // 调试：记录无法解析的内容前 500 个字符
+  console.error('[extractJSON] 无法提取有效的JSON。AI返回前500字符:', text.substring(0, 500))
 
   throw new Error('无法从AI返回内容中提取有效JSON，请重试')
 }
@@ -308,7 +352,17 @@ export async function autoProcess(
     undefined,
     modelOverride
   )
-  const shotsData = JSON.parse(extractJSON(shotsResult))
+  let shotsData: ShotData
+  try {
+    shotsData = JSON.parse(extractJSON(shotsResult))
+  } catch (e) {
+    const fs = await import('fs')
+    const logPath = 'C:/Users/Administrator/ai_response_debug.log'
+    fs.writeFileSync(logPath, shotsResult, 'utf8')
+    console.error('[autoProcess] 分镜步骤 JSON 提取失败. 完整响应已写入:', logPath)
+    console.error('[autoProcess] Parse error:', (e as Error).message)
+    throw e
+  }
 
   onProgress({ step: 1, status: 'done', message: '分析剧本、拆分镜头 完成' })
   sendProgress({ step: 1, status: 'done', message: '分析剧本、拆分镜头 完成' })
@@ -325,7 +379,14 @@ export async function autoProcess(
     undefined,
     modelOverride
   )
-  const extractData = JSON.parse(extractJSON(extractResult))
+  let extractData: ExtractData
+  try {
+    extractData = JSON.parse(extractJSON(extractResult))
+  } catch (e) {
+    console.error('[autoProcess] 提取步骤 JSON 提取失败. AI返回前1000字符:', extractResult.substring(0, 1000))
+    console.error('[autoProcess] Parse error:', (e as Error).message)
+    throw e
+  }
 
   onProgress({ step: 2, status: 'done', message: '提取角色、场景和道具 完成' })
   sendProgress({ step: 2, status: 'done', message: '提取角色、场景和道具 完成' })
@@ -350,7 +411,14 @@ export async function autoProcess(
     undefined,
     modelOverride
   )
-  const assocData = JSON.parse(extractJSON(assocResult))
+  let assocData: AssocData
+  try {
+    assocData = JSON.parse(extractJSON(assocResult))
+  } catch (e) {
+    console.error('[autoProcess] 关联步骤 JSON 提取失败. AI返回前1000字符:', assocResult.substring(0, 1000))
+    console.error('[autoProcess] Parse error:', (e as Error).message)
+    throw e
+  }
 
   onProgress({ step: 3, status: 'done', message: '关联角色、场景和道具到分镜 完成' })
   sendProgress({ step: 3, status: 'done', message: '关联角色、场景和道具到分镜 完成' })

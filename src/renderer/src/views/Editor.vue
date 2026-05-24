@@ -403,7 +403,7 @@ function handleCustomStyle(): void {
 
 // ===== AI解析弹窗（保留）=====
 
-function openParseDialog(mode: 'full' | 'append'): void {
+async function openParseDialog(mode: 'full' | 'append'): Promise<void> {
   parseMode.value = mode
   parseScriptText.value = ''
   parseGenerating.value = false
@@ -415,7 +415,8 @@ function openParseDialog(mode: 'full' | 'append'): void {
     { step: 4, status: 'pending', message: '保存项目' }
   ]
   loadTemplates()
-  loadParseModel()
+  await loadProviderModels()
+  await loadParseModel()
   parseDialogVisible.value = true
 }
 
@@ -444,9 +445,17 @@ async function loadParseModel(): Promise<void> {
     const providers = (await window.api.getProviders()) as any[]
     const p = providers.find((pr: any) => pr.key === provider)
     const m = p?.models?.find((mo: any) => mo.key === model)
-    selectedModel.value = m?.name || model || '未配置'
+    const pKey = p?.key || p?.id || ''
+    const mKey = typeof m === 'string' ? m : m?.key || ''
+    if (pKey && mKey) {
+      // Store in providerKey:modelKey format to match providerModels values
+      const existingModel = providerModels.value.find((pm) => pm.value === `${pKey}:${mKey}`)
+      selectedModel.value = existingModel ? existingModel.value : `${pKey}:${mKey}`
+    } else {
+      selectedModel.value = ''
+    }
   } catch (_err) {
-    selectedModel.value = '未配置'
+    selectedModel.value = ''
   }
 }
 
@@ -457,11 +466,17 @@ async function handleParseSubmit(): Promise<void> {
   }
   try {
     const provider = await window.api.getSetting('provider')
+    // First check the dedicated api_key_<provider> setting
     const apiKey = await window.api.getSetting(`api_key_${provider}`)
     if (!apiKey) {
-      ElMessage.warning('请先配置 API Key')
-      router.push('/settings')
-      return
+      // Fall back to checking the providers JSON
+      const providers = (await window.api.getProviders()) as any[]
+      const p = providers.find((pr: any) => pr.key === provider)
+      if (!p?.apiKey) {
+        ElMessage.warning('请先配置 API Key')
+        router.push('/settings')
+        return
+      }
     }
   } catch {
     ElMessage.warning('无法读取设置，请检查配置')
@@ -498,7 +513,7 @@ async function handleParseSubmit(): Promise<void> {
     await window.api.autoProcess(projectId, parseScriptText.value.trim(), {
       promptTemplate: template?.content,
       aspectRatio: selectedAspectRatio.value,
-      model: selectedModel.value !== '未配置' ? selectedModel.value : undefined,
+      model: selectedModel.value || undefined,
       mode: parseMode.value
     })
     ElMessage.success('生成完成！')
@@ -2072,6 +2087,10 @@ const filteredConfigModels = computed(() => {
   const neededType = configTypeMap[modelConfigTabs[modelConfigTab.value]?.key]
   if (!neededType) return providerModels.value
   return providerModels.value.filter((m) => m.modelType === neededType)
+})
+
+const textProviderModels = computed(() => {
+  return providerModels.value.filter((m) => m.modelType === 'text')
 })
 
 const filteredConfigChannels = computed(() => {
@@ -3846,7 +3865,20 @@ onUnmounted(() => {
         </div>
         <div class="parse-section compact">
           <span class="parse-section-title">语言模型</span>
-          <el-input v-model="selectedModel" disabled />
+          <el-select
+            v-model="selectedModel"
+            style="width: 100%"
+            :disabled="parseGenerating"
+            :teleported="false"
+            placeholder="请选择语言模型"
+          >
+            <el-option
+              v-for="m in textProviderModels"
+              :key="m.value"
+              :label="m.label"
+              :value="m.value"
+            />
+          </el-select>
         </div>
         <div v-if="parseGenerating" class="parse-progress">
           <div
