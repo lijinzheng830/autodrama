@@ -94,6 +94,10 @@ const api = {
     ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
   createGenerationTask: (input: GenerationTaskInput) =>
     ipcRenderer.invoke('generationTask:create', input),
+  batchCreateGenerationTasks: (input: { projectId: string; tasks: Array<{ shotId?: string; type: string; purpose: string; channel?: string; model?: string; inputParams?: string }> }) =>
+    ipcRenderer.invoke('generationTask:batchCreate', input),
+  cancelGenerationTasks: (projectId: string) =>
+    ipcRenderer.invoke('generationTask:cancel', projectId),
   getGenerationTasks: (projectId: string, filters?: { status?: string; purpose?: string; since?: number }) =>
     ipcRenderer.invoke('generationTask:list', projectId, filters),
   selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath),

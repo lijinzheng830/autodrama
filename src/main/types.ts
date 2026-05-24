@@ -89,6 +89,7 @@ export interface GenerateImageInput {
   channel?: string
   apiKey?: string
   count?: number
+  taskId?: string
 }
 
 export interface GenerateShotImageInput {
@@ -98,6 +99,7 @@ export interface GenerateShotImageInput {
   model?: string
   channel?: string
   count?: number
+  taskId?: string
 }
 
 export interface AutoProcessOptions {

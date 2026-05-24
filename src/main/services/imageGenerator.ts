@@ -49,6 +49,7 @@ export interface GenerateImageInput {
   channel?: string
   apiKey?: string
   count?: number
+  taskId?: string
 }
 
 export interface GenerateImageResult {
@@ -71,7 +72,8 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     model: inputModel,
     channel: inputChannel,
     apiKey: inputApiKey,
-    count = 1
+    count = 1,
+    taskId: inputTaskId
   } = input
 
   // 1. 读取项目信息（风格/年代/模型配置）
@@ -188,26 +190,36 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     }
   }
 
-  // 5. 创建 generation_tasks 记录（pending）
-  const taskId = randomUUID()
-  db.prepare(
+  // 5. 创建或复用 generation_tasks 记录
+  const purpose = type === 'character' ? 'character_reference' : type === 'scene' ? 'scene_reference' : 'prop_reference'
+  let taskId: string
+  if (inputTaskId) {
+    taskId = inputTaskId
+    // 更新 model/channel（执行时解析的可能比预创建时更精确）
+    db.prepare(
+      `UPDATE generation_tasks SET model = COALESCE(?, model), channel = COALESCE(?, channel), updated_at = datetime('now', 'localtime') WHERE id = ?`
+    ).run(model || null, channel || null, taskId)
+  } else {
+    taskId = randomUUID()
+    db.prepare(
+      `
+      INSERT INTO generation_tasks (
+        id, project_id, shot_id, type, purpose, channel, model, status,
+        input_params, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
     `
-    INSERT INTO generation_tasks (
-      id, project_id, shot_id, type, purpose, channel, model, status,
-      input_params, created_at, updated_at
+    ).run(
+      taskId,
+      projectId,
+      null,
+      'image',
+      purpose,
+      channel || null,
+      model || null,
+      JSON.stringify({ assetId, count, description })
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
-  `
-  ).run(
-    taskId,
-    projectId,
-    null,
-    'image',
-    type === 'character' ? 'character_reference' : type === 'scene' ? 'scene_reference' : 'prop_reference',
-    channel || null,
-    model || null,
-    JSON.stringify({ assetId, count, description })
-  )
+  }
 
   // 6. 如果没有 API Key 或模型，标记失败并返回
   if (!apiKey) {
@@ -439,7 +451,8 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     frameType,
     model: inputModel,
     channel: inputChannel,
-    count = 1
+    count = 1,
+    taskId: inputTaskId
   } = input
 
   // 1. 读取 shot 数据
@@ -568,26 +581,34 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     }
   }
 
-  // 6. 创建 generation_tasks 记录
-  const taskId = randomUUID()
-  db.prepare(
+  // 6. 创建或复用 generation_tasks 记录
+  let taskId: string
+  if (inputTaskId) {
+    taskId = inputTaskId
+    db.prepare(
+      `UPDATE generation_tasks SET model = COALESCE(?, model), channel = COALESCE(?, channel), updated_at = datetime('now', 'localtime') WHERE id = ?`
+    ).run(model || null, channel || null, taskId)
+  } else {
+    taskId = randomUUID()
+    db.prepare(
+      `
+      INSERT INTO generation_tasks (
+        id, project_id, shot_id, type, purpose, channel, model, status,
+        input_params, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
     `
-    INSERT INTO generation_tasks (
-      id, project_id, shot_id, type, purpose, channel, model, status,
-      input_params, created_at, updated_at
+    ).run(
+      taskId,
+      projectId,
+      shotId,
+      'image',
+      purposeKey,
+      channel || null,
+      model || null,
+      JSON.stringify({ shotId, frameType, count, prompt: shotPrompt })
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
-  `
-  ).run(
-    taskId,
-    projectId,
-    shotId,
-    'image',
-    purposeKey,
-    channel || null,
-    model || null,
-    JSON.stringify({ shotId, frameType, count, prompt: shotPrompt })
-  )
+  }
 
   if (!apiKey) {
     db.prepare(

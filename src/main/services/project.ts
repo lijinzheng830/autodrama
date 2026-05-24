@@ -464,6 +464,57 @@ export function createGenerationTask(input: {
   return { id }
 }
 
+export function batchCreateGenerationTasks(input: {
+  projectId: string
+  tasks: Array<{
+    shotId?: string
+    type: string
+    purpose: string
+    channel?: string
+    model?: string
+    inputParams?: string
+  }>
+}): { ids: string[] } {
+  const db = getDb()
+  const insert = db.prepare(
+    `
+    INSERT INTO generation_tasks (
+      id, project_id, shot_id, type, purpose, channel, model, status, input_params, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+  `
+  )
+
+  const ids: string[] = []
+  const transaction = db.transaction(() => {
+    for (const task of input.tasks) {
+      const id = randomUUID()
+      insert.run(
+        id,
+        input.projectId,
+        task.shotId ?? null,
+        task.type,
+        task.purpose,
+        task.channel ?? null,
+        task.model ?? null,
+        task.inputParams ?? '{}'
+      )
+      ids.push(id)
+    }
+  })
+
+  transaction()
+  return { ids }
+}
+
+export function cancelGenerationTasks(projectId: string): { count: number } {
+  const db = getDb()
+  const result = db.prepare(
+    `UPDATE generation_tasks SET status = 'cancelled', updated_at = datetime('now', 'localtime') WHERE project_id = ? AND status = 'pending'`
+  ).run(projectId)
+  return { count: result.changes }
+}
+
 export function getGenerationTasks(
   projectId: string,
   filters?: { status?: string; purpose?: string; since?: number }

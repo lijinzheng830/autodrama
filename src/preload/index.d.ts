@@ -100,6 +100,7 @@ export interface GenerateImageInput {
   channel?: string
   apiKey?: string
   count?: number
+  taskId?: string
 }
 
 export interface GenerateShotImageInput {
@@ -109,6 +110,7 @@ export interface GenerateShotImageInput {
   model?: string
   channel?: string
   count?: number
+  taskId?: string
 }
 
 export interface Api {
@@ -160,6 +162,8 @@ export interface Api {
   updateShot: (shotId: string, input: ShotInput) => Promise<void>
   addShotAssociation: (shotId: string, type: string, assetId: string) => Promise<void>
   createGenerationTask: (input: GenerationTaskInput) => Promise<unknown>
+  batchCreateGenerationTasks: (input: { projectId: string; tasks: Array<{ shotId?: string; type: string; purpose: string; channel?: string; model?: string; inputParams?: string }> }) => Promise<{ ids: string[] }>
+  cancelGenerationTasks: (projectId: string) => Promise<{ count: number }>
   getGenerationTasks: (projectId: string, filters?: { status?: string; purpose?: string; since?: number }) => Promise<unknown[]>
   selectImage: (projectPath: string) => Promise<string | null>
   selectExportDirectory: (defaultPath?: string) => Promise<string | null>

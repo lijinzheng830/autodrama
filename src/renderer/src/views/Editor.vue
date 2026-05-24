@@ -89,7 +89,7 @@ const viewMode = ref<'table' | 'canvas'>('table')
 const genRecordVisible = ref(false)
 const genRecords = ref<any[]>([])
 const genRecordTab = ref<'video' | 'image' | 'other'>('image')
-const genRecordStatusFilter = ref<'all' | 'pending' | 'running' | 'completed' | 'failed'>('all')
+const genRecordStatusFilter = ref<'all' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'>('all')
 const genRecordTypeFilter = ref<
   | 'all'
   | 'character_reference'
@@ -103,6 +103,12 @@ function setGenRecordTab(tab: 'video' | 'image' | 'other'): void {
   genRecordTab.value = tab
   genRecordTypeFilter.value = 'all'
 }
+
+// 任务播报条
+const broadcastTimer = ref<number | null>(null)
+const broadcastAllDone = ref(false)
+const broadcastAllDoneTimer = ref<number | null>(null)
+const broadcastItems = ref<Array<{ label: string; current: number; total: number }>>([])
 
 // 项目名称编辑
 const editingProjectName = ref(false)
@@ -153,6 +159,7 @@ const batchMissingCount = ref(0)
 const batchTotalAssets = ref(0)
 const batchProgress = ref<Record<string, { current: number; total: number }>>({})
 const currentBatchProgress = computed(() => batchProgress.value[batchType.value] || { current: 0, total: 0 })
+const batchCancelled = ref(false)
 
 // 导出功能
 const exportAssetMode = ref(false)
@@ -787,9 +794,18 @@ function scanBatchTasks(
 async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   const type = batchType.value
   let createdCount = 0
+  batchCancelled.value = false
 
-  // 收集任务列表
-  const tasks: Array<() => Promise<unknown>> = []
+  // 收集任务参数列表
+  interface BatchTaskItem {
+    kind: 'asset' | 'shot' | 'video'
+    assetId?: string
+    assetType?: 'character' | 'scene' | 'prop'
+    description?: string
+    shotId?: string
+    frameType?: 'first' | 'last'
+  }
+  const taskItems: BatchTaskItem[] = []
 
   if (batchMode.value === 'asset') {
     const assetKey = type === '人物' ? 'characters' : type === '场景' ? 'scenes' : 'props'
@@ -797,15 +813,12 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     const assetType = type === '人物' ? 'character' : type === '场景' ? 'scene' : 'prop'
     for (const asset of assets) {
       if (mode === 'missing' && asset.reference_image) continue
-      tasks.push(() =>
-        window.api.generateImage({
-          projectId,
-          type: assetType,
-          assetId: asset.id,
-          description: asset.description || asset.name || '',
-          count: batchCount.value
-        })
-      )
+      taskItems.push({
+        kind: 'asset',
+        assetId: asset.id,
+        assetType,
+        description: asset.description || asset.name || ''
+      })
     }
   } else {
     const selectedShotIds = Array.from(selectedShots.value)
@@ -818,41 +831,58 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
 
       switch (type) {
         case '首帧':
-          tasks.push(() =>
-            window.api.generateShotImage({
-              projectId,
-              shotId: shot.id,
-              frameType: 'first',
-              count: batchCount.value
-            })
-          )
+          taskItems.push({ kind: 'shot', shotId: shot.id, frameType: 'first' })
           break
         case '尾帧':
-          tasks.push(() =>
-            window.api.generateShotImage({
-              projectId,
-              shotId: shot.id,
-              frameType: 'last',
-              count: batchCount.value
-            })
-          )
+          taskItems.push({ kind: 'shot', shotId: shot.id, frameType: 'last' })
           break
         case '视频':
-          tasks.push(() =>
-            window.api.createGenerationTask({
-              projectId,
-              shotId: shot.id,
-              type: 'video',
-              purpose: 'video',
-              inputParams: JSON.stringify({ count: batchCount.value })
-            })
-          )
+          taskItems.push({ kind: 'video', shotId: shot.id })
           break
       }
     }
   }
 
-  batchProgress.value[type] = { current: 0, total: tasks.length }
+  // 预创建 generation_tasks 记录
+  let taskIds: string[] = []
+  if (taskItems.length > 0) {
+    const batchTasks = taskItems.map((item) => {
+      if (item.kind === 'asset') {
+        const purpose = item.assetType === 'character' ? 'character_reference' : item.assetType === 'scene' ? 'scene_reference' : 'prop_reference'
+        return {
+          type: 'image',
+          purpose,
+          inputParams: JSON.stringify({ assetId: item.assetId, count: batchCount.value, description: item.description })
+        }
+      } else if (item.kind === 'shot') {
+        const purpose = item.frameType === 'first' ? 'first_frame' : 'last_frame'
+        return {
+          shotId: item.shotId,
+          type: 'image',
+          purpose,
+          inputParams: JSON.stringify({ shotId: item.shotId, frameType: item.frameType, count: batchCount.value })
+        }
+      } else {
+        return {
+          shotId: item.shotId,
+          type: 'video',
+          purpose: 'video',
+          inputParams: JSON.stringify({ count: batchCount.value })
+        }
+      }
+    })
+    try {
+      const result = await window.api.batchCreateGenerationTasks({ projectId, tasks: batchTasks })
+      taskIds = result.ids
+    } catch (err) {
+      console.error('预创建任务失败:', err)
+      ElMessage.error('预创建任务失败')
+      return
+    }
+  }
+
+  batchProgress.value[type] = { current: 0, total: taskItems.length }
+  startBroadcastPolling()
 
   // 辅助函数：带429重试
   async function tryGenerate(generateFn: () => Promise<unknown>): Promise<boolean> {
@@ -878,12 +908,42 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
 
   // 并发队列：3并发 + 每个完成后3秒间隔
   let index = 0
-  const total = tasks.length
+  const total = taskItems.length
 
   async function worker(): Promise<void> {
     while (index < total) {
+      if (batchCancelled.value) break
       const taskIndex = index++
-      const success = await tryGenerate(tasks[taskIndex])
+      const item = taskItems[taskIndex]
+      const taskId = taskIds[taskIndex]
+      const success = await tryGenerate(async () => {
+        if (item.kind === 'asset') {
+          await window.api.generateImage({
+            projectId,
+            type: item.assetType!,
+            assetId: item.assetId!,
+            description: item.description || '',
+            count: batchCount.value,
+            taskId
+          })
+        } else if (item.kind === 'shot') {
+          await window.api.generateShotImage({
+            projectId,
+            shotId: item.shotId!,
+            frameType: item.frameType!,
+            count: batchCount.value,
+            taskId
+          })
+        } else {
+          await window.api.createGenerationTask({
+            projectId,
+            shotId: item.shotId,
+            type: 'video',
+            purpose: 'video',
+            inputParams: JSON.stringify({ count: batchCount.value })
+          })
+        }
+      })
       if (success) {
         createdCount++
       }
@@ -909,7 +969,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     ElMessage.success(`已成功生成 ${createdCount} 个分镜图片`)
     await loadEpisodesData()
   } else {
-    ElMessage.info(`已创建 ${tasks.length > 0 ? 0 : 0} 个生成任务`)
+    ElMessage.info(`已创建 ${taskItems.length > 0 ? 0 : 0} 个生成任务`)
   }
   batchDialogVisible.value = false
   batchProgress.value[type] = { current: 0, total: 0 }
@@ -1459,12 +1519,73 @@ async function loadGenerationRecords(): Promise<void> {
   }
 }
 
+// 播报条轮询
+async function pollBroadcast(): Promise<void> {
+  try {
+    const records = (await window.api.getGenerationTasks(projectId)) as any[]
+    const active = records.filter((r: any) => ['pending', 'running'].includes(r.status))
+    if (active.length === 0 && broadcastItems.value.length > 0) {
+      stopBroadcastPolling()
+      broadcastAllDone.value = true
+      broadcastAllDoneTimer.value = window.setTimeout(() => {
+        broadcastAllDone.value = false
+      }, 3000)
+      broadcastItems.value = []
+      return
+    }
+    const grouped: Record<string, { current: number; total: number }> = {}
+    for (const r of active) {
+      const label = purposeLabel(r.purpose)
+      if (!grouped[label]) grouped[label] = { current: 0, total: 0 }
+      grouped[label].total++
+      if (r.status === 'running') grouped[label].current++
+    }
+    broadcastItems.value = Object.entries(grouped).map(([label, data]) => ({ label, ...data }))
+  } catch (err) {
+    console.error('播报条轮询失败:', err)
+  }
+}
+
+function startBroadcastPolling(): void {
+  if (broadcastTimer.value) clearInterval(broadcastTimer.value)
+  broadcastAllDone.value = false
+  if (broadcastAllDoneTimer.value) {
+    clearTimeout(broadcastAllDoneTimer.value)
+    broadcastAllDoneTimer.value = null
+  }
+  void pollBroadcast()
+  broadcastTimer.value = window.setInterval(() => {
+    void pollBroadcast()
+  }, 2000)
+}
+
+function stopBroadcastPolling(): void {
+  if (broadcastTimer.value) {
+    clearInterval(broadcastTimer.value)
+    broadcastTimer.value = null
+  }
+}
+
+// 全部停止
+async function handleCancelBatch(): Promise<void> {
+  try {
+    await window.api.cancelGenerationTasks(projectId)
+    batchCancelled.value = true
+    ElMessage.info('已取消剩余任务')
+    await loadGenerationRecords()
+  } catch (err) {
+    ElMessage.error('取消失败')
+    console.error(err)
+  }
+}
+
 function statusLabel(status: string): any {
   const map: Record<string, string> = {
     pending: '排队中',
     running: '生成中',
     completed: '已完成',
-    failed: '失败'
+    failed: '失败',
+    cancelled: '已取消'
   }
   return map[status] || status
 }
@@ -1981,6 +2102,8 @@ onMounted(() => {
 onUnmounted(() => {
   if (removeAIProgress) removeAIProgress()
   window.removeEventListener('keydown', handleFullscreenKeydown)
+  stopBroadcastPolling()
+  if (broadcastAllDoneTimer.value) clearTimeout(broadcastAllDoneTimer.value)
 })
 </script>
 
@@ -2248,6 +2371,28 @@ onUnmounted(() => {
               >
                 画布
               </el-button>
+            </div>
+
+            <!-- 播报条 -->
+            <div
+              v-if="broadcastItems.length > 0 || broadcastAllDone"
+              class="broadcast-bar"
+              @click="openGenRecord"
+            >
+              <template v-if="broadcastAllDone">
+                <span class="broadcast-all-done">全部完成 ✓</span>
+              </template>
+              <template v-else>
+                <span
+                  v-for="(item, idx) in broadcastItems.slice(0, 3)"
+                  :key="item.label"
+                  class="broadcast-item"
+                >
+                  {{ item.label }} {{ item.current }}/{{ item.total }}
+                  <template v-if="idx < Math.min(broadcastItems.length, 3) - 1"> · </template>
+                </span>
+                <span v-if="broadcastItems.length > 3" class="broadcast-more">+{{ broadcastItems.length - 3 }}</span>
+              </template>
             </div>
 
             <!-- 右侧区域 -->
@@ -3327,7 +3472,7 @@ onUnmounted(() => {
       :close-on-click-modal="true"
     >
       <div class="gen-record-body">
-        <!-- Tab 切换 -->
+        <!-- Tab 切换 + 全部停止 -->
         <div class="gen-record-tabs">
           <div
             class="gen-record-tab"
@@ -3350,6 +3495,16 @@ onUnmounted(() => {
           >
             其他
           </div>
+          <div class="gen-record-tab-spacer" />
+          <el-button
+            size="small"
+            type="danger"
+            class="gen-record-stop-btn"
+            :disabled="!genRecords.some((r: any) => ['pending', 'running'].includes(r.status))"
+            @click="handleCancelBatch"
+          >
+            全部停止
+          </el-button>
         </div>
 
         <!-- 筛选栏 -->
@@ -3361,7 +3516,8 @@ onUnmounted(() => {
                 { k: 'pending', l: '排队中' },
                 { k: 'running', l: '生成中' },
                 { k: 'completed', l: '完成' },
-                { k: 'failed', l: '失败' }
+                { k: 'failed', l: '失败' },
+                { k: 'cancelled', l: '已取消' }
               ]"
               :key="s.k"
               class="gen-record-filter-btn"
@@ -3424,6 +3580,7 @@ onUnmounted(() => {
                     <template v-if="r.status === 'running'">🔄</template>
                     <template v-if="r.status === 'completed'">✅</template>
                     <template v-if="r.status === 'failed'">❌</template>
+                    <template v-if="r.status === 'cancelled'">⛔</template>
                     {{ statusLabel(r.status) }}
                   </span>
                 </td>
@@ -4283,6 +4440,41 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.broadcast-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px);
+  max-width: 320px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.broadcast-bar:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.broadcast-item {
+  white-space: nowrap;
+}
+
+.broadcast-more {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.broadcast-all-done {
+  color: #34d399;
+  font-weight: 500;
 }
 
 .view-mode-btn {
@@ -5445,6 +5637,16 @@ onUnmounted(() => {
   gap: 4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding-bottom: 8px;
+  align-items: center;
+}
+
+.gen-record-tab-spacer {
+  flex: 1;
+}
+
+.gen-record-stop-btn {
+  font-size: 12px;
+  padding: 5px 12px;
 }
 
 .gen-record-tab {
@@ -5625,6 +5827,11 @@ onUnmounted(() => {
 .gen-record-status-tag.failed {
   background: rgba(239, 68, 68, 0.12);
   color: #f87171;
+}
+
+.gen-record-status-tag.cancelled {
+  background: rgba(156, 163, 175, 0.12);
+  color: #9ca3af;
 }
 
 .action-placeholder {

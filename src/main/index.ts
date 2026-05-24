@@ -26,6 +26,8 @@ import {
   addShotAssociation,
   createGenerationTask,
   getGenerationTasks,
+  batchCreateGenerationTasks,
+  cancelGenerationTasks,
   copyImageToProject,
   UpdateProjectInput,
   UpdateShotInput
@@ -312,6 +314,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('generationTask:list', async (_, projectId: string, filters?: { status?: string; purpose?: string; since?: number }) => {
     return getGenerationTasks(projectId, filters)
+  })
+
+  ipcMain.handle('generationTask:batchCreate', async (_, input) => {
+    return batchCreateGenerationTasks(input)
+  })
+
+  ipcMain.handle('generationTask:cancel', async (_, projectId: string) => {
+    return cancelGenerationTasks(projectId)
   })
 
   ipcMain.handle('dialog:selectImage', async (_, projectPath: string) => {
