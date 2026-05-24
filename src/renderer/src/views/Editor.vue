@@ -151,7 +151,8 @@ const batchMode = ref<'asset' | 'shot'>('shot')
 const batchCount = ref(1)
 const batchMissingCount = ref(0)
 const batchTotalAssets = ref(0)
-const batchProgress = ref({ current: 0, total: 0 })
+const batchProgress = ref<Record<string, { current: number; total: number }>>({})
+const currentBatchProgress = computed(() => batchProgress.value[batchType.value] || { current: 0, total: 0 })
 
 // 导出功能
 const exportAssetMode = ref(false)
@@ -738,6 +739,7 @@ function openBatchDialog(type: string, mode: 'asset' | 'shot' = 'shot'): void {
   batchType.value = type
   batchMode.value = mode
   batchCount.value = 1
+  batchProgress.value[type] = { current: 0, total: 0 }
   const { total, missing } = scanBatchTasks(type, mode)
   batchTotalAssets.value = total
   batchMissingCount.value = missing
@@ -850,7 +852,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     }
   }
 
-  batchProgress.value = { current: 0, total: tasks.length }
+  batchProgress.value[type] = { current: 0, total: tasks.length }
 
   // 辅助函数：带429重试
   async function tryGenerate(generateFn: () => Promise<unknown>): Promise<boolean> {
@@ -885,7 +887,8 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       if (success) {
         createdCount++
       }
-      batchProgress.value = { current: Math.min(batchProgress.value.current + 1, total), total }
+      const prog = batchProgress.value[type] || { current: 0, total }
+      batchProgress.value[type] = { current: Math.min(prog.current + 1, total), total }
       // 间隔 3 秒，避免 API 限流，同时让 UI 有机会刷新
       await new Promise((r) => setTimeout(r, 3000))
       await new Promise((r) => requestAnimationFrame(r))
@@ -909,7 +912,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     ElMessage.info(`已创建 ${tasks.length > 0 ? 0 : 0} 个生成任务`)
   }
   batchDialogVisible.value = false
-  batchProgress.value = { current: 0, total: 0 }
+  batchProgress.value[type] = { current: 0, total: 0 }
 }
 
 // ===== 右侧面板 =====
@@ -3777,13 +3780,13 @@ onUnmounted(() => {
           </el-button>
         </div>
 
-        <div v-if="batchProgress.total > 0" class="batch-progress">
+        <div v-if="currentBatchProgress.total > 0" class="batch-progress">
           <el-progress
-            :percentage="Math.round((batchProgress.current / batchProgress.total) * 100)"
+            :percentage="Math.round((currentBatchProgress.current / currentBatchProgress.total) * 100)"
             :stroke-width="8"
             class="batch-progress-bar"
           />
-          <span class="batch-progress-text">{{ batchProgress.current }} / {{ batchProgress.total }}</span>
+          <span class="batch-progress-text">{{ currentBatchProgress.current }} / {{ currentBatchProgress.total }}</span>
         </div>
 
         <div class="batch-hint">批量执行任务前，请先调试效果至符合预期后再执行</div>
