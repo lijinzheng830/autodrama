@@ -4224,16 +4224,36 @@ onUnmounted(() => {
 /* 中间内容区 */
 .editor-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
 
+/* 全局滚动条虚化 */
+.editor-content::-webkit-scrollbar {
+  width: 4px;
+}
+.editor-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.editor-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+.editor-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.editor-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
 .content-panel {
   padding: 24px 32px;
-  overflow-y: auto;
   max-width: 960px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .panel-title {
