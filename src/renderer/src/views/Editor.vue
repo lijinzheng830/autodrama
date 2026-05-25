@@ -233,8 +233,7 @@ const navItems = computed(() => {
   const shots = projectData.value?.shots?.length || 0
   return [
     { key: 'overview', label: '项目总览' },
-    { key: 'episodes', label: `剧集结构 ${chapters}集·${shots}镜` },
-    { key: 'canvas', label: '画布' }
+    { key: 'episodes', label: `剧集结构 ${chapters}集·${shots}镜` }
   ]
 })
 
