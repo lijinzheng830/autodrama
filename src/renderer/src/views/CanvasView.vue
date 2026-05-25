@@ -8,27 +8,79 @@ import '@vue-flow/core/dist/theme-default.css'
 const props = defineProps<{ projectData: any; projectId: string }>()
 const emit = defineEmits<{ (e: 'back-to-editor'): void }>()
 
-// ===== Custom Nodes (simple display) =====
-const createNode = (header: string, color: string, bgColor: string) => defineComponent({
+// ===== Custom Nodes with action buttons =====
+const genMsg = ref('')
+const genLoading = ref(false)
+
+const AssetNode = defineComponent({
   props: ['data'],
   setup(p: any) {
-    return () => h('div', {
-      class: 'nm-node',
-      style: { borderColor: color, background: bgColor }
-    }, [
-      h('div', { class: 'nm-header', style: { color } }, p.data.label || header),
+    const doGen = async (e: Event) => {
+      e.stopPropagation()
+      if (genLoading.value) return
+      genLoading.value = true; genMsg.value = '生成中...'
+      try {
+        const win = (window as any)
+        if (!p.data.assetId || !p.data.assetType) { genMsg.value = '缺少资产信息'; return }
+        await win.api?.generateImage({ projectId: p.data.projectId, type: p.data.assetType, assetId: p.data.assetId, description: p.data.assetDesc || p.data.label || '', count: 1 })
+        genMsg.value = '生成完成!'
+        p.data.status = 'done'
+        p.data.completed = true
+      } catch (err: any) { genMsg.value = '失败: ' + (err?.message || '')
+      } finally { genLoading.value = false; setTimeout(() => { genMsg.value = '' }, 3000) }
+    }
+    return () => h('div', { class: `nm-node asset-node${p.data.status==='done'?' completed':''}`, style: { borderColor: '#3b82f6', background: 'rgba(59,130,246,0.08)' } }, [
+      h('div', { class: 'nm-header', style: { color: '#60a5fa' } }, p.data.label),
       p.data.desc ? h('div', { class: 'nm-desc' }, p.data.desc) : null,
-      p.data.status ? h('div', { class: 'nm-status', style: { color: p.data.status === 'done' ? '#22c55e' : '#6b7280' } }, p.data.status === 'done' ? '✓' : '○') : null
+      p.data.status === 'done'
+        ? h('div', { class: 'nm-status done' }, '✓')
+        : h('button', { class: 'nm-gen-btn', style: 'border-color:#3b82f6;color:#60a5fa', onClick: doGen }, '⚡ 生图')
+    ])
+  }
+})
+
+const VideoNode = defineComponent({
+  props: ['data'],
+  setup(p: any) {
+    const doGen = async (e: Event) => {
+      e.stopPropagation()
+      if (genLoading.value) return
+      genLoading.value = true; genMsg.value = '提交视频任务...'
+      try {
+        const win = (window as any)
+        if (!p.data.shotId) { genMsg.value = '缺少分镜ID'; return }
+        await win.api?.generateVideo({ projectId: p.data.projectId, shotId: p.data.shotId })
+        genMsg.value = '视频任务已提交'
+      } catch (err: any) { genMsg.value = '失败: ' + (err?.message || '')
+      } finally { genLoading.value = false; setTimeout(() => { genMsg.value = '' }, 3000) }
+    }
+    return () => h('div', { class: `nm-node video-node${p.data.status==='done'?' completed':''}`, style: { borderColor: '#ef4444', background: 'rgba(239,68,68,0.08)' } }, [
+      h('div', { class: 'nm-header', style: { color: '#fca5a5' } }, p.data.label),
+      p.data.desc ? h('div', { class: 'nm-desc' }, p.data.desc) : null,
+      p.data.status === 'done'
+        ? h('div', { class: 'nm-status done' }, '✓')
+        : h('button', { class: 'nm-gen-btn', style: 'border-color:#ef4444;color:#fca5a5', onClick: doGen }, '⚡ 生视频')
+    ])
+  }
+})
+
+const SimpleNode = (color: string, bgColor: string, labelColor: string) => defineComponent({
+  props: ['data'],
+  setup(p: any) {
+    return () => h('div', { class: 'nm-node', style: { borderColor: color, background: bgColor } }, [
+      h('div', { class: 'nm-header', style: { color: labelColor } }, p.data.label),
+      p.data.desc ? h('div', { class: 'nm-desc' }, p.data.desc) : null,
+      p.data.status === 'done' ? h('div', { class: 'nm-status done' }, '✓') : null
     ])
   }
 })
 
 const nodeTypes = {
-  'shot': createNode('分镜', '#a78bfa', 'rgba(167,139,250,0.08)'),
-  'asset': createNode('资产', '#3b82f6', 'rgba(59,130,246,0.08)'),
-  'frame': createNode('帧生图', '#f59e0b', 'rgba(245,158,11,0.08)'),
-  'video': createNode('视频', '#ef4444', 'rgba(239,68,68,0.08)'),
-  'note': createNode('备注', '#6b7280', 'rgba(107,114,128,0.08)')
+  'shot': SimpleNode('#a78bfa', 'rgba(167,139,250,0.08)', '#c4b5fd'),
+  'asset': AssetNode,
+  'frame': SimpleNode('#f59e0b', 'rgba(245,158,11,0.08)', '#fcd34d'),
+  'video': VideoNode,
+  'note': SimpleNode('#6b7280', 'rgba(107,114,128,0.08)', '#9ca3af')
 }
 
 // ===== Canvas state =====
@@ -162,19 +214,19 @@ function addShotNode(shot: any) {
   const chars = shot.characters || []
   for (const c of chars) {
     const nid = nextId()
-    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `角色: ${c.name}`, desc: '资产', status: c.reference_image ? 'done' : '' } })
+    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `角色: ${c.name}`, desc: c.description?.substring(0,25)||'生图', status: c.reference_image ? 'done' : '', projectId: props.projectId, assetId: c.id, assetType: 'character', assetDesc: c.description || c.name } })
     edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(59,130,246,0.3)', strokeWidth: 1 }, animated: false })
     yOff += 70
   }
   for (const s of shot.scenes || []) {
     const nid = nextId()
-    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `场景: ${s.name}`, desc: '资产', status: s.reference_image ? 'done' : '' } })
+    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `场景: ${s.name}`, desc: s.description?.substring(0,25)||'生图', status: s.reference_image ? 'done' : '', projectId: props.projectId, assetId: s.id, assetType: 'scene', assetDesc: s.description || s.name } })
     edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(16,185,129,0.3)', strokeWidth: 1 }, animated: false })
     yOff += 70
   }
   for (const p of shot.props || []) {
     const nid = nextId()
-    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `道具: ${p.name}`, desc: '资产', status: p.reference_image ? 'done' : '' } })
+    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `道具: ${p.name}`, desc: p.description?.substring(0,25)||'生图', status: p.reference_image ? 'done' : '', projectId: props.projectId, assetId: p.id, assetType: 'prop', assetDesc: p.description || p.name } })
     edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(139,92,246,0.3)', strokeWidth: 1 }, animated: false })
     yOff += 70
   }
@@ -205,7 +257,7 @@ function addShotNode(shot: any) {
   // --- Column 4: Video ---
   if (shot.video_prompt) {
     const nid = nextId()
-    nodesToAdd.push({ id: nid, type: 'video', position: { x: col4X, y: baseY }, data: { label: '视频生成', desc: (shot.video_prompt||'').substring(0,25), status: '' } })
+    nodesToAdd.push({ id: nid, type: 'video', position: { x: col4X, y: baseY }, data: { label: '视频生成', desc: (shot.video_prompt||'').substring(0,25), status: shot.video_path ? 'done' : '', projectId: props.projectId, shotId: shot.id } })
     edgesToAdd.push({ id: `e-vid-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(239,68,68,0.3)', strokeWidth: 1, animated: false } })
     const rid = nextId()
     nodesToAdd.push({ id: rid, type: 'note', position: { x: col4X + 200, y: baseY }, data: { label: '视频', desc: '', status: shot.video_path ? 'done' : '' } })
@@ -300,6 +352,7 @@ const quickAddTypes = [
       <!-- Toolbar -->
       <div class="canvas-toolbar">
         <el-button size="small" @click="emit('back-to-editor')">返回编辑器</el-button>
+        <span v-if="genMsg" class="canvas-gen-msg">{{ genMsg }}</span>
         <span class="canvas-legend">
           <span class="leg" style="border-left-color:#a78bfa">分镜</span>
           <span class="leg" style="border-left-color:#3b82f6">资产</span>
@@ -331,6 +384,11 @@ const quickAddTypes = [
 .nm-header { font-weight: 600; font-size: 12px; }
 .nm-desc { font-size: 10px; color: #9ca3af; max-height: 24px; overflow: hidden; }
 .nm-status { font-size: 11px; margin-top: 2px; }
+.nm-status.done { color: #22c55e; font-weight: 700; }
+.nm-gen-btn { margin-top: 4px; padding: 2px 8px; font-size: 10px; background: rgba(0,0,0,0.2); border: 1px solid; border-radius: 4px; cursor: pointer; width: 100%; }
+.nm-gen-btn:hover { opacity: 0.8; }
+.asset-node.completed { border-color: #22c55e !important; }
+.video-node.completed { border-color: #22c55e !important; }
 .canvas-ctxmenu { position: fixed; z-index: 10000; background: #1f1f28; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 4px; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
 .ctxmenu-item { padding: 8px 12px; font-size: 12px; color: #e5e7eb; cursor: pointer; border-radius: 4px; }
 .ctxmenu-item:hover { background: rgba(167,139,250,0.15); color: #c4b5fd; }
