@@ -561,14 +561,32 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const finalStylePrompt = project.style_prompt || ''
   const finalEraPrompt = project.era || ''
 
-  // 3. 拼接最终 prompt
-  const finalPrompt = [shotPrompt, finalStylePrompt, finalEraPrompt]
+  // 3. 读取模型配置（模板和参考图）
+  const purposeKey = frameType === 'first' ? 'first_frame' : 'last_frame'
+  const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
+  const purposeConfig = projectConfig[purposeKey] || {}
+  const templateId = input.templateId || purposeConfig.templateId || ''
+  const refImage = input.refImage || purposeConfig.refImage || ''
+
+  // 4. 加载模板并拼接 prompt
+  let templateContent = ''
+  if (templateId) {
+    try {
+      const template = db.prepare('SELECT content FROM prompt_templates WHERE id = ?').get(templateId) as { content: string } | undefined
+      if (template) templateContent = template.content
+    } catch { /* ignore */ }
+  }
+  let finalPrompt = templateContent
+    ? templateContent.replace(/\{\{描述\}\}/g, shotPrompt).replace(/\{\{分镜描述\}\}/g, shotPrompt)
+    : shotPrompt
+  if (templateContent && finalPrompt === templateContent) {
+    finalPrompt = templateContent + '\n' + shotPrompt
+  }
+  finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt]
     .filter((s) => s.trim())
     .join(', ')
 
-  // 4. 解析模型配置（四级降级）
-  const purposeKey = frameType === 'first' ? 'first_frame' : 'last_frame'
-  const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
+  // 5. 解析模型配置（四级降级）
 
   let model = inputModel
   let channel = inputChannel
@@ -712,7 +730,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
 
   try {
     // 8. 调用生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel)
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refImage)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', 'frames')
@@ -735,7 +753,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       imagePaths.push(filePath)
     }
 
-    // 10. 写入 shot_images 表：新图自动选中，旧图取消选中
+    // 10. 写入 shot_images 表
     db.prepare(
       `UPDATE shot_images SET is_selected = 0 WHERE shot_id = ? AND type = ?`
     ).run(shotId, frameType)
@@ -746,7 +764,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       ).run(randomUUID(), shotId, imgPath, frameType)
     }
 
-    // 11. 更新 shots 表的 image_path
+    // 11. 更新 shots 表
     const updateColumn = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
     db.prepare(
       `UPDATE shots SET ${updateColumn} = ? WHERE id = ?`

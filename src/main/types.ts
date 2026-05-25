@@ -102,6 +102,8 @@ export interface GenerateShotImageInput {
   channel?: string
   count?: number
   taskId?: string
+  templateId?: string
+  refImage?: string
 }
 
 export interface AutoProcessOptions {

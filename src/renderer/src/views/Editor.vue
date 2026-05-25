@@ -1252,31 +1252,40 @@ async function handleDeleteFullscreenImage(): Promise<void> {
   if (!src) return
   let filePath = src
   if (filePath.startsWith('file://')) {
-    filePath = filePath.replace('file://', '')
+    filePath = filePath.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '')
+    if (filePath.match(/^[A-Za-z]:/)) {
+      filePath = filePath.replace(/\//g, '\\')
+    }
   }
-  // Find the image in assetImages and delete it
   const img = assetImages.value.find((ai: any) => {
-    const p = ai.image_path || ''
-    return p === filePath || p === filePath.replace(/\//g, '\\')
+    const p = (ai.image_path || '').replace(/\//g, '\\')
+    return p === filePath
   })
   if (!img) {
     ElMessage.warning('未找到对应记录')
     return
   }
+  // 先关闭大图，再弹确认框（避免弹窗被大图遮挡）
+  closeFullscreenImage()
+  await nextTick()
   try {
     await ElMessageBox.confirm('确定要删除这张图片吗？此操作不可恢复。', '确认删除', { type: 'warning' })
   } catch {
+    // 用户取消，重新打开大图
+    openFullscreenImage(src, fullscreenImageList.value.length > 0 ? fullscreenImageList.value : undefined)
     return
   }
-  // Determine asset type and ID for the current fullscreen image
+  // Remove from fullscreen list
+  const idx = fullscreenImageList.value.indexOf(src)
+  if (idx >= 0) {
+    fullscreenImageList.value.splice(idx, 1)
+  }
+  // Determine asset type and ID
   let assetType: 'character' | 'scene' | 'prop' = 'character'
   let assetId = ''
   if (detailType.value === 'character' || detailType.value === 'scene' || detailType.value === 'prop') {
     assetType = detailType.value as 'character' | 'scene' | 'prop'
     assetId = detailData.value?.id || ''
-  } else if (detailType.value === 'firstFrame' || detailType.value === 'lastFrame') {
-    // For shot frames, just remove from local state
-    assetId = ''
   }
   if (assetId && img.id) {
     try {
@@ -1284,27 +1293,6 @@ async function handleDeleteFullscreenImage(): Promise<void> {
     } catch (_err) {
       console.error('Delete image failed:', _err)
     }
-  }
-  // Remove from fullscreen list
-  const idx = fullscreenImageList.value.indexOf(src)
-  if (idx >= 0) {
-    fullscreenImageList.value.splice(idx, 1)
-  }
-  // If no more images, close; otherwise navigate
-  if (fullscreenImageList.value.length === 0) {
-    closeFullscreenImage()
-  } else if (fullscreenImageIndex.value >= fullscreenImageList.value.length) {
-    fullscreenImageIndex.value = fullscreenImageList.value.length - 1
-    fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value]
-  } else {
-    fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value] || fullscreenImageList.value[0]
-  }
-  // Delete from assetImages
-  const imgIdx = assetImages.value.findIndex((ai: any) => ai === img)
-  if (imgIdx >= 0) assetImages.value.splice(imgIdx, 1)
-  // If detail panel is showing, refresh
-  if (detailData.value?.reference_image === filePath) {
-    detailData.value = { ...detailData.value, reference_image: '' }
   }
   // Reload images
   if (detailType.value && detailData.value?.id) {
@@ -1314,6 +1302,7 @@ async function handleDeleteFullscreenImage(): Promise<void> {
       await loadShotImages(detailData.value.id, detailType.value === 'firstFrame' ? 'first' : 'last')
     }
   }
+  await loadEpisodesData()
   ElMessage.success('图片已删除')
 }
 
@@ -1566,6 +1555,15 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     const frameType = type === 'firstFrame' ? 'first' : 'last'
     const purposeKey = type === 'firstFrame' ? 'first_frame' : 'last_frame'
 
+    // 读取项目模型配置
+    let shotModelConfig: any = {}
+    try {
+      const proj = await window.api.getProject(projectId)
+      const raw = (proj as Record<string, any>)?.model_config_json
+      if (raw) shotModelConfig = JSON.parse(raw)
+    } catch { /* ignore */ }
+    const purposeConfig = shotModelConfig[purposeKey] || {}
+
     // 只读会话级覆盖（齿轮弹窗），有覆盖才传 model/channel，否则让后端降级链全权处理
     const override = sessionOverrides.value[purposeKey]
     const model = override?.model || undefined
@@ -1579,7 +1577,9 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
         frameType,
         count: genCount.value,
         model,
-        channel
+        channel,
+        templateId: purposeConfig.templateId || '',
+        refImage: purposeConfig.refImage || ''
       })
       ElMessage.success('图片生成成功')
       await loadShotImages(assetId, frameType)
@@ -3253,25 +3253,22 @@ onUnmounted(() => {
                       <el-popover
                         v-model:visible="gearVisible"
                         placement="bottom-start"
-                        :width="280"
+                        :width="200"
                         trigger="click"
                         @show="initGearDefaults"
                       >
                         <template #reference>
-                          <el-button text :icon="Tools" />
+                          <el-button text :icon="Tools" size="small" />
                         </template>
                         <div class="gear-panel">
-                          <div class="gear-effective">
-                            <div class="gear-effective-label">当前生效</div>
-                            <div class="gear-effective-value">{{ gearEffectiveDisplay }}</div>
-                          </div>
-                          <div class="gear-row">
-                            <label>模型</label>
+                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
+                          <div class="gear-inline-row">
                             <el-select
                               :model-value="gearModel"
                               size="small"
-                              style="width: 180px"
+                              style="width: 135px"
                               :teleported="false"
+                              placeholder="模型"
                               @change="handleGearModelChange"
                             >
                               <el-option label="未设置" value="" />
@@ -3282,49 +3279,14 @@ onUnmounted(() => {
                                 :value="m.value"
                               />
                             </el-select>
-                          </div>
-                          <div class="gear-row">
-                            <label>渠道</label>
-                            <el-select
-                              :model-value="gearChannel"
-                              size="small"
-                              style="width: 180px"
-                              :teleported="false"
-                              @change="handleGearChannelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="p in filteredGearChannels"
-                                :key="p.value"
-                                :label="p.label"
-                                :value="p.value"
-                              />
-                            </el-select>
-                          </div>
-                          <div class="gear-row">
-                            <label>张数</label>
                             <div class="gear-count-row">
-                              <el-button
-                                text
-                                :icon="Minus"
-                                size="small"
-                                @click="gearCount = Math.max(1, gearCount - 1)"
-                              />
-                              <el-input
-                                v-model.number="gearCount"
-                                size="small"
-                                class="gear-count-input"
-                              />
-                              <el-button
-                                text
-                                :icon="Plus"
-                                size="small"
-                                @click="gearCount = Math.min(10, gearCount + 1)"
-                              />
+                              <el-button text :icon="Minus" size="small" @click="gearCount = Math.max(1, gearCount - 1)" style="padding:2px" />
+                              <span class="gear-count-num">{{ gearCount }}</span>
+                              <el-button text :icon="Plus" size="small" @click="gearCount = Math.min(10, gearCount + 1)" style="padding:2px" />
                             </div>
                           </div>
                           <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">恢复默认</el-button>
+                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
                             <el-button
                               type="primary"
                               size="small"
@@ -3406,25 +3368,22 @@ onUnmounted(() => {
                       <el-popover
                         v-model:visible="gearVisible"
                         placement="bottom-start"
-                        :width="280"
+                        :width="200"
                         trigger="click"
                         @show="initGearDefaults"
                       >
                         <template #reference>
-                          <el-button text :icon="Tools" />
+                          <el-button text :icon="Tools" size="small" />
                         </template>
                         <div class="gear-panel">
-                          <div class="gear-effective">
-                            <div class="gear-effective-label">当前生效</div>
-                            <div class="gear-effective-value">{{ gearEffectiveDisplay }}</div>
-                          </div>
-                          <div class="gear-row">
-                            <label>模型</label>
+                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
+                          <div class="gear-inline-row">
                             <el-select
                               :model-value="gearModel"
                               size="small"
-                              style="width: 180px"
+                              style="width: 135px"
                               :teleported="false"
+                              placeholder="模型"
                               @change="handleGearModelChange"
                             >
                               <el-option label="未设置" value="" />
@@ -3435,49 +3394,14 @@ onUnmounted(() => {
                                 :value="m.value"
                               />
                             </el-select>
-                          </div>
-                          <div class="gear-row">
-                            <label>渠道</label>
-                            <el-select
-                              :model-value="gearChannel"
-                              size="small"
-                              style="width: 180px"
-                              :teleported="false"
-                              @change="handleGearChannelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="p in filteredGearChannels"
-                                :key="p.value"
-                                :label="p.label"
-                                :value="p.value"
-                              />
-                            </el-select>
-                          </div>
-                          <div class="gear-row">
-                            <label>张数</label>
                             <div class="gear-count-row">
-                              <el-button
-                                text
-                                :icon="Minus"
-                                size="small"
-                                @click="gearCount = Math.max(1, gearCount - 1)"
-                              />
-                              <el-input
-                                v-model.number="gearCount"
-                                size="small"
-                                class="gear-count-input"
-                              />
-                              <el-button
-                                text
-                                :icon="Plus"
-                                size="small"
-                                @click="gearCount = Math.min(10, gearCount + 1)"
-                              />
+                              <el-button text :icon="Minus" size="small" @click="gearCount = Math.max(1, gearCount - 1)" style="padding:2px" />
+                              <span class="gear-count-num">{{ gearCount }}</span>
+                              <el-button text :icon="Plus" size="small" @click="gearCount = Math.min(10, gearCount + 1)" style="padding:2px" />
                             </div>
                           </div>
                           <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">恢复默认</el-button>
+                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
                             <el-button
                               type="primary"
                               size="small"
@@ -3552,25 +3476,22 @@ onUnmounted(() => {
                       <el-popover
                         v-model:visible="gearVisible"
                         placement="bottom-start"
-                        :width="280"
+                        :width="200"
                         trigger="click"
                         @show="initGearDefaults"
                       >
                         <template #reference>
-                          <el-button text :icon="Tools" />
+                          <el-button text :icon="Tools" size="small" />
                         </template>
                         <div class="gear-panel">
-                          <div class="gear-effective">
-                            <div class="gear-effective-label">当前生效</div>
-                            <div class="gear-effective-value">{{ gearEffectiveDisplay }}</div>
-                          </div>
-                          <div class="gear-row">
-                            <label>模型</label>
+                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
+                          <div class="gear-inline-row">
                             <el-select
                               :model-value="gearModel"
                               size="small"
-                              style="width: 180px"
+                              style="width: 135px"
                               :teleported="false"
+                              placeholder="模型"
                               @change="handleGearModelChange"
                             >
                               <el-option label="未设置" value="" />
@@ -3581,49 +3502,14 @@ onUnmounted(() => {
                                 :value="m.value"
                               />
                             </el-select>
-                          </div>
-                          <div class="gear-row">
-                            <label>渠道</label>
-                            <el-select
-                              :model-value="gearChannel"
-                              size="small"
-                              style="width: 180px"
-                              :teleported="false"
-                              @change="handleGearChannelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="p in filteredGearChannels"
-                                :key="p.value"
-                                :label="p.label"
-                                :value="p.value"
-                              />
-                            </el-select>
-                          </div>
-                          <div class="gear-row">
-                            <label>张数</label>
                             <div class="gear-count-row">
-                              <el-button
-                                text
-                                :icon="Minus"
-                                size="small"
-                                @click="gearCount = Math.max(1, gearCount - 1)"
-                              />
-                              <el-input
-                                v-model.number="gearCount"
-                                size="small"
-                                class="gear-count-input"
-                              />
-                              <el-button
-                                text
-                                :icon="Plus"
-                                size="small"
-                                @click="gearCount = Math.min(10, gearCount + 1)"
-                              />
+                              <el-button text :icon="Minus" size="small" @click="gearCount = Math.max(1, gearCount - 1)" style="padding:2px" />
+                              <span class="gear-count-num">{{ gearCount }}</span>
+                              <el-button text :icon="Plus" size="small" @click="gearCount = Math.min(10, gearCount + 1)" style="padding:2px" />
                             </div>
                           </div>
                           <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">恢复默认</el-button>
+                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
                             <el-button
                               type="primary"
                               size="small"
@@ -5873,62 +5759,46 @@ onUnmounted(() => {
 
 /* 齿轮面板 */
 .gear-panel {
-  padding: 4px;
+  padding: 2px 4px;
 }
 
-.gear-row {
+.gear-inline-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.gear-row label {
-  font-size: 12px;
-  color: #9ca3af;
-  width: 36px;
-  flex-shrink: 0;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .gear-count-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex: 1;
+  gap: 0;
 }
 
-.gear-count-row .gear-count-input {
-  width: 50px;
-}
-
-.gear-count-row .gear-count-input :deep(.el-input__inner) {
+.gear-count-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  font-size: 12px;
+  color: #d1d5db;
   text-align: center;
-  padding: 0 4px;
 }
 
 .gear-effective {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.gear-effective-label {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-bottom: 2px;
-}
-
-.gear-effective-value {
-  font-size: 12px;
+  font-size: 10px;
   color: #d1d5db;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .gear-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 4px;
 }
 
 /* 弹窗 */
