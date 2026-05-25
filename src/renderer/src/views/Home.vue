@@ -408,8 +408,8 @@ onMounted(() => {
 
 .form-label {
   font-size: 14px;
-  font-weight: 600;
-  color: #e5e7eb;
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .required {
@@ -438,42 +438,64 @@ onMounted(() => {
 
 <style>
 .dark-dialog .el-dialog {
-  background: #1a1a20;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 2px solid #000000;
   border-radius: 12px;
 }
 
 .dark-dialog .el-dialog__title {
-  color: #f3f4f6;
-  font-weight: 600;
+  color: #000000;
+  font-weight: 700;
+  font-size: 18px;
 }
 
 .dark-dialog .el-dialog__header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #000000;
   margin-right: 0;
   padding: 20px 24px;
 }
 
 .dark-dialog .el-dialog__body {
   padding: 24px;
+  color: #000000;
+  font-weight: 600;
+}
+
+.dark-dialog .el-dialog__body .form-label {
+  font-weight: 700;
+  color: #000000;
+  font-size: 14px;
 }
 
 .dark-dialog .el-dialog__footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid #000000;
   padding: 16px 24px;
 }
 
 .dark-dialog .el-input__wrapper {
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px #000000 inset;
 }
 
 .dark-dialog .el-input__inner {
-  color: #e5e7eb;
+  color: #000000;
+  font-weight: 500;
 }
 
 .dark-dialog .el-input__inner::placeholder {
-  color: #9ca3af;
+  color: #888888;
+  font-weight: 400;
+}
+
+.dark-dialog .el-select .el-input__inner {
+  color: #000000;
+  font-weight: 500;
+}
+
+.dark-dialog .form-hint {
+  font-size: 12px;
+  color: #555555;
+  font-weight: 500;
 }
 
 .dark-dialog .el-select .el-input__wrapper {

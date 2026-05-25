@@ -3380,7 +3380,9 @@ onUnmounted(() => {
                       <el-input
                         :model-value="detailData?.first_frame_prompt"
                         type="textarea"
-                        :rows="4"
+                        :rows="8"
+                        resize="vertical"
+                        style="min-height:120px"
                         @blur="
                           (e: any) =>
                             handleShotPromptChange(
@@ -5152,6 +5154,12 @@ onUnmounted(() => {
 .col-first-prompt,
 .col-last-prompt {
   width: 200px;
+}
+
+.col-first-prompt .cell-text,
+.col-last-prompt .cell-text {
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .col-op {
