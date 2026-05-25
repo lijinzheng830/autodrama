@@ -2821,6 +2821,7 @@ onUnmounted(() => {
                       >[批量生成]</el-button
                     >
                   </div>
+                  <div class="th col-video-prompt">视频提示词</div>
                   <div class="th col-op">操作</div>
                 </div>
 
@@ -3057,6 +3058,28 @@ onUnmounted(() => {
                         </div>
                         <div v-else class="media-placeholder">视频</div>
                       </div>
+                    </div>
+
+                    <!-- 视频提示词 -->
+                    <div class="td col-video-prompt">
+                      <div
+                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'video_prompt'"
+                        class="edit-cell"
+                      >
+                        <el-input
+                          v-model="editText"
+                          type="textarea"
+                          :autosize="{ minRows: 3, maxRows: 12 }"
+                          @blur="saveEdit(shot.id, 'video_prompt')"
+                          @keydown.enter.prevent="saveEdit(shot.id, 'video_prompt')"
+                          @keydown.esc.prevent="cancelEdit"
+                        />
+                      </div>
+                      <div
+                        v-else
+                        class="cell-text"
+                        @dblclick="startEdit(shot.id, 'video_prompt', shot.video_prompt || '')"
+                      >{{ shot.video_prompt || '-' }}</div>
                     </div>
 
                     <!-- 操作 -->
@@ -5168,6 +5191,15 @@ onUnmounted(() => {
 .col-last,
 .col-video {
   width: 90px;
+}
+
+.col-video-prompt {
+  width: 180px;
+}
+
+.col-video-prompt .cell-text {
+  max-height: 100px;
+  overflow-y: auto;
 }
 
 .col-first-prompt,
