@@ -977,16 +977,21 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       headers: { Authorization: `Bearer ${apiKey}` },
       timeout: 30000
     })
-    const s = statusResp.data
-    if (s.status === 'completed') {
-      videoUrl = s.video_url || s.url || (s.data?.[0]?.url) || ''
-      if (!videoUrl) {
-        // 尝试从 output 字段获取
-        videoUrl = s.output || s.result || ''
+    const s = statusResp.data?.data || statusResp.data  // 兼容 data 嵌套
+    const st = (s?.status || '').toUpperCase()
+    console.log(`[video] poll ${attempt+1}: status=${st} progress=${s?.progress||'?'}`)
+    if (st === 'COMPLETED' || st === 'SUCCESS') {
+      // 尝试多个可能的 URL 字段
+      videoUrl = s?.video_url || s?.url || s?.output || s?.result || ''
+      if (!videoUrl && s?.data) {
+        const inner = Array.isArray(s.data) ? s.data[0] : s.data
+        videoUrl = inner?.url || inner?.video_url || ''
       }
       break
     }
-    if (s.status === 'failed') throw new Error(`视频生成失败: ${s.error?.message || s.error || '未知错误'}`)
+    if (st === 'FAILED' || st === 'ERROR') {
+      throw new Error(`视频生成失败: ${s?.fail_reason || s?.error?.message || '未知错误'}`)
+    }
   }
   if (!videoUrl) throw new Error('视频生成超时（5分钟），请重试')
 
