@@ -3677,11 +3677,6 @@ onUnmounted(() => {
                                 :value="m.value"
                               />
                             </el-select>
-                            <div class="gear-count-row">
-                              <el-button text :icon="Minus" size="small" @click="genCount = Math.max(1, genCount - 1)" style="padding:2px" />
-                              <span class="gear-count-num">{{ genCount }}</span>
-                              <el-button text :icon="Plus" size="small" @click="genCount = Math.min(10, genCount + 1)" style="padding:2px" />
-                            </div>
                           </div>
                           <div class="gear-actions">
                             <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
@@ -3689,6 +3684,10 @@ onUnmounted(() => {
                           </div>
                         </div>
                       </el-popover>
+                      <span class="gen-label">生成数量</span>
+                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
+                      <el-input v-model.number="genCount" class="gen-count-input" />
+                      <el-button text :icon="Plus" @click="genCount++" />
                     </div>
                     <el-button
                       type="primary"
@@ -5714,17 +5713,20 @@ onUnmounted(() => {
 .gen-control-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .gen-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #9ca3af;
-  flex: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .gen-count-input {
-  width: 50px;
+  width: 44px;
+  flex-shrink: 0;
 }
 
 .gen-count-input :deep(.el-input__wrapper) {
