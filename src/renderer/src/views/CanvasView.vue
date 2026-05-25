@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, markRaw, h } from 'vue'
+import { ref, watch, h, defineComponent } from 'vue'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import '@vue-flow/core/dist/style.css'
@@ -15,48 +15,56 @@ const emit = defineEmits<{
   (e: 'focus-shot', shotId: string): void
 }>()
 
-// ===== Custom Nodes =====
-const AssetGenNode = markRaw({
+// ===== Custom Nodes using h() render functions =====
+const AssetGenNode = defineComponent({
   props: ['data'],
-  template: `
-    <div class="cnode cnode-asset" :class="{ completed: data.completed }">
-      <div class="cnode-header">{{ data.label }}</div>
-      <div class="cnode-prompt" v-if="data.prompt">{{ data.prompt }}</div>
-      <div class="cnode-model" v-if="data.model">{{ data.model }}</div>
-      <div class="cnode-status">{{ data.completed ? '✓ 已生成' : '○ 待生成' }}</div>
-    </div>`
+  setup(p: any) {
+    return () => h('div', {
+      class: `cnode cnode-asset${p.data.completed ? ' completed' : ''}`
+    }, [
+      h('div', { class: 'cnode-header' }, p.data.label),
+      p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
+      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成')
+    ])
+  }
 })
 
-const FrameGenNode = markRaw({
+const FrameGenNode = defineComponent({
   props: ['data'],
-  template: `
-    <div class="cnode cnode-frame" :class="{ completed: data.completed }">
-      <div class="cnode-header">{{ data.label }}</div>
-      <div class="cnode-prompt" v-if="data.prompt">{{ data.prompt }}</div>
-      <div class="cnode-model" v-if="data.model">{{ data.model }}</div>
-      <div class="cnode-status">{{ data.completed ? '✓ 已生成' : '○ 待生成' }}</div>
-    </div>`
+  setup(p: any) {
+    return () => h('div', {
+      class: `cnode cnode-frame${p.data.completed ? ' completed' : ''}`
+    }, [
+      h('div', { class: 'cnode-header' }, p.data.label),
+      p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
+      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成')
+    ])
+  }
 })
 
-const ResultNode = markRaw({
+const ResultNode = defineComponent({
   props: ['data'],
-  template: `
-    <div class="cnode cnode-result" :class="{ completed: data.completed }">
-      <div class="cnode-header">{{ data.label }}</div>
-      <div class="cnode-thumb" v-if="data.thumb">🖼</div>
-      <div class="cnode-thumb" v-else>⬚</div>
-    </div>`
+  setup(p: any) {
+    return () => h('div', {
+      class: `cnode cnode-result${p.data.completed ? ' completed' : ''}`
+    }, [
+      h('div', { class: 'cnode-header' }, p.data.label),
+      h('div', { class: 'cnode-thumb' }, p.data.completed ? '🖼' : '⬚')
+    ])
+  }
 })
 
-const VideoGenNode = markRaw({
+const VideoGenNode = defineComponent({
   props: ['data'],
-  template: `
-    <div class="cnode cnode-video" :class="{ completed: data.completed }">
-      <div class="cnode-header">{{ data.label }}</div>
-      <div class="cnode-prompt" v-if="data.prompt">{{ data.prompt }}</div>
-      <div class="cnode-model" v-if="data.model">{{ data.model }}</div>
-      <div class="cnode-status">{{ data.completed ? '✓ 已生成' : '○ 待生成' }}</div>
-    </div>`
+  setup(p: any) {
+    return () => h('div', {
+      class: `cnode cnode-video${p.data.completed ? ' completed' : ''}`
+    }, [
+      h('div', { class: 'cnode-header' }, p.data.label),
+      p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
+      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成')
+    ])
+  }
 })
 
 const nodeTypes = {
