@@ -487,6 +487,27 @@ export async function autoProcess(
   return { shotsData, extractData, assocData }
 }
 
+// 检测提示词是否有效（非占位、非过长指令）
+function isValidPrompt(prompt?: string): boolean {
+  if (!prompt || !prompt.trim()) return false
+  const p = prompt.trim()
+  if (p.includes('占位')) return false
+  if (p.length > 500) return false  // 过长的是模板指令文本
+  // 如果以markdown标题或指令开头，视为无效
+  if (/^(#{1,3}\s|##\s|你是一名|你是|核心|任务)/.test(p)) return false
+  return true
+}
+
+// 根据分镜描述自动生成首帧/尾帧提示词
+function buildAutoFramePrompt(description: string, frameType: 'first' | 'last', charNames: string[], sceneName: string): string {
+  const parts: string[] = []
+  if (sceneName) parts.push(`in ${sceneName}`)
+  if (charNames.length > 0) parts.push(`featuring ${charNames.join(', ')}`)
+  const context = parts.length > 0 ? parts.join(', ') : ''
+  const prefix = frameType === 'first' ? 'Opening shot' : 'Closing shot'
+  return `${prefix}: ${description}${context ? ', ' + context : ''}`
+}
+
 async function saveToDatabase(
   projectId: string,
   shotsData: ShotData,
@@ -629,32 +650,40 @@ async function saveToDatabase(
       const shots = chapter.shots || []
       for (const shot of shots) {
         const shotId = crypto.randomUUID()
+        // 收集此分镜关联的角色和场景名（用于自动生成提示词）
+        const shotAssoc = (assocData.associations || []).find(
+          (a: AssocItem) => a.chapter_index === ci && a.shot_index === shot.shot_index
+        )
+        const shotCharNames = (shotAssoc?.character_names || []).map((n: string) => n.trim()).filter(Boolean)
+        const shotSceneName = (shotAssoc?.scene_name || '').trim()
+        // 自动生成首帧/尾帧提示词（如果AI生成的是占位符或过长指令）
+        const autoFFPrompt = buildAutoFramePrompt(shot.description || '', 'first', shotCharNames, shotSceneName)
+        const autoLFPrompt = buildAutoFramePrompt(shot.description || '', 'last', shotCharNames, shotSceneName)
+        const ffPrompt = isValidPrompt(shot.first_frame_prompt) ? shot.first_frame_prompt : autoFFPrompt
+        const lfPrompt = isValidPrompt(shot.last_frame_prompt) ? shot.last_frame_prompt : autoLFPrompt
         insertShot.run(
           shotId,
           chapterId,
           shot.shot_index || 0,
           (shot.description || '') + (shot.dialogue ? `\n对白: ${shot.dialogue}` : ''),
-          shot.first_frame_prompt || '',
-          shot.last_frame_prompt || '',
+          ffPrompt,
+          lfPrompt,
           shot.video_prompt || ''
         )
 
-        // 关联角色、场景、道具
-        const assoc = (assocData.associations || []).find(
-          (a: AssocItem) => a.chapter_index === ci && a.shot_index === shot.shot_index
-        )
-        if (assoc) {
-          for (const charName of assoc.character_names || []) {
+        // 关联角色、场景、道具（复用上面已查找的 shotAssoc）
+        if (shotAssoc) {
+          for (const charName of shotAssoc.character_names || []) {
             const charId = charIdMap.get((charName || '').trim())
             if (charId) {
               insertShotChar.run(shotId, charId)
             }
           }
-          const sceneId = sceneIdMap.get((assoc.scene_name || '').trim())
+          const sceneId = sceneIdMap.get((shotAssoc.scene_name || '').trim())
           if (sceneId) {
             insertShotScene.run(shotId, sceneId)
           }
-          for (const propName of assoc.prop_names || []) {
+          for (const propName of shotAssoc.prop_names || []) {
             const propId = propIdMap.get((propName || '').trim())
             if (propId) {
               insertShotProp.run(crypto.randomUUID(), shotId, propId)
