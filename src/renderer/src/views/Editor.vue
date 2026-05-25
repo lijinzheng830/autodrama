@@ -838,6 +838,14 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
   let createdCount = 0
   batchCancelled.value = false
 
+  // 读取项目模型配置（获取模板和参考图）
+  let batchModelConfig: Record<string, any> = {}
+  try {
+    const proj = await window.api.getProject(projectId)
+    const raw = (proj as Record<string, any>)?.model_config_json
+    if (raw) batchModelConfig = JSON.parse(raw)
+  } catch { /* ignore */ }
+
   // 收集任务参数列表
   interface BatchTaskItem {
     kind: 'asset' | 'shot' | 'video'
@@ -958,6 +966,9 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       const taskIndex = index++
       const item = taskItems[taskIndex]
       const taskId = taskIds[taskIndex]
+      const purposeMap2: Record<string, string> = { character: 'character_image', scene: 'scene_image', prop: 'prop_image' }
+      const purposeKey = purposeMap2[item.assetType || ''] || ''
+      const purposeConfig = purposeKey ? (batchModelConfig[purposeKey] || {}) : {}
       const success = await tryGenerate(async () => {
         if (item.kind === 'asset') {
           await window.api.generateImage({
@@ -966,7 +977,9 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
             assetId: item.assetId!,
             description: item.description || '',
             count: batchCount.value,
-            taskId
+            taskId,
+            templateId: purposeConfig.templateId || '',
+            refImage: purposeConfig.refImage || ''
           })
         } else if (item.kind === 'shot') {
           await window.api.generateShotImage({
