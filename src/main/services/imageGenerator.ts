@@ -926,7 +926,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       const url = videoUrls[i]
       const fileName = `${shotId}_video_${Date.now()}_${i}.mp4`
       const filePath = join(videoDir, fileName)
-      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000 })
+      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000, headers: { Authorization: `Bearer ${apiKey}` } })
       writeFileSync(filePath, Buffer.from(resp.data))
       videoPaths.push(filePath)
     }
@@ -981,11 +981,34 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     const st = (s?.status || '').toUpperCase()
     console.log(`[video] poll ${attempt+1}: status=${st} progress=${s?.progress||'?'}`)
     if (st === 'COMPLETED' || st === 'SUCCESS') {
-      // 尝试多个可能的 URL 字段
-      videoUrl = s?.video_url || s?.url || s?.output || s?.result || ''
+      // 尝试多个可能的 URL 字段（manxueapi 返回 result_url）
+      videoUrl = s?.result_url || s?.video_url || s?.url || ''
       if (!videoUrl && s?.data) {
-        const inner = Array.isArray(s.data) ? s.data[0] : s.data
-        videoUrl = inner?.url || inner?.video_url || ''
+        const inner = s.data
+        videoUrl = inner?.result_url || inner?.url || inner?.video_url || ''
+        if (!videoUrl && inner?.output) {
+          videoUrl = typeof inner.output === 'string' ? inner.output : inner.output?.url || ''
+        }
+        if (!videoUrl && inner?.result) {
+          videoUrl = typeof inner.result === 'string' ? inner.result : inner.result?.url || ''
+        }
+        if (!videoUrl && inner?.video) {
+          videoUrl = typeof inner.video === 'string' ? inner.video : inner.video?.url || ''
+        }
+      }
+      if (!videoUrl) {
+        // 深度搜索：遍历 data 对象查找 URL
+        const findURL = (obj: any): string => {
+          if (typeof obj === 'string' && (obj.startsWith('http://') || obj.startsWith('https://'))) return obj
+          if (typeof obj === 'object' && obj) {
+            for (const v of Object.values(obj)) {
+              const found = findURL(v)
+              if (found) return found
+            }
+          }
+          return ''
+        }
+        videoUrl = findURL(s)
       }
       break
     }
