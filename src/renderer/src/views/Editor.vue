@@ -25,6 +25,7 @@ import {
   Download
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
+import CanvasView from './CanvasView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -232,7 +233,8 @@ const navItems = computed(() => {
   const shots = projectData.value?.shots?.length || 0
   return [
     { key: 'overview', label: '项目总览' },
-    { key: 'episodes', label: `剧集结构 ${chapters}集·${shots}镜` }
+    { key: 'episodes', label: `剧集结构 ${chapters}集·${shots}镜` },
+    { key: 'canvas', label: '画布' }
   ]
 })
 
@@ -2677,10 +2679,9 @@ onUnmounted(() => {
                 text
                 size="small"
                 :icon="Grid"
-                :class="{ active: viewMode === 'canvas' }"
+                :class="{ active: viewMode === 'canvas' || activeNav === 'canvas' }"
                 class="view-mode-btn"
-                disabled
-                @click="viewMode = 'canvas'"
+                @click="viewMode = 'canvas'; activeNav = 'canvas'"
               >
                 画布
               </el-button>
@@ -3717,13 +3718,12 @@ onUnmounted(() => {
           </div>
 
           <!-- 画布视图 -->
-          <div v-else class="canvas-view">
-            <div class="canvas-placeholder">
-              <el-icon :size="48" color="#4b5563"><Grid /></el-icon>
-              <p>画布视图开发中，后续版本开放</p>
-              <el-button type="primary" @click="viewMode = 'table'">返回编辑器</el-button>
-            </div>
-          </div>
+          <CanvasView
+            v-if="viewMode === 'canvas' || activeNav === 'canvas'"
+            :project-data="projectData"
+            :project-id="projectId"
+            @back-to-editor="viewMode = 'table'; activeNav = 'episodes'"
+          />
         </div>
       </main>
     </div>
