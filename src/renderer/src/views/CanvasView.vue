@@ -135,31 +135,34 @@ function addShotNode(shot: any) {
     edgesToAdd.push({id:`e-i-${rid}`,source:nid,target:rid,style:{stroke:'rgba(139,92,246,0.15)'}})
     imgResultIds.push(rid); yOff+=75
   }
-  const col1H=yOff
+  const col1H=Math.max(yOff,75)
 
-  // Frames with gen buttons
+  // Frames start centered relative to asset column
+  const frameStartY=baseY + Math.max(0, (col1H - ((shot.first_frame_prompt?80:0)+(shot.last_frame_prompt?80:0))) / 2)
   let fyOff=0
   if(shot.first_frame_prompt){
-    const nid=nextId(); nodesToAdd.push({id:nid,type:'frame',position:{x:col2X,y:baseY+fyOff},data:{label:'首帧生图',desc:(shot.first_frame_prompt||'').substring(0,30),status:shot.first_frame_image_path?'done':'',projectId:props.projectId,shotId:shot.id,frameType:'first'}})
+    const nid=nextId(); nodesToAdd.push({id:nid,type:'frame',position:{x:col2X,y:frameStartY+fyOff},data:{label:'首帧生图',desc:(shot.first_frame_prompt||'').substring(0,30),status:shot.first_frame_image_path?'done':'',projectId:props.projectId,shotId:shot.id,frameType:'first'}})
     edgesToAdd.push({id:`e-${nid}`,source:shotNodeId,target:nid,style:{stroke:'rgba(245,158,11,0.3)',strokeWidth:1.5}})
-    const rid=nextId(); nodesToAdd.push({id:rid,type:'image',position:{x:col3X,y:baseY+fyOff},data:{label:'首帧图',desc:'',status:shot.first_frame_image_path?'done':'',imgSrc:shot.first_frame_image_path?`file:///${shot.first_frame_image_path.replace(/\\/g,'/')}`:''}})
+    const rid=nextId(); nodesToAdd.push({id:rid,type:'image',position:{x:col3X,y:frameStartY+fyOff},data:{label:'首帧图',desc:'',status:shot.first_frame_image_path?'done':'',imgSrc:shot.first_frame_image_path?`file:///${shot.first_frame_image_path.replace(/\\/g,'/')}`:''}})
     edgesToAdd.push({id:`e-i-${rid}`,source:nid,target:rid,style:{stroke:'rgba(245,158,11,0.15)'}})
     imgResultIds.push(rid); fyOff+=80
   }
   if(shot.last_frame_prompt){
-    const nid=nextId(); nodesToAdd.push({id:nid,type:'frame',position:{x:col2X,y:baseY+fyOff},data:{label:'尾帧生图',desc:(shot.last_frame_prompt||'').substring(0,30),status:shot.last_frame_image_path?'done':'',projectId:props.projectId,shotId:shot.id,frameType:'last'}})
+    const nid=nextId(); nodesToAdd.push({id:nid,type:'frame',position:{x:col2X,y:frameStartY+fyOff},data:{label:'尾帧生图',desc:(shot.last_frame_prompt||'').substring(0,30),status:shot.last_frame_image_path?'done':'',projectId:props.projectId,shotId:shot.id,frameType:'last'}})
     edgesToAdd.push({id:`e-${nid}`,source:shotNodeId,target:nid,style:{stroke:'rgba(245,158,11,0.3)',strokeWidth:1.5}})
-    const rid=nextId(); nodesToAdd.push({id:rid,type:'image',position:{x:col3X,y:baseY+fyOff},data:{label:'尾帧图',desc:'',status:shot.last_frame_image_path?'done':'',imgSrc:shot.last_frame_image_path?`file:///${shot.last_frame_image_path.replace(/\\/g,'/')}`:''}})
+    const rid=nextId(); nodesToAdd.push({id:rid,type:'image',position:{x:col3X,y:frameStartY+fyOff},data:{label:'尾帧图',desc:'',status:shot.last_frame_image_path?'done':'',imgSrc:shot.last_frame_image_path?`file:///${shot.last_frame_image_path.replace(/\\/g,'/')}`:''}})
     edgesToAdd.push({id:`e-i-${rid}`,source:nid,target:rid,style:{stroke:'rgba(245,158,11,0.15)'}})
     imgResultIds.push(rid); fyOff+=80
   }
   const col2H=fyOff
 
-  // Video with ref links from all image results
+  // Video centered in row
+  const rowH=Math.max(col1H,col2H,80)
+  const videoY=baseY + (rowH - 80) / 2
   if(shot.video_prompt){
-    const vnid=nextId(); nodesToAdd.push({id:vnid,type:'video',position:{x:col4X,y:baseY},data:{label:'视频生成',desc:(shot.video_prompt||'').substring(0,30),status:shot.video_path?'done':'',projectId:props.projectId,shotId:shot.id}})
+    const vnid=nextId(); nodesToAdd.push({id:vnid,type:'video',position:{x:col4X,y:videoY},data:{label:'视频生成',desc:(shot.video_prompt||'').substring(0,30),status:shot.video_path?'done':'',projectId:props.projectId,shotId:shot.id}})
     edgesToAdd.push({id:`e-${vnid}`,source:shotNodeId,target:vnid,style:{stroke:'rgba(239,68,68,0.3)',strokeWidth:1.5}})
-    const vrid=nextId(); nodesToAdd.push({id:vrid,type:'image',position:{x:col4rX,y:baseY},data:{label:'视频',desc:'',status:shot.video_path?'done':'',imgSrc:''}})
+    const vrid=nextId(); nodesToAdd.push({id:vrid,type:'image',position:{x:col4rX,y:videoY},data:{label:'视频',desc:'',status:shot.video_path?'done':'',imgSrc:''}})
     edgesToAdd.push({id:`e-i-${vrid}`,source:vnid,target:vrid,style:{stroke:'rgba(239,68,68,0.15)'}})
     // Reference links: all image results → video gen
     for(const rid of imgResultIds){ edgesToAdd.push({id:`ref-${rid}`,source:rid,target:vnid,style:{stroke:'rgba(239,68,68,0.12)',strokeWidth:1,strokeDasharray:'3,3'}}) }
