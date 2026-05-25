@@ -131,6 +131,7 @@ const modelConfig = ref<Record<string, any>>({})
 const providerModels = ref<any[]>([])
 const providerChannels = ref<any[]>([])
 const modelConfigTemplates = ref<any[]>([])
+const modelConfigTemplateTab = ref('official')
 const modelConfigRefImages = ref<Record<string, string>>({})
 
 function getRefImage(tabKey: string): string {
@@ -1042,6 +1043,28 @@ async function showDetail(type: string, data: any): Promise<void> {
   }
   if ((type === 'firstFrame' || type === 'lastFrame') && data?.id) {
     await loadShotImages(data.id, type === 'firstFrame' ? 'first' : 'last')
+    // 如果提示词为空，从模型配置中读取模板自动填充
+    const promptField = type === 'firstFrame' ? 'first_frame_prompt' : 'last_frame_prompt'
+    if (!data[promptField]) {
+      try {
+        const proj = await window.api.getProject(projectId)
+        const raw = (proj as Record<string, any>)?.model_config_json
+        if (raw) {
+          const cfg = JSON.parse(raw)
+          const purposeKey = type === 'firstFrame' ? 'first_frame' : 'last_frame'
+          const purposeConfig = cfg[purposeKey] || {}
+          if (purposeConfig.templateId) {
+            // 获取模板内容
+            const templates = await window.api.getPromptTemplates(projectId, purposeKey === 'first_frame' || purposeKey === 'last_frame' ? 'shot_image' : '')
+            const t = (templates as any[]).find((t: any) => t.id === purposeConfig.templateId)
+            if (t?.content) {
+              data[promptField] = t.content
+              detailData.value = { ...data }
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    }
   }
 }
 
@@ -3893,12 +3916,20 @@ onUnmounted(() => {
             <!-- 模板区 -->
             <div class="config-template-section">
               <div class="config-template-tabs">
-                <div class="config-template-tab active">指令模板</div>
-                <div class="config-template-tab disabled">我的指令</div>
+                <div
+                  class="config-template-tab"
+                  :class="{ active: modelConfigTemplateTab === 'official' }"
+                  @click="modelConfigTemplateTab = 'official'"
+                >官方模板</div>
+                <div
+                  class="config-template-tab"
+                  :class="{ active: modelConfigTemplateTab === 'custom' }"
+                  @click="modelConfigTemplateTab = 'custom'"
+                >我的模板</div>
               </div>
               <div class="config-template-list">
                 <div
-                  v-for="t in modelConfigTemplates"
+                  v-for="t in modelConfigTemplates.filter((t: any) => modelConfigTemplateTab === 'custom' ? !t.is_default : t.is_default)"
                   :key="t.id"
                   class="config-template-item"
                   :class="{
