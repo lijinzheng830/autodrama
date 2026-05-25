@@ -1054,12 +1054,11 @@ async function showDetail(type: string, data: any): Promise<void> {
           const purposeKey = type === 'firstFrame' ? 'first_frame' : 'last_frame'
           const purposeConfig = cfg[purposeKey] || {}
           if (purposeConfig.templateId) {
-            // 获取模板内容
-            const templates = await window.api.getPromptTemplates(projectId, purposeKey === 'first_frame' || purposeKey === 'last_frame' ? 'shot_image' : '')
+            // 获取模板内容（不传usage，避免过滤掉不同分类的模板）
+            const templates = await window.api.getPromptTemplates(projectId, '')
             const t = (templates as any[]).find((t: any) => t.id === purposeConfig.templateId)
             if (t?.content) {
-              data[promptField] = t.content
-              detailData.value = { ...data }
+              detailData.value = { ...data, [promptField]: t.content }
             }
           }
         }
@@ -2220,14 +2219,21 @@ async function loadModelConfigTemplates(): Promise<void> {
       character_image: 'character_image',
       scene_image: 'scene_image',
       prop_image: 'prop_image',
-      first_frame: 'shot_image',
-      last_frame: 'shot_image',
+      first_frame: 'first_frame',
+      last_frame: 'last_frame',
       video: 'video'
     }
-    const list = (await window.api.getPromptTemplates(
-      projectId,
-      usageMap[tabKey] || undefined
-    )) as any[]
+    const usageKey = usageMap[tabKey] || undefined
+    let list = (await window.api.getPromptTemplates(projectId, usageKey)) as any[]
+    // 首帧/尾帧兼容旧的 shot_image usage
+    if (tabKey === 'first_frame' || tabKey === 'last_frame') {
+      const legacyList = await window.api.getPromptTemplates(projectId, 'shot_image') as any[]
+      // 合并去重
+      const ids = new Set(list.map((t: any) => t.id))
+      for (const t of legacyList) {
+        if (!ids.has(t.id)) { list.push(t); ids.add(t.id) }
+      }
+    }
     modelConfigTemplates.value = list
   } catch (err) {
     console.error('加载模板失败', err)
