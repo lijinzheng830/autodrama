@@ -160,7 +160,7 @@ function buildElements() {
         nodes.push({
           id: rnid, type: 'result',
           position: { x: COL_X.assetResult, y: assetY + 8 },
-          data: { label: '定妆照', completed: !!c.reference_image, thumb: c.reference_image }
+          data: { label: '定妆照', completed: !!c.reference_image, thumbSrc: c.reference_image ? `file:///${c.reference_image.replace(/\\/g, '/')}` : '' }
         })
         edges.push({ id: `e-cr-${rnid}`, source: nid, target: rnid, style: { stroke: 'rgba(59,130,246,0.2)' } })
 
@@ -183,7 +183,7 @@ function buildElements() {
         })
         edges.push({ id: `e-ss-${snid}`, source: shotNodeId, target: snid, style: { stroke: 'rgba(16,185,129,0.4)', strokeWidth: 1.5 } })
         const rnid = `scene-r-${shotId}-${sc.id}`
-        nodes.push({ id: rnid, type: 'result', position: { x: COL_X.assetResult, y: assetY + 8 }, data: { label: '场景图', completed: !!sc.reference_image } })
+        nodes.push({ id: rnid, type: 'result', position: { x: COL_X.assetResult, y: assetY + 8 }, data: { label: '场景图', completed: !!sc.reference_image, thumbSrc: sc.reference_image ? `file:///${sc.reference_image.replace(/\\/g, '/')}` : '' } })
         edges.push({ id: `e-sr-${rnid}`, source: snid, target: rnid, style: { stroke: 'rgba(16,185,129,0.2)' } })
         if (shot.first_frame_prompt) { edges.push({ id: `e-srf-${rnid}`, source: rnid, target: `ff-${shotId}`, style: { stroke: 'rgba(245,158,11,0.2)', strokeDasharray: '4,4' } }) }
         assetY += ROW_H.asset + 4
@@ -195,7 +195,7 @@ function buildElements() {
         nodes.push({ id: pnid, type: 'asset-gen', position: { x: COL_X.asset, y: assetY }, data: { label: `道具: ${p.name}`, prompt: (p.description || '').substring(0, 30), completed: !!p.reference_image } })
         edges.push({ id: `e-sp-${pnid}`, source: shotNodeId, target: pnid, style: { stroke: 'rgba(139,92,246,0.4)', strokeWidth: 1.5 } })
         const rnid = `prop-r-${shotId}-${p.id}`
-        nodes.push({ id: rnid, type: 'result', position: { x: COL_X.assetResult, y: assetY + 8 }, data: { label: '道具图', completed: !!p.reference_image } })
+        nodes.push({ id: rnid, type: 'result', position: { x: COL_X.assetResult, y: assetY + 8 }, data: { label: '道具图', completed: !!p.reference_image, thumbSrc: p.reference_image ? `file:///${p.reference_image.replace(/\\/g, '/')}` : '' } })
         edges.push({ id: `e-pr-${rnid}`, source: pnid, target: rnid, style: { stroke: 'rgba(139,92,246,0.2)' } })
         if (shot.first_frame_prompt) { edges.push({ id: `e-prf-${rnid}`, source: rnid, target: `ff-${shotId}`, style: { stroke: 'rgba(245,158,11,0.2)', strokeDasharray: '4,4' } }) }
         assetY += ROW_H.asset + 4
@@ -219,7 +219,7 @@ function buildElements() {
         nodes.push({
           id: ffrid, type: 'result',
           position: { x: COL_X.frameResult, y: frameY + 8 },
-          data: { label: '首帧图', completed: !!shot.first_frame_image_path, thumb: shot.first_frame_image_path }
+          data: { label: '首帧图', completed: !!shot.first_frame_image_path, thumbSrc: shot.first_frame_image_path ? `file:///${shot.first_frame_image_path.replace(/\\/g, '/')}` : '' }
         })
         edges.push({ id: `e-ffr-${ffrid}`, source: ffid, target: ffrid, style: { stroke: 'rgba(245,158,11,0.2)' } })
 
@@ -240,7 +240,7 @@ function buildElements() {
         })
         edges.push({ id: `e-lff-${lfid}`, source: shotNodeId, target: lfid, style: { stroke: 'rgba(245,158,11,0.4)', strokeWidth: 1.5 } })
         const lfrid = `lf-r-${shotId}`
-        nodes.push({ id: lfrid, type: 'result', position: { x: COL_X.frameResult, y: frameY + 8 }, data: { label: '尾帧图', completed: !!shot.last_frame_image_path } })
+        nodes.push({ id: lfrid, type: 'result', position: { x: COL_X.frameResult, y: frameY + 8 }, data: { label: '尾帧图', completed: !!shot.last_frame_image_path, thumbSrc: shot.last_frame_image_path ? `file:///${shot.last_frame_image_path.replace(/\\/g, '/')}` : '' } })
         edges.push({ id: `e-lfr-${lfrid}`, source: lfid, target: lfrid, style: { stroke: 'rgba(245,158,11,0.2)' } })
         if (shot.video_prompt) { edges.push({ id: `e-lv-${lfrid}`, source: lfrid, target: `vid-${shotId}`, style: { stroke: 'rgba(239,68,68,0.2)', strokeDasharray: '4,4' } }) }
         frameY += ROW_H.asset + 4
@@ -277,7 +277,7 @@ function buildElements() {
   elements.value = [...nodes, ...edges]
 }
 
-watch(() => props.projectData, buildElements, { immediate: true, deep: true })
+watch(() => props.projectData?.shots?.length, () => { if (props.projectData) buildElements() }, { immediate: true })
 
 // ===== Side Panel =====
 const canvasNav = ref('shots')
@@ -305,7 +305,7 @@ function focusShot(shotId: string) {
     </aside>
 
     <div class="canvas-main">
-      <VueFlow v-model="elements" :default-viewport="{ x: 0, y: 0, zoom: 0.7 }" :min-zoom="0.15" :max-zoom="2" :node-types="nodeTypes" class="vue-flow-canvas" fit-view-on-init>
+      <VueFlow v-model="elements" :default-viewport="{ x: 0, y: 0, zoom: 0.7 }" :min-zoom="0.15" :max-zoom="2" :node-types="nodeTypes" class="vue-flow-canvas" :fit-view-on-init="true">
         <Background :gap="24" />
       </VueFlow>
 
