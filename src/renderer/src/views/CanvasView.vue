@@ -13,25 +13,36 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'back-to-editor'): void
   (e: 'focus-shot', shotId: string): void
-  (e: 'generate-video', shotId: string): void
 }>()
 
 const genLoading = ref(false)
+const videoGenMsg = ref('')
 
 async function handleVideoGenerate(shotId: string) {
   if (genLoading.value) return
   genLoading.value = true
+  videoGenMsg.value = '正在提交视频生成任务...'
   try {
-    emit('generate-video', shotId)
-    // Wait for generation to complete (poll for changes)
-    await new Promise(r => setTimeout(r, 3000))
+    const shot = props.projectData?.shots?.find((s: any) => s.id === shotId)
+    if (!shot) { videoGenMsg.value = '未找到分镜'; return }
+    // Use window.api directly
+    const win = (window as any)
+    if (!win.api?.generateVideo) { videoGenMsg.value = 'API不可用'; return }
+    await win.api.generateVideo({ projectId: props.projectId, shotId })
+    videoGenMsg.value = '视频生成任务已提交，等待完成...'
+    // Rebuild canvas after a delay to show results
+    await new Promise(r => setTimeout(r, 5000))
     buildElements()
+    videoGenMsg.value = ''
+  } catch (err: any) {
+    videoGenMsg.value = '生成失败: ' + (err?.message || '未知错误')
+    await new Promise(r => setTimeout(r, 3000))
+    videoGenMsg.value = ''
   } finally {
     genLoading.value = false
   }
 }
 
-// Expose rebuild for parent to call after generation
 function refreshCanvas() {
   buildElements()
 }
@@ -338,6 +349,7 @@ function focusShot(shotId: string) {
 
       <div class="canvas-toolbar">
         <el-button size="small" @click="emit('back-to-editor')">返回编辑器</el-button>
+        <span v-if="videoGenMsg" class="canvas-gen-msg">{{ videoGenMsg }}</span>
         <span class="canvas-legend">
           <span class="leg leg-asset">资产生图</span>
           <span class="leg leg-frame">帧生图</span>
@@ -400,6 +412,7 @@ function focusShot(shotId: string) {
 .leg-video { border-left: 3px solid #ef4444; }
 .leg-result { border-left: 3px solid #22c55e; }
 .canvas-info { font-size: 10px; color: #6b7280; }
+.canvas-gen-msg { font-size: 11px; color: #fcd34d; background: rgba(245,158,11,0.1); padding: 2px 10px; border-radius: 4px; }
 .canvas-right-panel { width: 200px; flex-shrink: 0; background: rgba(255,255,255,0.02); border-left: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
 .canvas-shot-list { padding: 8px; }
 .canvas-chapter-title { font-size: 11px; font-weight: 600; color: #c4b5fd; padding: 6px 8px; }
