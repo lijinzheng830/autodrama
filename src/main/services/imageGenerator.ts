@@ -366,14 +366,12 @@ async function callImageGenerationAPI(
     normalizedBaseURL += '/v1'
   }
 
-  console.log('[imageGenerator] baseURL:', normalizedBaseURL, 'model:', actualModel, 'apiKey:', apiKey.substring(0, 15) + '...')
   let lastError = ''
   // 先尝试 /v1/images/generations（标准生图端点）
   let resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
 
   // 如果 images 端点失败(404/500/网络错误)，回退到 chat completions 端点
   if (!resp) {
-    console.log('[imageGenerator] /images/generations failed, falling back to /chat/completions')
     lastError = lastImageError
     resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
     if (!resp && lastChatError) lastError = lastChatError
@@ -424,7 +422,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
     lastImageError = typeof msg === 'string' ? msg : JSON.stringify(msg)
-    console.error('[tryImageAPI] Error:', e?.response?.status, lastImageError)
+    if (process.env.NODE_ENV === 'development') console.error('[tryImageAPI]', e?.response?.status, lastImageError)
     return null
   }
 }
@@ -456,7 +454,7 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
     lastChatError = typeof msg === 'string' ? msg : JSON.stringify(msg)
-    console.error('[tryChatImageAPI] Error:', e?.response?.status, lastChatError)
+    if (process.env.NODE_ENV === 'development') console.error('[tryChatImageAPI]', e?.response?.status, lastChatError)
     return null
   }
 }
@@ -979,7 +977,6 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     })
     const s = statusResp.data?.data || statusResp.data  // 兼容 data 嵌套
     const st = (s?.status || '').toUpperCase()
-    console.log(`[video] poll ${attempt+1}: status=${st} progress=${s?.progress||'?'}`)
     if (st === 'COMPLETED' || st === 'SUCCESS') {
       // 尝试多个可能的 URL 字段（manxueapi 返回 result_url）
       videoUrl = s?.result_url || s?.video_url || s?.url || ''

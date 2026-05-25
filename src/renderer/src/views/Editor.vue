@@ -2719,9 +2719,9 @@ onUnmounted(() => {
                 text
                 size="small"
                 :icon="Grid"
-                :class="{ active: viewMode === 'canvas' || activeNav === 'canvas' }"
+                :class="{ active: viewMode === 'canvas' }"
                 class="view-mode-btn"
-                @click="viewMode = 'canvas'; activeNav = 'canvas'"
+                @click="viewMode = 'canvas'"
               >
                 画布
               </el-button>
@@ -3789,10 +3789,10 @@ onUnmounted(() => {
 
           <!-- 画布视图 -->
           <CanvasView
-            v-if="viewMode === 'canvas' || activeNav === 'canvas'"
+            v-if="viewMode === 'canvas'"
             :project-data="projectData"
             :project-id="projectId"
-            @back-to-editor="viewMode = 'table'; activeNav = 'episodes'"
+            @back-to-editor="viewMode = 'table'"
             @refresh-data="loadEpisodesData()"
             @preview-media="(src: string, isVideo: boolean) => openFullscreenImage(src, undefined, isVideo)"
             @generate-video="(shotId: string) => { const shot = projectData?.shots?.find((s:any) => s.id === shotId); if (shot) { showDetail('video', shot); nextTick(() => handleGenerateVideo()); } }"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, h, defineComponent, watch, onMounted } from 'vue'
+import { ref, reactive, h, defineComponent, watch } from 'vue'
 import { VueFlow, Handle, Position } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import '@vue-flow/core/dist/style.css'
@@ -10,40 +10,6 @@ const emit = defineEmits<{ (e: 'back-to-editor'): void; (e: 'refresh-data'): voi
 
 const genMsg = ref('')
 const genLoading = ref(false)
-
-// Update connected image result node and force reactivity refresh
-function updateNodeAndImage(sourceId: string, imgPath: string) {
-  // Find connected image node via edges
-  const imgNode = elements.value.find((el: any) =>
-    el.type === 'image' && elements.value.some((edge: any) =>
-      (edge.source === sourceId || edge.target === sourceId) && (edge.source === el.id || edge.target === el.id))
-  )
-  // Find source gen node
-  const genNode = elements.value.find((el: any) => el.id === sourceId)
-
-  if (genNode) {
-    genNode.data.status = 'done'
-  }
-  if (imgNode && imgPath) {
-    imgNode.data.status = 'done'
-    imgNode.data.imgSrc = `file:///${imgPath.replace(/\\/g, '/')}`
-  }
-  // Force VueFlow reactivity
-  elements.value = [...elements.value]
-}
-
-// Also update connected result nodes for asset gen
-function refreshAssetResult(assetId: string) {
-  setTimeout(async () => {
-    try {
-      const win = (window as any)
-      // Reload project data to get updated reference_image paths
-      const images = assetId.includes('scene') ? [] : [] // We need the actual path from API
-      // Force full rebuild
-      elements.value = [...elements.value]
-    } catch {}
-  }, 2500)
-}
 
 // ===== Connection handles wrapper =====
 function withHandles(inner: any) {
@@ -122,7 +88,6 @@ const VideoNode = defineComponent({
   }
 })
 
-function showImgPreview(src: string, isVideo?: boolean) { if(src) emit('preview-media', src, !!isVideo) }
 
 const ImageNode = defineComponent({
   props: ['data'],
@@ -274,78 +239,22 @@ function onKeydown(e: KeyboardEvent) { if(e.key==='Delete'||e.key==='Backspace')
 // ===== Connection handler =====
 const selectedEdgeId = ref('')
 
-// Manual box selection
-const boxSelect = reactive({ active: false, x1: 0, y1: 0, x2: 0, y2: 0, sx1: 0, sy1: 0, sx2: 0, sy2: 0 })
-
-function onPaneMouseDown(e: MouseEvent) {
-  if(e.button !== 0) return // Only left button
-  // Don't start selection if clicking on a node/edge
-  const target = e.target as HTMLElement
-  if(target.closest('.vue-flow__node') || target.closest('.vue-flow__edge')) return
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  boxSelect.active = true
-  boxSelect.x1 = e.clientX - rect.left
-  boxSelect.y1 = e.clientY - rect.top
-  boxSelect.x2 = boxSelect.x1
-  boxSelect.y2 = boxSelect.y1
-}
-
-function onPaneMouseMove(e: MouseEvent) {
-  if(!boxSelect.active) return
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  boxSelect.x2 = e.clientX - rect.left
-  boxSelect.y2 = e.clientY - rect.top
-}
-
-function onPaneMouseUp() {
-  if(!boxSelect.active) { boxSelect.active = false; return }
-  const x1 = Math.min(boxSelect.x1, boxSelect.x2)
-  const y1 = Math.min(boxSelect.y1, boxSelect.y2)
-  const x2 = Math.max(boxSelect.x1, boxSelect.x2)
-  const y2 = Math.max(boxSelect.y1, boxSelect.y2)
-  const w = x2 - x1; const h = y2 - y1
-
-  if(w > 5 || h > 5) {
-    // Find nodes within selection rectangle
-    const selectedIds: string[] = []
-    elements.value.forEach((el: any) => {
-      if(!el.position) return
-      const nx = el.position.x; const ny = el.position.y
-      const nw = parseInt(el.style?.width) || 160
-      const nh = 60 // approximate height
-      // Check overlap
-      if(nx + nw > x1 && nx < x2 && ny + nh > y1 && ny < y2) {
-        selectedIds.push(el.id)
-      }
-    })
-    if(selectedIds.length > 0) {
-      // Select all found nodes
-      selectedNodeId.value = selectedIds[0]
-      // Store all selected in a Set for delete
-      ;(window as any).__canvasSelected = selectedIds
-    }
-  }
-  boxSelect.active = false
+function onEdgeClick({ edge }: any) {
+  selectedEdgeId.value = edge.id
+  selectedNodeId.value = ''
 }
 
 function onConnect(params: any) {
   const { source, target, sourceHandle, targetHandle } = params
   if(!source||!target) return
-  edgesToAdd.push({
+  elements.value=[...elements.value, {
     id: `e-${source}-${target}`,
     source, target,
     sourceHandle: sourceHandle || 'right',
     targetHandle: targetHandle || 'left',
-    style: { stroke: 'rgba(167,139,250,0.7)', strokeWidth: 2.5 },
+    style: { stroke: 'rgba(196,181,253,0.85)', strokeWidth: 2 },
     animated: true
-  })
-  elements.value=[...elements.value,...edgesToAdd]
-  edgesToAdd.length=0
-}
-
-function onEdgeClick({ edge }: any) {
-  selectedEdgeId.value = edge.id
-  selectedNodeId.value = ''
+  }]
 }
 
 function deleteSelectedEdge() {
@@ -385,62 +294,6 @@ watch(() => props.projectData?.shots, (newShots) => {
 const canvasNav=ref('shots')
 const sidebarItems=[{key:'characters',label:'角色',icon:'👤'},{key:'scenes',label:'场景',icon:'🏠'},{key:'props',label:'道具',icon:'🔧'},{key:'shots',label:'分镜',icon:'🎬'},{key:'library',label:'资产库',icon:'📁'}]
 const quickAddTypes=[{type:'shot',label:'分镜',color:'#a78bfa'},{type:'asset',label:'资产',color:'#3b82f6'},{type:'frame',label:'帧',color:'#f59e0b'},{type:'video',label:'视频',color:'#ef4444'},{type:'image',label:'图片',color:'#22c55e'},{type:'note',label:'备注',color:'#6b7280'}]
-const vueFlowRef = ref()
-let selectCleanup: (()=>void)|null = null
-
-function onFlowMouseDown(e: MouseEvent) {
-  if(e.button !== 0) return
-  const target = e.target as HTMLElement
-  if(target.closest('.vue-flow__node') || target.closest('.vue-flow__edge') ||
-     target.closest('.canvas-quickbar') || target.closest('button') ||
-     target.closest('.vue-flow__handle')) return
-
-  const wrapper = (e.currentTarget as HTMLElement)
-  const rect = wrapper.getBoundingClientRect()
-  const sx = e.clientX, sy = e.clientY
-
-  boxSelect.active = true
-  boxSelect.sx1 = sx; boxSelect.sy1 = sy
-  boxSelect.sx2 = sx; boxSelect.sy2 = sy
-  boxSelect.x1 = sx - rect.left
-  boxSelect.y1 = sy - rect.top
-  boxSelect.x2 = boxSelect.x1
-  boxSelect.y2 = boxSelect.y1
-  e.preventDefault()
-}
-
-function onFlowMouseMove(e: MouseEvent) {
-  if(!boxSelect.active) return
-  const wrapper = (e.target as HTMLElement).closest('.vue-flow-canvas-wrapper') || document.querySelector('.vue-flow-canvas-wrapper')
-  if(!wrapper) return
-  const rect = wrapper.getBoundingClientRect()
-  boxSelect.sx2 = e.clientX; boxSelect.sy2 = e.clientY
-  boxSelect.x2 = e.clientX - rect.left
-  boxSelect.y2 = e.clientY - rect.top
-}
-
-function onFlowMouseUp() {
-  if(!boxSelect.active) { boxSelect.active = false; return }
-  const x1 = Math.min(boxSelect.x1, boxSelect.x2)
-  const y1 = Math.min(boxSelect.y1, boxSelect.y2)
-  const x2 = Math.max(boxSelect.x1, boxSelect.x2)
-  const y2 = Math.max(boxSelect.y1, boxSelect.y2)
-  if(x2 - x1 > 10 || y2 - y1 > 10) {
-    const ids: string[] = []
-    elements.value.forEach((el: any) => {
-      if(!el.position) return
-      const nw = parseInt(el.style?.width) || 200; const nh = 60
-      if(el.position.x + nw > x1 && el.position.x < x2 && el.position.y + nh > y1 && el.position.y < y2) ids.push(el.id)
-    })
-    if(ids.length) {
-      (window as any).__canvasSelected = ids
-      selectedNodeId.value = ids[0]
-      selectedEdgeId.value = ''
-    }
-  }
-  boxSelect.active = false
-}
-
 </script>
 
 <template>
@@ -457,11 +310,9 @@ function onFlowMouseUp() {
         <span v-if="selectedNodeId" class="quickbar-sep">|</span>
         <button v-if="selectedNodeId||selectedEdgeId" class="quickbar-btn" style="border-color:#ef4444;color:#ef4444" @click="()=>{deleteSelected();deleteSelectedEdge()}">🗑 删除</button>
       </div>
-      <div class="vue-flow-canvas-wrapper" @mousedown="onFlowMouseDown" @mousemove="onFlowMouseMove" @mouseup="onFlowMouseUp">
-        <VueFlow ref="vueFlowRef" v-model="elements" :default-viewport="{x:0,y:0,zoom:0.7}" :min-zoom="0.1" :max-zoom="3" :node-types="nodeTypes" class="vue-flow-canvas" @pane-context-menu="onPaneContextMenu" @pane-click="onPaneClick" @node-click="onNodeClick" @connect="onConnect" @edge-click="onEdgeClick" :default-edge-options="{style:{stroke:'rgba(167,139,250,0.7)',strokeWidth:2.5},animated:true}" :zoom-on-scroll="true" delete-key-code="Delete" :pan-on-drag="[2]">
+      <VueFlow v-model="elements" :default-viewport="{x:0,y:0,zoom:0.7}" :min-zoom="0.1" :max-zoom="3" :node-types="nodeTypes" class="vue-flow-canvas" @pane-context-menu="onPaneContextMenu" @pane-click="onPaneClick" @node-click="onNodeClick" @connect="onConnect" @edge-click="onEdgeClick" :default-edge-options="{style:{stroke:'rgba(196,181,253,0.85)',strokeWidth:2},animated:true}" :selectable="true" :nodes-draggable="true" :nodes-connectable="true" :zoom-on-scroll="true" :pan-on-drag="[2]" :zoom-on-drag="false" :selection-on-drag="true" delete-key-code="Delete">
         <Background :gap="20" />
       </VueFlow>
-      </div>
       <Teleport to="body">
         <div v-if="ctxMenu.show" class="canvas-ctxmenu" :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }">
           <div class="ctxmenu-item" @click="addNode('shot')">🎬 分镜</div>
@@ -471,15 +322,6 @@ function onFlowMouseUp() {
           <div class="ctxmenu-item" @click="addNode('image')">🖼 图片</div>
           <div class="ctxmenu-item" @click="addNode('note')">📝 备注</div>
         </div>
-      </Teleport>
-      <!-- Selection box (fixed positioning for viewport coords) -->
-      <Teleport to="body">
-        <div v-if="boxSelect.active" class="selection-box" :style="{
-          left: Math.min(boxSelect.sx1,boxSelect.sx2)+'px',
-          top: Math.min(boxSelect.sy1,boxSelect.sy2)+'px',
-          width: Math.abs(boxSelect.sx2-boxSelect.sx1)+'px',
-          height: Math.abs(boxSelect.sy2-boxSelect.sy1)+'px'
-        }"></div>
       </Teleport>
 
       <div class="canvas-toolbar">
@@ -519,7 +361,6 @@ function onFlowMouseUp() {
 .canvas-ctxmenu { position:fixed; z-index:10000; background:#1f1f28; border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px; min-width:160px; box-shadow:0 8px 24px rgba(0,0,0,0.5); }
 .ctxmenu-item { padding:8px 12px; font-size:12px; color:#e5e7eb; cursor:pointer; border-radius:4px; }
 .ctxmenu-item:hover { background:rgba(167,139,250,0.15); color:#c4b5fd; }
-.selection-box { position:fixed; z-index:9999; border:2px solid #3b82f6; background:rgba(59,130,246,0.15); pointer-events:none; border-radius:2px; }
 </style>
 
 <style scoped>
@@ -534,7 +375,6 @@ function onFlowMouseUp() {
 .quickbar-btn { font-size:10px; padding:2px 8px; background:transparent; border:1px solid; border-radius:4px; cursor:pointer; }
 .quickbar-btn:hover { opacity:0.8; }
 .quickbar-sep { color:#374151; font-size:12px; }
-.vue-flow-canvas-wrapper { flex:1; position:relative; overflow:hidden; }
 .vue-flow-canvas { flex:1; background:#0f0f11; width:100%; height:100%; }
 .canvas-toolbar { display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.06); }
 .canvas-legend { display:flex; gap:12px; font-size:10px; }

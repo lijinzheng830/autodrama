@@ -178,14 +178,11 @@ export async function callAI(
     }
 
     const data = await response.json()
-    console.log('[callAI] Response status:', response.status, 'model:', model)
-    console.log('[callAI] Response data keys:', Object.keys(data))
     const content = data.choices?.[0]?.message?.content
     if (!content) {
       console.error('[callAI] Unexpected response structure:', JSON.stringify(data).substring(0, 500))
       throw new Error('AI 返回内容为空，请重试')
     }
-    console.log('[callAI] Content received, length:', content.length)
     return content
   } catch (err: unknown) {
     clearTimeout(timeout)
