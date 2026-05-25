@@ -3722,7 +3722,7 @@ onUnmounted(() => {
             :project-data="projectData"
             :project-id="projectId"
             @back-to-editor="viewMode = 'table'; activeNav = 'episodes'"
-            @generate-video="(shotId: string) => { showDetail('video', { id: shotId }); handleGenerateVideo() }"
+            @generate-video="(shotId: string) => { const shot = projectData?.shots?.find((s:any) => s.id === shotId); if (shot) { showDetail('video', shot); nextTick(() => handleGenerateVideo()); } }"
           />
         </div>
       </main>

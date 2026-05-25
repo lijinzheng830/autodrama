@@ -16,9 +16,27 @@ const emit = defineEmits<{
   (e: 'generate-video', shotId: string): void
 }>()
 
-function handleVideoGenerate(shotId: string) {
-  emit('generate-video', shotId)
+const genLoading = ref(false)
+
+async function handleVideoGenerate(shotId: string) {
+  if (genLoading.value) return
+  genLoading.value = true
+  try {
+    emit('generate-video', shotId)
+    // Wait for generation to complete (poll for changes)
+    await new Promise(r => setTimeout(r, 3000))
+    buildElements()
+  } finally {
+    genLoading.value = false
+  }
 }
+
+// Expose rebuild for parent to call after generation
+function refreshCanvas() {
+  buildElements()
+}
+
+defineExpose({ refreshCanvas })
 
 // ===== Custom Nodes using h() render functions =====
 const AssetGenNode = defineComponent({
@@ -277,7 +295,16 @@ function buildElements() {
   elements.value = [...nodes, ...edges]
 }
 
-watch(() => props.projectData?.shots?.length, () => { if (props.projectData) buildElements() }, { immediate: true })
+// Watch for data changes - shots count and video/image paths
+watch(
+  () => {
+    const shots = props.projectData?.shots
+    if (!shots) return ''
+    return shots.map((s: any) => `${s.id}:${s.video_path || ''}:${s.first_frame_image_path || ''}:${s.reference_image || ''}`).join('|')
+  },
+  () => { if (props.projectData) buildElements() },
+  { immediate: true }
+)
 
 // ===== Side Panel =====
 const canvasNav = ref('shots')
