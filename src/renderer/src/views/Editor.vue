@@ -3054,7 +3054,7 @@ onUnmounted(() => {
                     <div class="td col-video">
                       <div class="media-cell" @click="showDetail('video', shot)">
                         <div v-if="shot.video_path" class="media-preview">
-                          <video :src="shot.video_path" class="media-video" />
+                          <video :src="toFileUrl(shot.video_path)" class="media-video" />
                         </div>
                         <div v-else class="media-placeholder">视频</div>
                       </div>
@@ -3628,7 +3628,7 @@ onUnmounted(() => {
                 <div v-else-if="detailType === 'video'" class="detail-body">
                   <div class="detail-media">
                     <div v-if="detailData?.video_path" class="detail-placeholder">
-                      <video :src="detailData.video_path" class="detail-video" controls />
+                      <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
@@ -4303,7 +4303,7 @@ onUnmounted(() => {
 
 /* 左侧导航栏 */
 .editor-sidebar {
-  width: 160px;
+  width: 140px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.02);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
@@ -5170,31 +5170,31 @@ onUnmounted(() => {
 }
 
 .col-num {
-  width: 70px;
+  width: 60px;
 }
 
 .col-script {
-  width: 240px;
+  width: 200px;
 }
 
 .col-chars,
 .col-scenes,
 .col-props {
-  width: 140px;
+  width: 120px;
 }
 
 .col-voice {
-  width: 70px;
+  width: 120px;
 }
 
 .col-first,
 .col-last,
 .col-video {
-  width: 90px;
+  width: 80px;
 }
 
 .col-video-prompt {
-  width: 180px;
+  width: 160px;
 }
 
 .col-video-prompt .cell-text {
@@ -5204,17 +5204,17 @@ onUnmounted(() => {
 
 .col-first-prompt,
 .col-last-prompt {
-  width: 200px;
+  width: 180px;
 }
 
 .col-first-prompt .cell-text,
 .col-last-prompt .cell-text {
-  max-height: 120px;
+  max-height: 100px;
   overflow-y: auto;
 }
 
 .col-op {
-  width: 110px;
+  width: 70px;
 }
 
 /* 章节行 */
@@ -5243,12 +5243,12 @@ onUnmounted(() => {
 }
 
 .shot-row .td {
-  padding: 10px;
+  padding: 8px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .shot-row .td:last-child {
