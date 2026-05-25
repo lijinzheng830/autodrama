@@ -1339,14 +1339,17 @@ function clearSessionOverride(key: string): void {
   delete sessionOverrides.value[key]
 }
 
-// ===== 齿轮弹窗（临时生图配置） =====
+// ===== 齿轮弹窗（临时生图/视频配置） =====
 const gearVisible = ref(false)
 const gearModel = ref('')
 const gearChannel = ref('')
 const gearCount = ref(1)
+const gearType = ref<'image' | 'video'>('image')
 const gearEffectiveInfo = ref<{ model: string; channel: string; source: string }>({ model: '', channel: '', source: '' })
 
-async function initGearDefaults(): Promise<void> {
+async function initGearDefaults(type?: string): Promise<void> {
+  if (type) gearType.value = type as 'image' | 'video'
+  else gearType.value = 'image'
   if (localStorage.getItem('providers_dirty') === '1') {
     providerModels.value = []
     localStorage.removeItem('providers_dirty')
@@ -1360,9 +1363,10 @@ async function initGearDefaults(): Promise<void> {
     scene: 'scene_image',
     prop: 'prop_image',
     firstFrame: 'first_frame',
-    lastFrame: 'last_frame'
+    lastFrame: 'last_frame',
+    video: 'video'
   }
-  const purposeKey = purposeMap[detailType.value]
+  const purposeKey = purposeMap[detailType.value] || (type === 'video' ? 'video' : '')
   if (!purposeKey) return
 
   // 1. 优先读会话级覆盖
@@ -1453,6 +1457,9 @@ const filteredGearModels = computed(() => {
     firstFrame: 'image',
     lastFrame: 'image'
   }
+  if (gearType.value === 'video') {
+    return providerModels.value.filter((m) => m.modelType === 'video')
+  }
   const neededType = typeMap[detailType.value]
   if (!neededType) return providerModels.value
   return providerModels.value.filter((m) => m.modelType === neededType)
@@ -1477,7 +1484,8 @@ function handleGearConfirm(): void {
     scene: 'scene_image',
     prop: 'prop_image',
     firstFrame: 'first_frame',
-    lastFrame: 'last_frame'
+    lastFrame: 'last_frame',
+    video: 'video'
   }
   const purposeKey = purposeMap[type]
   if (gearModel.value && purposeKey) {
@@ -1571,9 +1579,15 @@ async function handleSelectShotImage(shotId: string, frameType: 'first' | 'last'
 // 生视频按钮
 async function handleGenerateVideo(): Promise<void> {
   if (!detailData.value?.id) return
+  const override = sessionOverrides.value['video']
   genLoading.value = true
   try {
-    await window.api.generateVideo({ projectId, shotId: detailData.value.id })
+    await window.api.generateVideo({
+      projectId,
+      shotId: detailData.value.id,
+      model: override?.model || undefined,
+      channel: override?.channel || undefined
+    })
     ElMessage.success('视频生成任务已提交，请稍后在生成记录中查看')
     await loadEpisodesData()
     genRecordTab.value = 'video'
@@ -3634,15 +3648,47 @@ onUnmounted(() => {
                   </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
-                      <el-button
-                        text
-                        :icon="Tools"
-                        @click="ElMessage.info('模型选择后续版本开放')"
-                      />
-                      <span class="gen-label">生成数量</span>
-                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
-                      <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount++" />
+                      <el-popover
+                        v-model:visible="gearVisible"
+                        placement="bottom-start"
+                        :width="200"
+                        trigger="click"
+                        @show="initGearDefaults('video')"
+                      >
+                        <template #reference>
+                          <el-button text :icon="Tools" size="small" />
+                        </template>
+                        <div class="gear-panel">
+                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
+                          <div class="gear-inline-row">
+                            <el-select
+                              :model-value="gearModel"
+                              size="small"
+                              style="width: 135px"
+                              :teleported="false"
+                              placeholder="模型"
+                              @change="handleGearModelChange"
+                            >
+                              <el-option label="未设置" value="" />
+                              <el-option
+                                v-for="m in filteredGearModels"
+                                :key="m.value"
+                                :label="m.label"
+                                :value="m.value"
+                              />
+                            </el-select>
+                            <div class="gear-count-row">
+                              <el-button text :icon="Minus" size="small" @click="genCount = Math.max(1, genCount - 1)" style="padding:2px" />
+                              <span class="gear-count-num">{{ genCount }}</span>
+                              <el-button text :icon="Plus" size="small" @click="genCount = Math.min(10, genCount + 1)" style="padding:2px" />
+                            </div>
+                          </div>
+                          <div class="gear-actions">
+                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
+                            <el-button type="primary" size="small" @click="handleGearConfirm">确认</el-button>
+                          </div>
+                        </div>
+                      </el-popover>
                     </div>
                     <el-button
                       type="primary"
@@ -5396,7 +5442,7 @@ onUnmounted(() => {
 .media-preview video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .media-video {
@@ -5600,7 +5646,14 @@ onUnmounted(() => {
 .detail-video {
   width: 100%;
   border-radius: 8px;
-  max-height: 200px;
+  max-height: 420px;
+  object-fit: contain;
+  background: #000;
+}
+
+.detail-placeholder:has(video) {
+  height: auto;
+  min-height: 240px;
 }
 
 .detail-placeholder {
@@ -5652,6 +5705,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
+  margin-top: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
