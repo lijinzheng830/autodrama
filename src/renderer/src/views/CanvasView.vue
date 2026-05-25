@@ -11,6 +11,20 @@ const emit = defineEmits<{ (e: 'back-to-editor'): void }>()
 const genMsg = ref('')
 const genLoading = ref(false)
 
+// Update connected image result node after generation
+function refreshConnectedImage(sourceNodeId: string, imgPath: string) {
+  setTimeout(() => {
+    const imgNode = elements.value.find((el: any) =>
+      el.type === 'image' && elements.value.some((edge: any) => edge.source === sourceNodeId && edge.target === el.id)
+    )
+    if (imgNode && imgPath) {
+      imgNode.data.status = 'done'
+      imgNode.data.imgSrc = `file:///${imgPath.replace(/\\/g, '/')}`
+      elements.value = [...elements.value] // trigger reactivity
+    }
+  }, 2000)
+}
+
 // ===== Custom Nodes =====
 const AssetNode = defineComponent({
   props: ['data'],
@@ -21,7 +35,9 @@ const AssetNode = defineComponent({
     return () => h('div',{class:`nm-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#3b82f6',background:'rgba(59,130,246,0.08)'}},[
       h('div',{class:'nm-header',style:{color:'#60a5fa'}},p.data.label),
       h('div',{class:'nm-desc'},p.data.desc||''),
-      p.data.status==='done'?h('div',{class:'nm-status done'},'✓'):h('button',{class:'nm-gen-btn',style:'border-color:#3b82f6;color:#60a5fa',onClick:doGen},'⚡ 生图')
+      p.data.status==='done'
+        ? h('div',{class:'nm-actions'},[h('span',{class:'nm-status done'},'✓'),h('button',{class:'nm-gen-btn small',style:'border-color:#3b82f6;color:#60a5fa',onClick:doGen},'🔄')])
+        : h('button',{class:'nm-gen-btn',style:'border-color:#3b82f6;color:#60a5fa',onClick:doGen},'⚡ 生图')
     ])
   }
 })
@@ -35,7 +51,9 @@ const FrameNode = defineComponent({
     return () => h('div',{class:`nm-node frame-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#f59e0b',background:'rgba(245,158,11,0.08)'}},[
       h('div',{class:'nm-header',style:{color:'#fcd34d'}},p.data.label),
       h('div',{class:'nm-desc'},(p.data.desc||'').substring(0,30)),
-      p.data.status==='done'?h('div',{class:'nm-status done'},'✓'):h('button',{class:'nm-gen-btn',style:'border-color:#f59e0b;color:#fcd34d',onClick:doGen},'⚡ 生图')
+      p.data.status==='done'
+        ? h('div',{class:'nm-actions'},[h('span',{class:'nm-status done'},'✓'),h('button',{class:'nm-gen-btn small',style:'border-color:#f59e0b;color:#fcd34d',onClick:doGen},'🔄')])
+        : h('button',{class:'nm-gen-btn',style:'border-color:#f59e0b;color:#fcd34d',onClick:doGen},'⚡ 生图')
     ])
   }
 })
@@ -49,18 +67,27 @@ const VideoNode = defineComponent({
     return () => h('div',{class:`nm-node video-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#ef4444',background:'rgba(239,68,68,0.08)'}},[
       h('div',{class:'nm-header',style:{color:'#fca5a5'}},p.data.label),
       h('div',{class:'nm-desc'},(p.data.desc||'').substring(0,30)),
-      p.data.status==='done'?h('div',{class:'nm-status done'},'✓'):h('button',{class:'nm-gen-btn',style:'border-color:#ef4444;color:#fca5a5',onClick:doGen},'⚡ 生视频')
+      p.data.status==='done'
+        ? h('div',{class:'nm-actions'},[h('span',{class:'nm-status done'},'✓'),h('button',{class:'nm-gen-btn small',style:'border-color:#ef4444;color:#fca5a5',onClick:doGen},'🔄')])
+        : h('button',{class:'nm-gen-btn',style:'border-color:#ef4444;color:#fca5a5',onClick:doGen},'⚡ 生视频')
     ])
   }
 })
 
+const imgPreview = reactive({ show: false, src: '' })
+function showImgPreview(src: string) { if(!src)return; imgPreview.show=true; imgPreview.src=src }
+function hideImgPreview() { imgPreview.show=false; imgPreview.src='' }
+
 const ImageNode = defineComponent({
   props: ['data'],
-  setup(p: any) { return () => h('div',{class:`nm-node img-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#22c55e',background:'rgba(34,197,94,0.05)'}},[
-    h('div',{class:'nm-header',style:{color:'#86efac'}},p.data.label),
-    p.data.status==='done'&&p.data.imgSrc?h('img',{class:'nm-img',src:p.data.imgSrc,style:'width:100%;max-height:100px;object-fit:contain;border-radius:4px;margin-top:4px'}):h('div',{class:'nm-desc'},p.data.desc||'待生成'),
-    p.data.status==='done'?h('div',{class:'nm-status done'},'✓'):null
-  ])}
+  setup(p: any) {
+    const onDblClick = () => { if(p.data.imgSrc) showImgPreview(p.data.imgSrc) }
+    return () => h('div',{class:`nm-node img-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#22c55e',background:'rgba(34,197,94,0.05)'},onDblclick:onDblClick},[
+      h('div',{class:'nm-header',style:{color:'#86efac'}},p.data.label),
+      p.data.status==='done'&&p.data.imgSrc?h('img',{class:'nm-img',src:p.data.imgSrc,style:'width:100%;max-height:100px;object-fit:contain;border-radius:4px;margin-top:4px;cursor:pointer'},''):h('div',{class:'nm-desc'},p.data.desc||'待生成'),
+      p.data.status==='done'?h('div',{class:'nm-status done'},'✓'):null
+    ])
+  }
 })
 
 const SimpleNode = (color: string, bgColor: string, labelColor: string) => defineComponent({
@@ -214,8 +241,16 @@ const quickAddTypes=[{type:'shot',label:'分镜',color:'#a78bfa'},{type:'asset',
         <el-button size="small" @click="emit('back-to-editor')">返回编辑器</el-button>
         <span v-if="genMsg" class="canvas-gen-msg">{{ genMsg }}</span>
         <span class="canvas-legend"><span class="leg" style="border-left-color:#a78bfa">分镜</span><span class="leg" style="border-left-color:#3b82f6">资产</span><span class="leg" style="border-left-color:#f59e0b">帧</span><span class="leg" style="border-left-color:#ef4444">视频</span><span class="leg" style="border-left-color:#22c55e">图片</span></span>
-        <span class="canvas-info">{{ elements.length }} 元素 | 右键添加 | Delete删除</span>
+        <span class="canvas-info">{{ elements.length }} 元素 | 右键添加 | Delete删除 | 双击图片放大</span>
       </div>
+
+      <!-- Image fullscreen preview -->
+      <Teleport to="body">
+        <div v-if="imgPreview.show" class="canvas-img-overlay" @click="hideImgPreview">
+          <img :src="imgPreview.src" class="canvas-img-full" @click.stop />
+          <button class="canvas-img-close" @click="hideImgPreview">✕</button>
+        </div>
+      </Teleport>
     </div>
     <aside v-if="canvasNav === 'shots'" class="canvas-right-panel">
       <div class="canvas-shot-list">
@@ -238,11 +273,17 @@ const quickAddTypes=[{type:'shot',label:'分镜',color:'#a78bfa'},{type:'asset',
 .nm-status.done { color:#22c55e; font-weight:700; }
 .nm-gen-btn { margin-top:4px; padding:2px 6px; font-size:9px; background:rgba(0,0,0,0.2); border:1px solid; border-radius:3px; cursor:pointer; width:100%; }
 .nm-gen-btn:hover { opacity:0.8; }
+.nm-gen-btn.small { width:auto; padding:1px 4px; font-size:11px; margin:0; }
+.nm-actions { display:flex; align-items:center; gap:4px; margin-top:4px; }
 .asset-node.completed, .frame-node.completed, .video-node.completed, .img-node.completed { border-color:#22c55e!important; }
 .nm-img { display:block; }
 .canvas-ctxmenu { position:fixed; z-index:10000; background:#1f1f28; border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px; min-width:160px; box-shadow:0 8px 24px rgba(0,0,0,0.5); }
 .ctxmenu-item { padding:8px 12px; font-size:12px; color:#e5e7eb; cursor:pointer; border-radius:4px; }
 .ctxmenu-item:hover { background:rgba(167,139,250,0.15); color:#c4b5fd; }
+.canvas-img-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:10001; display:flex; align-items:center; justify-content:center; }
+.canvas-img-full { max-width:90vw; max-height:90vh; object-fit:contain; }
+.canvas-img-close { position:fixed; top:16px; right:16px; z-index:10002; background:rgba(255,255,255,0.15); border:none; color:#fff; font-size:20px; width:40px; height:40px; border-radius:50%; cursor:pointer; }
+.canvas-img-close:hover { background:rgba(255,255,255,0.3); }
 </style>
 
 <style scoped>
