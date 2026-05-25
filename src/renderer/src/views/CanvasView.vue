@@ -86,6 +86,7 @@ function addNodeSimple(type: string) {
 }
 
 const nodesToAdd: any[] = []
+const edgesToAdd: any[] = []
 
 function applyPendingNodes() {
   if (nodesToAdd.length === 0) return
@@ -136,6 +137,90 @@ function deleteSelected() {
     return true
   })
   selectedNodeId.value = ''
+}
+
+function addShotNode(shot: any) {
+  const baseX = 100
+  const baseY = pendingY
+  const shotId = nextId()
+  const sid = shot.id
+
+  // --- Row 0: Shot node ---
+  nodesToAdd.push({
+    id: shotId, type: 'shot',
+    position: { x: baseX, y: baseY },
+    data: { label: `#${shot.shot_index} ${(shot.description||'').substring(0,25)}`, desc: '分镜', status: '' }
+  })
+
+  let yOff = 0
+  const col1X = 300
+  const col2X = 520
+  const col3X = 740
+  const col4X = 960
+
+  // --- Column 1: Characters/Scenes/Props ---
+  const chars = shot.characters || []
+  for (const c of chars) {
+    const nid = nextId()
+    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `角色: ${c.name}`, desc: '资产', status: c.reference_image ? 'done' : '' } })
+    edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(59,130,246,0.3)', strokeWidth: 1 }, animated: false })
+    yOff += 70
+  }
+  for (const s of shot.scenes || []) {
+    const nid = nextId()
+    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `场景: ${s.name}`, desc: '资产', status: s.reference_image ? 'done' : '' } })
+    edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(16,185,129,0.3)', strokeWidth: 1 }, animated: false })
+    yOff += 70
+  }
+  for (const p of shot.props || []) {
+    const nid = nextId()
+    nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `道具: ${p.name}`, desc: '资产', status: p.reference_image ? 'done' : '' } })
+    edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(139,92,246,0.3)', strokeWidth: 1 }, animated: false })
+    yOff += 70
+  }
+  const col1H = yOff
+
+  // --- Column 2: First/Last Frame prompts ---
+  let fyOff = 0
+  if (shot.first_frame_prompt) {
+    const nid = nextId()
+    nodesToAdd.push({ id: nid, type: 'frame', position: { x: col2X, y: baseY + fyOff }, data: { label: '首帧提示词', desc: (shot.first_frame_prompt||'').substring(0,25), status: '' } })
+    edgesToAdd.push({ id: `e-ff-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(245,158,11,0.3)', strokeWidth: 1, animated: false } })
+    const rid = nextId()
+    nodesToAdd.push({ id: rid, type: 'note', position: { x: col3X, y: baseY + fyOff }, data: { label: '首帧图', desc: '', status: shot.first_frame_image_path ? 'done' : '' } })
+    edgesToAdd.push({ id: `e-ffr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(245,158,11,0.2)', strokeWidth: 1, animated: false } })
+    fyOff += 80
+  }
+  if (shot.last_frame_prompt) {
+    const nid = nextId()
+    nodesToAdd.push({ id: nid, type: 'frame', position: { x: col2X, y: baseY + fyOff }, data: { label: '尾帧提示词', desc: (shot.last_frame_prompt||'').substring(0,25), status: '' } })
+    edgesToAdd.push({ id: `e-lf-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(245,158,11,0.3)', strokeWidth: 1, animated: false } })
+    const rid = nextId()
+    nodesToAdd.push({ id: rid, type: 'note', position: { x: col3X, y: baseY + fyOff }, data: { label: '尾帧图', desc: '', status: shot.last_frame_image_path ? 'done' : '' } })
+    edgesToAdd.push({ id: `e-lfr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(245,158,11,0.2)', strokeWidth: 1, animated: false } })
+    fyOff += 80
+  }
+  const col2H = fyOff
+
+  // --- Column 4: Video ---
+  if (shot.video_prompt) {
+    const nid = nextId()
+    nodesToAdd.push({ id: nid, type: 'video', position: { x: col4X, y: baseY }, data: { label: '视频生成', desc: (shot.video_prompt||'').substring(0,25), status: '' } })
+    edgesToAdd.push({ id: `e-vid-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(239,68,68,0.3)', strokeWidth: 1, animated: false } })
+    const rid = nextId()
+    nodesToAdd.push({ id: rid, type: 'note', position: { x: col4X + 200, y: baseY }, data: { label: '视频', desc: '', status: shot.video_path ? 'done' : '' } })
+    edgesToAdd.push({ id: `e-vidr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(239,68,68,0.2)', strokeWidth: 1, animated: false } })
+  }
+
+  const maxH = Math.max(col1H, col2H, 80)
+  pendingY += maxH + 40
+  applyPendingNodes()
+
+  // Apply edges after a tick (nodes must exist first)
+  setTimeout(() => {
+    elements.value = [...elements.value, ...edgesToAdd]
+    edgesToAdd.length = 0
+  }, 50)
 }
 
 // ===== Keyboard shortcuts =====
@@ -230,9 +315,10 @@ const quickAddTypes = [
       <div class="canvas-shot-list">
         <div v-for="chapter in projectData?.chapters || []" :key="chapter.id">
           <div class="canvas-chapter-title">{{ chapter.title || `第${(chapter.chapter_index||0)+1}章` }}</div>
-          <div v-for="shot in (projectData?.shots||[]).filter((s:any)=>s.chapter_id===chapter.id)" :key="shot.id" class="canvas-shot-item">
+          <div v-for="shot in (projectData?.shots||[]).filter((s:any)=>s.chapter_id===chapter.id)" :key="shot.id" class="canvas-shot-item" @click="addShotNode(shot)">
             <span class="shot-num">#{{ shot.shot_index }}</span>
             <span class="shot-desc">{{ (shot.description||'').substring(0,18) }}</span>
+            <span class="shot-add">+</span>
           </div>
         </div>
       </div>
@@ -271,5 +357,7 @@ const quickAddTypes = [
 .canvas-shot-list { padding: 8px; }
 .canvas-chapter-title { font-size: 11px; font-weight: 600; color: #c4b5fd; padding: 6px 8px; }
 .canvas-shot-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: pointer; border-radius: 4px; font-size: 11px; color: #9ca3af; }
-.shot-num { color: #a78bfa; font-weight: 600; flex-shrink: 0; } .shot-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shot-num { color: #a78bfa; font-weight: 600; flex-shrink: 0; } .shot-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.shot-add { color: #22c55e; font-weight: 700; font-size: 14px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+.canvas-shot-item:hover .shot-add { opacity: 1; }
 </style>
