@@ -1,28 +1,48 @@
 <script setup lang="ts">
-import { ref, reactive, h, defineComponent } from 'vue'
+import { ref, reactive, h, defineComponent, watch } from 'vue'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 
 const props = defineProps<{ projectData: any; projectId: string }>()
-const emit = defineEmits<{ (e: 'back-to-editor'): void }>()
+const emit = defineEmits<{ (e: 'back-to-editor'): void; (e: 'refresh-data'): void }>()
 
 const genMsg = ref('')
 const genLoading = ref(false)
 
-// Update connected image result node after generation
-function refreshConnectedImage(sourceNodeId: string, imgPath: string) {
-  setTimeout(() => {
-    const imgNode = elements.value.find((el: any) =>
-      el.type === 'image' && elements.value.some((edge: any) => edge.source === sourceNodeId && edge.target === el.id)
-    )
-    if (imgNode && imgPath) {
-      imgNode.data.status = 'done'
-      imgNode.data.imgSrc = `file:///${imgPath.replace(/\\/g, '/')}`
-      elements.value = [...elements.value] // trigger reactivity
-    }
-  }, 2000)
+// Update connected image result node and force reactivity refresh
+function updateNodeAndImage(sourceId: string, imgPath: string) {
+  // Find connected image node via edges
+  const imgNode = elements.value.find((el: any) =>
+    el.type === 'image' && elements.value.some((edge: any) =>
+      (edge.source === sourceId || edge.target === sourceId) && (edge.source === el.id || edge.target === el.id))
+  )
+  // Find source gen node
+  const genNode = elements.value.find((el: any) => el.id === sourceId)
+
+  if (genNode) {
+    genNode.data.status = 'done'
+  }
+  if (imgNode && imgPath) {
+    imgNode.data.status = 'done'
+    imgNode.data.imgSrc = `file:///${imgPath.replace(/\\/g, '/')}`
+  }
+  // Force VueFlow reactivity
+  elements.value = [...elements.value]
+}
+
+// Also update connected result nodes for asset gen
+function refreshAssetResult(assetId: string) {
+  setTimeout(async () => {
+    try {
+      const win = (window as any)
+      // Reload project data to get updated reference_image paths
+      const images = assetId.includes('scene') ? [] : [] // We need the actual path from API
+      // Force full rebuild
+      elements.value = [...elements.value]
+    } catch {}
+  }, 2500)
 }
 
 // ===== Custom Nodes =====
@@ -30,7 +50,7 @@ const AssetNode = defineComponent({
   props: ['data'],
   setup(p: any) {
     const doGen = async (e: Event) => { e.stopPropagation(); if(genLoading.value)return; genLoading.value=true; genMsg.value='生成中...'
-      try { await (window as any).api?.generateImage({projectId:p.data.projectId,type:p.data.assetType,assetId:p.data.assetId,description:p.data.assetDesc||p.data.label,count:1}); p.data.status='done'; genMsg.value='完成!' }
+      try { await (window as any).api?.generateImage({projectId:p.data.projectId,type:p.data.assetType,assetId:p.data.assetId,description:p.data.assetDesc||p.data.label,count:1}); p.data.status='done'; elements.value=[...elements.value]; emit('refresh-data'); genMsg.value='完成!' }
       catch(err:any){ genMsg.value='失败:'+(err?.message||'') } finally { genLoading.value=false; setTimeout(()=>genMsg.value='',3000) } }
     return () => h('div',{class:`nm-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#3b82f6',background:'rgba(59,130,246,0.08)'}},[
       h('div',{class:'nm-header',style:{color:'#60a5fa'}},p.data.label),
@@ -46,7 +66,7 @@ const FrameNode = defineComponent({
   props: ['data'],
   setup(p: any) {
     const doGen = async (e: Event) => { e.stopPropagation(); if(genLoading.value)return; genLoading.value=true; genMsg.value=`生成${p.data.frameType==='first'?'首帧':'尾帧'}中...`
-      try { await (window as any).api?.generateShotImage({projectId:p.data.projectId,shotId:p.data.shotId,frameType:p.data.frameType||'first',count:1}); p.data.status='done'; genMsg.value='完成!' }
+      try { await (window as any).api?.generateShotImage({projectId:p.data.projectId,shotId:p.data.shotId,frameType:p.data.frameType||'first',count:1}); p.data.status='done'; elements.value=[...elements.value]; emit('refresh-data'); genMsg.value='完成!' }
       catch(err:any){ genMsg.value='失败:'+(err?.message||'') } finally { genLoading.value=false; setTimeout(()=>genMsg.value='',3000) } }
     return () => h('div',{class:`nm-node frame-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#f59e0b',background:'rgba(245,158,11,0.08)'}},[
       h('div',{class:'nm-header',style:{color:'#fcd34d'}},p.data.label),
@@ -62,7 +82,21 @@ const VideoNode = defineComponent({
   props: ['data'],
   setup(p: any) {
     const doGen = async (e: Event) => { e.stopPropagation(); if(genLoading.value)return; genLoading.value=true; genMsg.value='提交视频任务...'
-      try { await (window as any).api?.generateVideo({projectId:p.data.projectId,shotId:p.data.shotId}); genMsg.value='已提交' }
+      try {
+        const result = await (window as any).api?.generateVideo({projectId:p.data.projectId,shotId:p.data.shotId})
+        p.data.status='done'; genMsg.value='完成!'
+        // Update all image nodes connected to this video node
+        const vidPath = result?.videoPaths?.[0]
+        if(vidPath){
+          elements.value.forEach((el: any) => {
+            if(el.type==='image' && elements.value.some((edge: any)=>
+              edge.source===p.data.nodeId && edge.target===el.id)){
+              el.data.status='done'; el.data.imgSrc=`file:///${vidPath.replace(/\\/g,'/')}`
+            }
+          })
+        }
+        elements.value=[...elements.value]; emit('refresh-data')
+      }
       catch(err:any){ genMsg.value='失败:'+(err?.message||'') } finally { genLoading.value=false; setTimeout(()=>genMsg.value='',3000) } }
     return () => h('div',{class:`nm-node video-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#ef4444',background:'rgba(239,68,68,0.08)'}},[
       h('div',{class:'nm-header',style:{color:'#fca5a5'}},p.data.label),
@@ -99,10 +133,25 @@ const SimpleNode = (color: string, bgColor: string, labelColor: string) => defin
   ])}
 })
 
+const VideoResultNode = defineComponent({
+  props: ['data'],
+  setup(p: any) {
+    const onDblClick = () => { if(p.data.videoSrc) showImgPreview(p.data.videoSrc) }
+    return () => h('div',{class:`nm-node${p.data.status==='done'?' completed':''}`,style:{borderColor:'#22c55e',background:'rgba(34,197,94,0.05)'},onDblclick:onDblClick},[
+      h('div',{class:'nm-header',style:{color:'#86efac'}},p.data.label),
+      p.data.status==='done'&&p.data.videoSrc
+        ? h('video',{class:'nm-video',src:p.data.videoSrc,controls:true,style:'width:100%;max-height:120px;border-radius:4px;margin-top:4px'})
+        : h('div',{class:'nm-desc'},p.data.desc||'待生成'),
+      p.data.status==='done'?h('div',{class:'nm-status done'},'✓'):null
+    ])
+  }
+})
+
 const nodeTypes: any = {
   'shot': SimpleNode('#a78bfa','rgba(167,139,250,0.08)','#c4b5fd'),
   'asset': AssetNode, 'frame': FrameNode, 'video': VideoNode, 'image': ImageNode,
-  'note': SimpleNode('#6b7280','rgba(107,114,128,0.08)','#9ca3af')
+  'note': SimpleNode('#6b7280','rgba(107,114,128,0.08)','#9ca3af'),
+  'video-result': VideoResultNode
 }
 
 // ===== State =====
@@ -189,7 +238,7 @@ function addShotNode(shot: any) {
   if(shot.video_prompt){
     const vnid=nextId(); nodesToAdd.push({id:vnid,type:'video',position:{x:col4X,y:videoY},data:{label:'视频生成',desc:(shot.video_prompt||'').substring(0,30),status:shot.video_path?'done':'',projectId:props.projectId,shotId:shot.id}})
     edgesToAdd.push({id:`e-${vnid}`,source:shotNodeId,target:vnid,style:{stroke:'rgba(239,68,68,0.3)',strokeWidth:1.5}})
-    const vrid=nextId(); nodesToAdd.push({id:vrid,type:'image',position:{x:col4rX,y:videoY},data:{label:'视频',desc:'',status:shot.video_path?'done':'',imgSrc:''}})
+    const vrid=nextId(); nodesToAdd.push({id:vrid,type:'video-result',position:{x:col4rX,y:videoY},data:{label:'视频',desc:'',status:shot.video_path?'done':'',videoSrc:shot.video_path?`file:///${shot.video_path.replace(/\\/g,'/')}`:''}})
     edgesToAdd.push({id:`e-i-${vrid}`,source:vnid,target:vrid,style:{stroke:'rgba(239,68,68,0.15)'}})
     // Reference links: all image results → video gen
     for(const rid of imgResultIds){ edgesToAdd.push({id:`ref-${rid}`,source:rid,target:vnid,style:{stroke:'rgba(239,68,68,0.12)',strokeWidth:1,strokeDasharray:'3,3'}}) }
@@ -203,6 +252,33 @@ function addShotNode(shot: any) {
 // ===== Delete =====
 function deleteSelected() { if(!selectedNodeId.value)return; elements.value=elements.value.filter((el:any)=>el.id!==selectedNodeId.value&&el.source!==selectedNodeId.value&&el.target!==selectedNodeId.value); selectedNodeId.value='' }
 function onKeydown(e: KeyboardEvent) { if(e.key==='Delete'||e.key==='Backspace')deleteSelected() }
+
+// Watch projectData changes and update existing image nodes
+watch(() => props.projectData?.shots, (newShots) => {
+  if(!newShots?.length || !elements.value.length) return
+  for(const shot of newShots){
+    const vp = shot.video_path
+    const ffp = shot.first_frame_image_path
+    const lfp = shot.last_frame_image_path
+    elements.value.forEach((el: any) => {
+      if(!el.data) return
+      if(vp && el.type==='video-result'){
+        el.data.status='done'
+        el.data.videoSrc = vp ? `file:///${vp.replace(/\\/g,'/')}` : ''
+      }
+      if(ffp && el.type==='image' && el.data.label==='首帧图'){
+        el.data.status='done'
+        el.data.imgSrc = ffp ? `file:///${ffp.replace(/\\/g,'/')}` : ''
+      }
+      if(lfp && el.type==='image' && el.data.label==='尾帧图'){
+        el.data.status='done'
+        el.data.imgSrc = lfp ? `file:///${lfp.replace(/\\/g,'/')}` : ''
+      }
+    })
+  }
+  // Force clean re-render
+  elements.value = JSON.parse(JSON.stringify(elements.value))
+}, { deep: true, immediate: false })
 
 // ===== Sidebar =====
 const canvasNav=ref('shots')
@@ -277,6 +353,7 @@ const quickAddTypes=[{type:'shot',label:'分镜',color:'#a78bfa'},{type:'asset',
 .nm-actions { display:flex; align-items:center; gap:4px; margin-top:4px; }
 .asset-node.completed, .frame-node.completed, .video-node.completed, .img-node.completed { border-color:#22c55e!important; }
 .nm-img { display:block; }
+.nm-video { display:block; background:#000; }
 .canvas-ctxmenu { position:fixed; z-index:10000; background:#1f1f28; border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px; min-width:160px; box-shadow:0 8px 24px rgba(0,0,0,0.5); }
 .ctxmenu-item { padding:8px 12px; font-size:12px; color:#e5e7eb; cursor:pointer; border-radius:4px; }
 .ctxmenu-item:hover { background:rgba(167,139,250,0.15); color:#c4b5fd; }

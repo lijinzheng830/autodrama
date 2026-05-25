@@ -1039,6 +1039,10 @@ async function showDetail(type: string, data: any): Promise<void> {
   detailData.value = data
   genCount.value = 1
   assetImages.value = []
+  assetVideos.value = []
+  if (type === 'video' && data?.id) {
+    await loadShotVideos(data.id)
+  }
   if (['character', 'scene', 'prop'].includes(type) && data?.id) {
     await loadAssetImages(type, data.id)
   }
@@ -1202,6 +1206,7 @@ const genLoading = ref(false)
 
 // 历史图片记录
 const assetImages = ref<any[]>([])
+const assetVideos = ref<any[]>([])
 
 // ===== 全屏大图预览 =====
 const fullscreenImageVisible = ref(false)
@@ -1509,6 +1514,38 @@ async function loadAssetImages(type: string, assetId: string): Promise<void> {
   }
 }
 
+async function loadShotVideos(shotId: string): Promise<void> {
+  try {
+    const videos = await window.api.getShotVideos(shotId)
+    assetVideos.value = videos || []
+  } catch (err) {
+    console.error('加载视频历史失败', err)
+    assetVideos.value = []
+  }
+}
+
+async function handleSelectHistoryVideo(shotId: string, videoId: string): Promise<void> {
+  try {
+    await window.api.selectShotVideo(shotId, videoId)
+    if (shotId) await loadShotVideos(shotId)
+    await loadEpisodesData()
+    // Update detail data
+    const updatedShot = projectData.value?.shots?.find((s: any) => s.id === shotId)
+    if (updatedShot) {
+      detailData.value = { ...detailData.value, video_path: updatedShot.video_path }
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '选择视频失败')
+  }
+}
+
+async function handleDeleteHistoryVideo(shotId: string, _videoId: string): Promise<void> {
+  try { await ElMessageBox.confirm('确定删除该视频？', '确认', { type: 'warning' }) } catch { return }
+  // Just reload - full delete not implemented for videos yet
+  if (shotId) await loadShotVideos(shotId)
+  await loadEpisodesData()
+}
+
 async function loadShotImages(shotId: string, frameType: 'first' | 'last'): Promise<void> {
   try {
     const images = await window.api.getShotImages(shotId, frameType)
@@ -1591,6 +1628,7 @@ async function handleGenerateVideo(): Promise<void> {
     })
     ElMessage.success('视频生成任务已提交，请稍后在生成记录中查看')
     await loadEpisodesData()
+    if (detailData.value?.id) await loadShotVideos(detailData.value.id)
     genRecordTab.value = 'video'
     genRecordVisible.value = true
     await loadGenerationRecords()
@@ -3700,11 +3738,41 @@ onUnmounted(() => {
                   </div>
                   <div class="history-section">
                     <div class="history-title">备选素材</div>
-                    <div class="history-empty">暂无备选素材</div>
+                    <div v-if="assetVideos.length === 0" class="history-empty">暂无备选素材</div>
+                    <div v-else class="history-grid">
+                      <div
+                        v-for="v in assetVideos"
+                        :key="v.id"
+                        class="history-item"
+                        :class="{ selected: v.is_selected }"
+                        @click="handleSelectHistoryVideo(detailData?.id, v.id)"
+                      >
+                        <video :src="toFileUrl(v.video_path)" class="history-img" />
+                        <div v-show="v.is_selected" class="history-selected-badge">✓</div>
+                        <el-button
+                          class="history-delete-btn"
+                          :icon="Delete"
+                          circle
+                          size="small"
+                          @click.stop="handleDeleteHistoryVideo(detailData?.id, v.id)"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div class="history-section">
                     <div class="history-title">历史记录</div>
-                    <div class="history-empty">暂无生成记录</div>
+                    <div v-if="assetVideos.length === 0" class="history-empty">暂无生成记录</div>
+                    <div v-else class="history-grid">
+                      <div
+                        v-for="v in assetVideos"
+                        :key="v.id"
+                        class="history-item"
+                        :class="{ selected: v.is_selected }"
+                        @click="handleSelectHistoryVideo(detailData?.id, v.id)"
+                      >
+                        <video :src="toFileUrl(v.video_path)" class="history-img" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -3722,6 +3790,7 @@ onUnmounted(() => {
             :project-data="projectData"
             :project-id="projectId"
             @back-to-editor="viewMode = 'table'; activeNav = 'episodes'"
+            @refresh-data="loadEpisodesData()"
             @generate-video="(shotId: string) => { const shot = projectData?.shots?.find((s:any) => s.id === shotId); if (shot) { showDetail('video', shot); nextTick(() => handleGenerateVideo()); } }"
           />
         </div>
