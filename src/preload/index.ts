@@ -130,6 +130,8 @@ const api = {
     ipcRenderer.invoke('image:getAssetImages', { assetType, assetId }),
   selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) =>
     ipcRenderer.invoke('image:selectAssetImage', { assetType, assetId, imageId }),
+  deleteAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) =>
+    ipcRenderer.invoke('image:deleteAssetImage', { assetType, assetId, imageId }),
   generateShotImage: (input: GenerateShotImageInput) => ipcRenderer.invoke('image:generateShot', input),
   getShotImages: (shotId: string, frameType: 'first' | 'last') =>
     ipcRenderer.invoke('image:getShotImages', { shotId, frameType }),

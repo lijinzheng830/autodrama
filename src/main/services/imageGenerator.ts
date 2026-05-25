@@ -778,6 +778,53 @@ export function getShotImages(shotId: string, frameType: 'first' | 'last'): any[
 }
 
 /**
+ * 删除资产历史图片
+ */
+export function deleteAssetImage(
+  assetType: 'character' | 'scene' | 'prop',
+  assetId: string,
+  imageId: string
+): void {
+  const db = getDb()
+  const tableMap: Record<string, string> = {
+    character: 'character_images',
+    scene: 'scene_images',
+    prop: 'prop_images'
+  }
+  const table = tableMap[assetType]
+  const idColumn = assetType === 'character' ? 'character_id' : assetType === 'scene' ? 'scene_id' : 'prop_id'
+
+  // 获取要删除的图片信息
+  const img = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(imageId) as { image_path: string; is_selected: number } | undefined
+  if (!img) throw new Error('图片记录不存在')
+
+  // 删除数据库记录
+  db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(imageId)
+
+  // 如果被删除的是当前选中的，将最新的一张设为选中
+  if (img.is_selected) {
+    const latest = db.prepare(`SELECT id FROM ${table} WHERE ${idColumn} = ? ORDER BY created_at DESC LIMIT 1`).get(assetId) as { id: string } | undefined
+    if (latest) {
+      db.prepare(`UPDATE ${table} SET is_selected = 1 WHERE id = ?`).run(latest.id)
+      // 更新资产 reference_image
+      const latestImg = db.prepare(`SELECT image_path FROM ${table} WHERE id = ?`).get(latest.id) as { image_path: string }
+      const assetTable = assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+      db.prepare(`UPDATE ${assetTable} SET reference_image = ? WHERE id = ?`).run(latestImg.image_path, assetId)
+    } else {
+      // 没有其他图片了，清空 reference_image
+      const assetTable = assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+      db.prepare(`UPDATE ${assetTable} SET reference_image = '' WHERE id = ?`).run(assetId)
+    }
+  }
+
+  // 尝试删除文件
+  try {
+    const fs = require('fs')
+    if (fs.existsSync(img.image_path)) fs.unlinkSync(img.image_path)
+  } catch { /* file may not exist */ }
+}
+
+/**
  * 切换分镜历史图片选中状态
  */
 export function selectShotImage(

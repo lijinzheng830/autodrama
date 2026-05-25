@@ -71,7 +71,7 @@ import {
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
-import { generateImage, getAssetImages, selectAssetImage, generateShotImage, getShotImages, selectShotImage } from './services/imageGenerator'
+import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, generateShotImage, getShotImages, selectShotImage } from './services/imageGenerator'
 import type { GenerateImageInput } from './types'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
@@ -557,6 +557,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('image:selectAssetImage', async (_, { assetType, assetId, imageId }: { assetType: 'character' | 'scene' | 'prop'; assetId: string; imageId: string }) => {
     selectAssetImage(assetType, assetId, imageId)
+  })
+
+  ipcMain.handle('image:deleteAssetImage', async (_, { assetType, assetId, imageId }: { assetType: 'character' | 'scene' | 'prop'; assetId: string; imageId: string }) => {
+    deleteAssetImage(assetType, assetId, imageId)
   })
 
   ipcMain.handle('image:generateShot', async (_, input) => {

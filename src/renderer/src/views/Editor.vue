@@ -1268,6 +1268,23 @@ async function handleDeleteFullscreenImage(): Promise<void> {
   } catch {
     return
   }
+  // Determine asset type and ID for the current fullscreen image
+  let assetType: 'character' | 'scene' | 'prop' = 'character'
+  let assetId = ''
+  if (detailType.value === 'character' || detailType.value === 'scene' || detailType.value === 'prop') {
+    assetType = detailType.value as 'character' | 'scene' | 'prop'
+    assetId = detailData.value?.id || ''
+  } else if (detailType.value === 'firstFrame' || detailType.value === 'lastFrame') {
+    // For shot frames, just remove from local state
+    assetId = ''
+  }
+  if (assetId && img.id) {
+    try {
+      await window.api.deleteAssetImage(assetType, assetId, img.id)
+    } catch (_err) {
+      console.error('Delete image failed:', _err)
+    }
+  }
   // Remove from fullscreen list
   const idx = fullscreenImageList.value.indexOf(src)
   if (idx >= 0) {
@@ -1479,6 +1496,28 @@ async function loadShotImages(shotId: string, frameType: 'first' | 'last'): Prom
   } catch (err) {
     console.error('加载分镜历史图片失败', err)
     assetImages.value = []
+  }
+}
+
+async function handleDeleteHistoryImage(type: string, assetId: string, imageId: string): Promise<void> {
+  try {
+    await ElMessageBox.confirm('确定要删除这张图片吗？', '确认删除', { type: 'warning' })
+  } catch {
+    return
+  }
+  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : (type === 'prop' ? 'prop' : 'character')
+  try {
+    await window.api.deleteAssetImage(assetType, assetId, imageId)
+    // Reload
+    if (type === 'firstFrame' || type === 'lastFrame') {
+      await loadShotImages(assetId, type as 'first' | 'last')
+    } else {
+      await loadAssetImages(type, assetId)
+    }
+    await loadEpisodesData()
+    ElMessage.success('图片已删除')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '删除失败')
   }
 }
 
@@ -3323,6 +3362,13 @@ onUnmounted(() => {
                       >
                         <img :src="toFileUrl(img.image_path)" class="history-img" />
                         <div v-show="img.is_selected" class="history-selected-badge">✓</div>
+                        <el-button
+                          class="history-delete-btn"
+                          :icon="Delete"
+                          circle
+                          size="small"
+                          @click.stop="handleDeleteHistoryImage(detailType, detailData?.id, img.id)"
+                        />
                       </div>
                     </div>
                   </div>
@@ -5698,6 +5744,24 @@ onUnmounted(() => {
 
 .history-item.selected {
   border-color: #a78bfa;
+}
+
+.history-delete-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.6) !important;
+  border-color: transparent !important;
+  color: #ef4444 !important;
+  opacity: 0;
+  transition: opacity 0.15s;
+  font-size: 12px !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+.history-item:hover .history-delete-btn {
+  opacity: 1;
 }
 
 .history-img {
