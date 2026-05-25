@@ -1,325 +1,153 @@
 <script setup lang="ts">
-import { ref, watch, h, defineComponent } from 'vue'
+import { ref, reactive, h, defineComponent, nextTick, computed } from 'vue'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 
-const props = defineProps<{
-  projectData: any
-  projectId: string
-}>()
+const props = defineProps<{ projectData: any; projectId: string }>()
+const emit = defineEmits<{ (e: 'back-to-editor'): void }>()
 
-const emit = defineEmits<{
-  (e: 'back-to-editor'): void
-  (e: 'focus-shot', shotId: string): void
-}>()
-
-const genLoading = ref(false)
-const videoGenMsg = ref('')
-
-async function handleVideoGenerate(shotId: string) {
-  if (genLoading.value) return
-  genLoading.value = true
-  videoGenMsg.value = '正在提交视频生成任务...'
-  try {
-    const shot = props.projectData?.shots?.find((s: any) => s.id === shotId)
-    if (!shot) { videoGenMsg.value = '未找到分镜'; return }
-    // Use window.api directly
-    const win = (window as any)
-    if (!win.api?.generateVideo) { videoGenMsg.value = 'API不可用'; return }
-    await win.api.generateVideo({ projectId: props.projectId, shotId })
-    videoGenMsg.value = '视频生成任务已提交，等待完成...'
-    // Rebuild canvas after a delay to show results
-    await new Promise(r => setTimeout(r, 5000))
-    buildElements()
-    videoGenMsg.value = ''
-  } catch (err: any) {
-    videoGenMsg.value = '生成失败: ' + (err?.message || '未知错误')
-    await new Promise(r => setTimeout(r, 3000))
-    videoGenMsg.value = ''
-  } finally {
-    genLoading.value = false
-  }
-}
-
-function refreshCanvas() {
-  buildElements()
-}
-
-defineExpose({ refreshCanvas })
-
-// ===== Custom Nodes using h() render functions =====
-const AssetGenNode = defineComponent({
+// ===== Custom Nodes (simple display) =====
+const createNode = (header: string, color: string, bgColor: string) => defineComponent({
   props: ['data'],
   setup(p: any) {
     return () => h('div', {
-      class: `cnode cnode-asset${p.data.completed ? ' completed' : ''}`
+      class: 'nm-node',
+      style: { borderColor: color, background: bgColor }
     }, [
-      h('div', { class: 'cnode-header' }, p.data.label),
-      p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
-      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成')
-    ])
-  }
-})
-
-const FrameGenNode = defineComponent({
-  props: ['data'],
-  setup(p: any) {
-    return () => h('div', {
-      class: `cnode cnode-frame${p.data.completed ? ' completed' : ''}`
-    }, [
-      h('div', { class: 'cnode-header' }, p.data.label),
-      p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
-      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成')
-    ])
-  }
-})
-
-const ResultNode = defineComponent({
-  props: ['data'],
-  setup(p: any) {
-    return () => h('div', {
-      class: `cnode cnode-result${p.data.completed ? ' completed' : ''}`
-    }, [
-      h('div', { class: 'cnode-header' }, p.data.label),
-      p.data.completed && p.data.thumbSrc
-        ? h('img', { class: 'cnode-result-img', src: p.data.thumbSrc, style: 'width:60px;height:40px;object-fit:cover;border-radius:4px;margin-top:2px' })
-        : h('div', { class: 'cnode-thumb' }, p.data.completed ? '📁' : '⬚')
-    ])
-  }
-})
-
-const VideoGenNode = defineComponent({
-  props: ['data'],
-  setup(p: any) {
-    return () => h('div', {
-      class: `cnode cnode-video${p.data.completed ? ' completed' : ''}`
-    }, [
-      h('div', { class: 'cnode-header' }, p.data.label),
-      p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
-      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成'),
-      !p.data.completed && p.data.onGenerate ? h('button', {
-        class: 'cnode-gen-btn',
-        onClick: (e: Event) => { e.stopPropagation(); p.data.onGenerate(p.data.shotId) }
-      }, '⚡ 生视频') : null
+      h('div', { class: 'nm-header', style: { color } }, p.data.label || header),
+      p.data.desc ? h('div', { class: 'nm-desc' }, p.data.desc) : null,
+      p.data.status ? h('div', { class: 'nm-status', style: { color: p.data.status === 'done' ? '#22c55e' : '#6b7280' } }, p.data.status === 'done' ? '✓' : '○') : null
     ])
   }
 })
 
 const nodeTypes = {
-  'asset-gen': AssetGenNode,
-  'frame-gen': FrameGenNode,
-  'result': ResultNode,
-  'video-gen': VideoGenNode
+  'shot': createNode('分镜', '#a78bfa', 'rgba(167,139,250,0.08)'),
+  'asset': createNode('资产', '#3b82f6', 'rgba(59,130,246,0.08)'),
+  'frame': createNode('帧生图', '#f59e0b', 'rgba(245,158,11,0.08)'),
+  'video': createNode('视频', '#ef4444', 'rgba(239,68,68,0.08)'),
+  'note': createNode('备注', '#6b7280', 'rgba(107,114,128,0.08)')
 }
 
-// ===== State =====
+// ===== Canvas state =====
 const elements = ref<any[]>([])
-const selectedFlow = ref<string>('')
+const selectedNodeId = ref('')
+let nodeCounter = 0
+const nextId = () => `n${++nodeCounter}_${Date.now()}`
 
-// Column layout constants
-const COL_X = {
-  shot: 0,
-  asset: 220,
-  assetResult: 420,
-  frame: 620,
-  frameResult: 820,
-  video: 1020,
-  videoResult: 1220
+// ===== Right-click menu =====
+const ctxMenu = reactive({ show: false, x: 0, y: 0 })
+
+function onPaneContextMenu(event: MouseEvent) {
+  event.preventDefault()
+  ctxMenu.show = true
+  ctxMenu.x = event.clientX
+  ctxMenu.y = event.clientY
 }
-const COL_W = { main: 200, asset: 180, result: 120 }
-const ROW_H = { header: 40, asset: 96, result: 50, gap: 20 }
 
-function buildElements() {
-  const chapters = props.projectData?.chapters || []
-  const allShots = props.projectData?.shots || []
-  if (!chapters.length && !allShots.length) return
+function hideCtxMenu() { ctxMenu.show = false }
 
-  const nodes: any[] = []
-  const edges: any[] = []
-  let y = 0
+function addNode(type: string) {
+  const labels: Record<string, string> = { shot: '分镜', asset: '资产', frame: '帧生图', video: '视频', note: '备注' }
+  const id = nextId()
 
-  for (const chapter of chapters) {
-    const chapterShots = allShots.filter((s: any) => s.chapter_id === chapter.id)
-    if (!chapterShots.length) continue
+  // Convert screen coords to flow coords
+  const flowEl = document.querySelector('.vue-flow-canvas')
+  const rect = flowEl?.getBoundingClientRect()
+  const x = rect ? ctxMenu.x - rect.left - 80 : 100
+  const y = rect ? ctxMenu.y - rect.top - 20 : 100
 
-    // Chapter header
-    nodes.push({
-      id: `ch-${chapter.id}`, type: 'default',
-      position: { x: 0, y },
-      data: { label: chapter.title || `第${(chapter.chapter_index || 0) + 1}章` },
-      style: { background: 'rgba(167,139,250,0.15)', border: '1px solid #a78bfa', color: '#c4b5fd', fontWeight: '700', width: '100%', minWidth: 1400, fontSize: '14px', borderRadius: '6px' }
-    })
-    y += ROW_H.header + 8
+  nodesToAdd.push({
+    id, type,
+    position: { x: Math.max(0, x), y: Math.max(0, y) },
+    data: { label: labels[type] || type, desc: '', status: '' }
+  })
+  applyPendingNodes()
+  hideCtxMenu()
+}
 
-    for (let si = 0; si < chapterShots.length; si++) {
-      const shot = chapterShots[si]
-      const shotId = shot.id
-      const baseY = y
-      let maxRowY = baseY
+// For converting screen coords
+let pendingX = 100
+let pendingY = 100
 
-      // ---- 1. Shot node ----
-      const shotNodeId = `shot-${shotId}`
-      nodes.push({
-        id: shotNodeId, type: 'default',
-        position: { x: COL_X.shot, y },
-        data: { label: `#${shot.shot_index || si + 1} ${(shot.description || '').substring(0, 25)}` },
-        style: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: '#f3f4f6', width: COL_W.main, fontSize: '11px', padding: '8px', minHeight: 50 }
-      })
+function addNodeSimple(type: string) {
+  const labels: Record<string, string> = { shot: '分镜', asset: '资产', frame: '帧生图', video: '视频', note: '备注' }
+  const id = nextId()
+  nodesToAdd.push({
+    id, type,
+    position: { x: pendingX, y: pendingY },
+    data: { label: labels[type], desc: '', status: '' }
+  })
+  pendingX += 220
+  if (pendingX > 800) { pendingX = 100; pendingY += 150 }
+  applyPendingNodes()
+}
 
-      // ---- 2. Asset gen nodes (角色/场景/道具) ----
-      const chars = shot.characters || []
-      const scenes = shot.scenes || []
-      const props = shot.props || []
-      let assetY = baseY
+const nodesToAdd: any[] = []
 
-      // Character gen nodes
-      for (const c of chars) {
-        const nid = `char-${shotId}-${c.id}`
-        nodes.push({
-          id: nid, type: 'asset-gen',
-          position: { x: COL_X.asset, y: assetY },
-          data: { label: `角色: ${c.name}`, prompt: (c.description || '').substring(0, 30), model: '', completed: !!c.reference_image }
-        })
-        edges.push({ id: `e-sc-${nid}`, source: shotNodeId, target: nid, style: { stroke: 'rgba(59,130,246,0.4)', strokeWidth: 1.5 } })
+function applyPendingNodes() {
+  if (nodesToAdd.length === 0) return
+  elements.value = [...elements.value, ...nodesToAdd]
+  nodesToAdd.length = 0
+}
 
-        // Character result node
-        const rnid = `char-r-${shotId}-${c.id}`
-        nodes.push({
-          id: rnid, type: 'result',
-          position: { x: COL_X.assetResult, y: assetY + 8 },
-          data: { label: '定妆照', completed: !!c.reference_image, thumbSrc: c.reference_image ? `file:///${c.reference_image.replace(/\\/g, '/')}` : '' }
-        })
-        edges.push({ id: `e-cr-${rnid}`, source: nid, target: rnid, style: { stroke: 'rgba(59,130,246,0.2)' } })
+// ===== Connect nodes =====
+let connectFrom: string | null = null
 
-        // Edge from result to frame gen
-        if (shot.first_frame_prompt) {
-          edges.push({ id: `e-crf-${rnid}`, source: rnid, target: `ff-${shotId}`, style: { stroke: 'rgba(245,158,11,0.2)', strokeDasharray: '4,4' } })
-        }
+function onConnect(params: any) {
+  const { source, target } = params
+  elements.value.push({
+    id: `e-${source}-${target}`,
+    source, target,
+    style: { stroke: 'rgba(167,139,250,0.4)', strokeWidth: 1.5 },
+    animated: true
+  })
+}
 
-        assetY += ROW_H.asset + 4
-      }
-
-      // Scene gen node
-      if (scenes.length > 0 && scenes[0]) {
-        const sc = scenes[0]
-        const snid = `scene-${shotId}-${sc.id}`
-        nodes.push({
-          id: snid, type: 'asset-gen',
-          position: { x: COL_X.asset, y: assetY },
-          data: { label: `场景: ${sc.name}`, prompt: (sc.description || '').substring(0, 30), completed: !!sc.reference_image }
-        })
-        edges.push({ id: `e-ss-${snid}`, source: shotNodeId, target: snid, style: { stroke: 'rgba(16,185,129,0.4)', strokeWidth: 1.5 } })
-        const rnid = `scene-r-${shotId}-${sc.id}`
-        nodes.push({ id: rnid, type: 'result', position: { x: COL_X.assetResult, y: assetY + 8 }, data: { label: '场景图', completed: !!sc.reference_image, thumbSrc: sc.reference_image ? `file:///${sc.reference_image.replace(/\\/g, '/')}` : '' } })
-        edges.push({ id: `e-sr-${rnid}`, source: snid, target: rnid, style: { stroke: 'rgba(16,185,129,0.2)' } })
-        if (shot.first_frame_prompt) { edges.push({ id: `e-srf-${rnid}`, source: rnid, target: `ff-${shotId}`, style: { stroke: 'rgba(245,158,11,0.2)', strokeDasharray: '4,4' } }) }
-        assetY += ROW_H.asset + 4
-      }
-
-      // Prop gen nodes
-      for (const p of props) {
-        const pnid = `prop-${shotId}-${p.id}`
-        nodes.push({ id: pnid, type: 'asset-gen', position: { x: COL_X.asset, y: assetY }, data: { label: `道具: ${p.name}`, prompt: (p.description || '').substring(0, 30), completed: !!p.reference_image } })
-        edges.push({ id: `e-sp-${pnid}`, source: shotNodeId, target: pnid, style: { stroke: 'rgba(139,92,246,0.4)', strokeWidth: 1.5 } })
-        const rnid = `prop-r-${shotId}-${p.id}`
-        nodes.push({ id: rnid, type: 'result', position: { x: COL_X.assetResult, y: assetY + 8 }, data: { label: '道具图', completed: !!p.reference_image, thumbSrc: p.reference_image ? `file:///${p.reference_image.replace(/\\/g, '/')}` : '' } })
-        edges.push({ id: `e-pr-${rnid}`, source: pnid, target: rnid, style: { stroke: 'rgba(139,92,246,0.2)' } })
-        if (shot.first_frame_prompt) { edges.push({ id: `e-prf-${rnid}`, source: rnid, target: `ff-${shotId}`, style: { stroke: 'rgba(245,158,11,0.2)', strokeDasharray: '4,4' } }) }
-        assetY += ROW_H.asset + 4
-      }
-
-      maxRowY = Math.max(maxRowY, assetY)
-
-      // ---- 3. Frame gen nodes (首帧/尾帧) ----
-      let frameY = baseY
-      if (shot.first_frame_prompt) {
-        const ffid = `ff-${shotId}`
-        nodes.push({
-          id: ffid, type: 'frame-gen',
-          position: { x: COL_X.frame, y: frameY },
-          data: { label: '首帧生图', prompt: (shot.first_frame_prompt || '').substring(0, 40), completed: !!shot.first_frame_image_path }
-        })
-        edges.push({ id: `e-fff-${ffid}`, source: shotNodeId, target: ffid, style: { stroke: 'rgba(245,158,11,0.4)', strokeWidth: 1.5 } })
-
-        // Frame result
-        const ffrid = `ff-r-${shotId}`
-        nodes.push({
-          id: ffrid, type: 'result',
-          position: { x: COL_X.frameResult, y: frameY + 8 },
-          data: { label: '首帧图', completed: !!shot.first_frame_image_path, thumbSrc: shot.first_frame_image_path ? `file:///${shot.first_frame_image_path.replace(/\\/g, '/')}` : '' }
-        })
-        edges.push({ id: `e-ffr-${ffrid}`, source: ffid, target: ffrid, style: { stroke: 'rgba(245,158,11,0.2)' } })
-
-        // Edge to video gen
-        if (shot.video_prompt) {
-          edges.push({ id: `e-fv-${ffrid}`, source: ffrid, target: `vid-${shotId}`, style: { stroke: 'rgba(239,68,68,0.2)', strokeDasharray: '4,4' } })
-        }
-
-        frameY += ROW_H.asset + 4
-      }
-
-      if (shot.last_frame_prompt) {
-        const lfid = `lf-${shotId}`
-        nodes.push({
-          id: lfid, type: 'frame-gen',
-          position: { x: COL_X.frame, y: frameY },
-          data: { label: '尾帧生图', prompt: (shot.last_frame_prompt || '').substring(0, 40), completed: !!shot.last_frame_image_path }
-        })
-        edges.push({ id: `e-lff-${lfid}`, source: shotNodeId, target: lfid, style: { stroke: 'rgba(245,158,11,0.4)', strokeWidth: 1.5 } })
-        const lfrid = `lf-r-${shotId}`
-        nodes.push({ id: lfrid, type: 'result', position: { x: COL_X.frameResult, y: frameY + 8 }, data: { label: '尾帧图', completed: !!shot.last_frame_image_path, thumbSrc: shot.last_frame_image_path ? `file:///${shot.last_frame_image_path.replace(/\\/g, '/')}` : '' } })
-        edges.push({ id: `e-lfr-${lfrid}`, source: lfid, target: lfrid, style: { stroke: 'rgba(245,158,11,0.2)' } })
-        if (shot.video_prompt) { edges.push({ id: `e-lv-${lfrid}`, source: lfrid, target: `vid-${shotId}`, style: { stroke: 'rgba(239,68,68,0.2)', strokeDasharray: '4,4' } }) }
-        frameY += ROW_H.asset + 4
-      }
-
-      maxRowY = Math.max(maxRowY, frameY)
-
-      // ---- 4. Video gen node ----
-      if (shot.video_prompt) {
-        const vid = `vid-${shotId}`
-        nodes.push({
-          id: vid, type: 'video-gen',
-          position: { x: COL_X.video, y: baseY + 8 },
-          data: { label: '视频生成', prompt: (shot.video_prompt || '').substring(0, 40), completed: !!shot.video_path, shotId, onGenerate: handleVideoGenerate }
-        })
-        edges.push({ id: `e-vv-${vid}`, source: shotNodeId, target: vid, style: { stroke: 'rgba(239,68,68,0.4)', strokeWidth: 1.5 } })
-
-        const vrid = `vid-r-${shotId}`
-        nodes.push({
-          id: vrid, type: 'result',
-          position: { x: COL_X.videoResult, y: baseY + 16 },
-          data: { label: '视频', completed: !!shot.video_path, thumbSrc: shot.video_path ? `file:///${shot.video_path.replace(/\\/g, '/')}` : '' }
-        })
-        edges.push({ id: `e-vr-${vrid}`, source: vid, target: vrid, style: { stroke: 'rgba(239,68,68,0.2)' } })
-
-        maxRowY = Math.max(maxRowY, baseY + ROW_H.asset + 10)
-      }
-
-      y = maxRowY + ROW_H.gap
-    }
-    y += 20
+// ===== Quick-add from project data =====
+function quickAddFromProject() {
+  if (!props.projectData?.shots) return
+  pendingX = 100; pendingY = 100; nodeCounter = 0
+  for (const shot of props.projectData.shots || []) {
+    addNodeSimple('shot')
+    const last = elements.value[elements.value.length - 1]
+    if (last) last.data = { label: `#${shot.shot_index} ${(shot.description||'').substring(0,20)}`, desc: '', status: shot.video_path ? 'done' : '' }
   }
-
-  elements.value = [...nodes, ...edges]
 }
 
-// Watch for data changes - shots count and video/image paths
-watch(
-  () => {
-    const shots = props.projectData?.shots
-    if (!shots) return ''
-    return shots.map((s: any) => `${s.id}:${s.video_path || ''}:${s.first_frame_image_path || ''}:${s.reference_image || ''}`).join('|')
-  },
-  () => { if (props.projectData) buildElements() },
-  { immediate: true }
-)
+// ===== Node click/drag handlers =====
+function onNodeClick({ node }: any) {
+  selectedNodeId.value = node.id
+}
 
-// ===== Side Panel =====
+function onPaneClick() {
+  selectedNodeId.value = ''
+  hideCtxMenu()
+}
+
+// ===== Delete node =====
+function deleteSelected() {
+  if (!selectedNodeId.value) return
+  elements.value = elements.value.filter((el: any) => {
+    if (el.id === selectedNodeId.value) return false
+    if (el.source === selectedNodeId.value || el.target === selectedNodeId.value) return false
+    return true
+  })
+  selectedNodeId.value = ''
+}
+
+// ===== Keyboard shortcuts =====
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteSelected()
+  }
+}
+
+// ===== Sidebar =====
 const canvasNav = ref('shots')
-const canvasPanelItems = [
+const sidebarItems = [
   { key: 'characters', label: '角色', icon: '👤' },
   { key: 'scenes', label: '场景', icon: '🏠' },
   { key: 'props', label: '道具', icon: '🔧' },
@@ -327,36 +155,74 @@ const canvasPanelItems = [
   { key: 'library', label: '资产库', icon: '📁' }
 ]
 
-function focusShot(shotId: string) {
-  selectedFlow.value = shotId
-  emit('focus-shot', shotId)
-}
+// ===== Quick-add bar =====
+const quickAddTypes = [
+  { type: 'shot', label: '分镜', color: '#a78bfa' },
+  { type: 'asset', label: '资产', color: '#3b82f6' },
+  { type: 'frame', label: '帧', color: '#f59e0b' },
+  { type: 'video', label: '视频', color: '#ef4444' },
+  { type: 'note', label: '备注', color: '#6b7280' }
+]
 </script>
 
 <template>
-  <div class="canvas-layout">
+  <div class="canvas-layout" @keydown="onKeydown" tabindex="0">
     <aside class="canvas-sidebar">
-      <div v-for="item in canvasPanelItems" :key="item.key" class="canvas-nav-item" :class="{ active: canvasNav === item.key }" @click="canvasNav = item.key">
+      <div v-for="item in sidebarItems" :key="item.key" class="canvas-nav-item" :class="{ active: canvasNav === item.key }" @click="canvasNav = item.key">
         <span class="canvas-nav-icon">{{ item.icon }}</span>
         <span class="canvas-nav-label">{{ item.label }}</span>
       </div>
     </aside>
 
     <div class="canvas-main">
-      <VueFlow v-model="elements" :default-viewport="{ x: 0, y: 0, zoom: 0.7 }" :min-zoom="0.15" :max-zoom="2" :node-types="nodeTypes" class="vue-flow-canvas" :fit-view-on-init="true">
-        <Background :gap="24" />
+      <!-- Quick add bar -->
+      <div class="canvas-quickbar">
+        <span class="quickbar-label">添加节点：</span>
+        <button v-for="qt in quickAddTypes" :key="qt.type" class="quickbar-btn" :style="{ borderColor: qt.color, color: qt.color }" @click="addNodeSimple(qt.type)">+ {{ qt.label }}</button>
+        <span class="quickbar-sep">|</span>
+        <button class="quickbar-btn" style="border-color:#a78bfa;color:#a78bfa" @click="quickAddFromProject">+ 从项目导入</button>
+        <span class="quickbar-sep">|</span>
+        <button v-if="selectedNodeId" class="quickbar-btn" style="border-color:#ef4444;color:#ef4444" @click="deleteSelected">🗑 删除选中</button>
+      </div>
+
+      <!-- Canvas -->
+      <VueFlow
+        v-model="elements"
+        :default-viewport="{ x: 0, y: 0, zoom: 0.8 }"
+        :min-zoom="0.1" :max-zoom="3"
+        :node-types="nodeTypes"
+        :connect-on-click="false"
+        class="vue-flow-canvas"
+        @pane-context-menu="onPaneContextMenu"
+        @pane-click="onPaneClick"
+        @node-click="onNodeClick"
+        @connect="onConnect"
+      >
+        <Background :gap="20" />
       </VueFlow>
 
+      <!-- Context menu -->
+      <Teleport to="body">
+        <div v-if="ctxMenu.show" class="canvas-ctxmenu" :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }">
+          <div class="ctxmenu-item" @click="addNode('shot')">🎬 添加分镜节点</div>
+          <div class="ctxmenu-item" @click="addNode('asset')">👤 添加资产节点</div>
+          <div class="ctxmenu-item" @click="addNode('frame')">🖼 添加帧生图节点</div>
+          <div class="ctxmenu-item" @click="addNode('video')">🎥 添加视频节点</div>
+          <div class="ctxmenu-item" @click="addNode('note')">📝 添加备注</div>
+        </div>
+      </Teleport>
+
+      <!-- Toolbar -->
       <div class="canvas-toolbar">
         <el-button size="small" @click="emit('back-to-editor')">返回编辑器</el-button>
-        <span v-if="videoGenMsg" class="canvas-gen-msg">{{ videoGenMsg }}</span>
         <span class="canvas-legend">
-          <span class="leg leg-asset">资产生图</span>
-          <span class="leg leg-frame">帧生图</span>
-          <span class="leg leg-video">视频生成</span>
-          <span class="leg leg-result">结果</span>
+          <span class="leg" style="border-left-color:#a78bfa">分镜</span>
+          <span class="leg" style="border-left-color:#3b82f6">资产</span>
+          <span class="leg" style="border-left-color:#f59e0b">帧</span>
+          <span class="leg" style="border-left-color:#ef4444">视频</span>
+          <span class="leg" style="border-left-color:#6b7280">备注</span>
         </span>
-        <span class="canvas-info">{{ elements.length }} 个元素</span>
+        <span class="canvas-info">{{ elements.length }} 个元素 | 右键添加节点 | 选中后Delete删除 | 拖拽端口连线</span>
       </div>
     </div>
 
@@ -364,7 +230,7 @@ function focusShot(shotId: string) {
       <div class="canvas-shot-list">
         <div v-for="chapter in projectData?.chapters || []" :key="chapter.id">
           <div class="canvas-chapter-title">{{ chapter.title || `第${(chapter.chapter_index||0)+1}章` }}</div>
-          <div v-for="shot in (projectData?.shots||[]).filter((s:any)=>s.chapter_id===chapter.id)" :key="shot.id" class="canvas-shot-item" :class="{ active: selectedFlow === shot.id }" @click="focusShot(shot.id)">
+          <div v-for="shot in (projectData?.shots||[]).filter((s:any)=>s.chapter_id===chapter.id)" :key="shot.id" class="canvas-shot-item">
             <span class="shot-num">#{{ shot.shot_index }}</span>
             <span class="shot-desc">{{ (shot.description||'').substring(0,18) }}</span>
           </div>
@@ -375,49 +241,35 @@ function focusShot(shotId: string) {
 </template>
 
 <style>
-/* Custom node styles (not scoped for VueFlow) */
-.cnode { border-radius: 6px; padding: 6px 8px; font-size: 10px; min-width: 160px; min-height: 60px; display: flex; flex-direction: column; gap: 2px; border: 1px solid rgba(255,255,255,0.1); }
-.cnode-header { font-weight: 600; font-size: 11px; color: #e5e7eb; }
-.cnode-prompt { font-size: 9px; color: #6b7280; max-height: 28px; overflow: hidden; }
-.cnode-model { font-size: 9px; color: #4b5563; }
-.cnode-status { font-size: 9px; margin-top: 2px; color: #6b7280; }
-.cnode.completed .cnode-status { color: #22c55e; }
-
-.cnode-asset { background: rgba(30,30,40,0.95); border-color: rgba(59,130,246,0.3); }
-.cnode-asset.completed { border-color: #22c55e; }
-.cnode-frame { background: rgba(30,30,40,0.95); border-color: rgba(245,158,11,0.3); }
-.cnode-frame.completed { border-color: #22c55e; }
-.cnode-video { background: rgba(30,30,40,0.95); border-color: rgba(239,68,68,0.3); }
-.cnode-video.completed { border-color: #22c55e; }
-.cnode-result { background: rgba(30,30,40,0.95); border-color: rgba(34,197,94,0.3); min-width: 100px; min-height: 44px; align-items: center; }
-.cnode-result.completed { border-color: #22c55e; background: rgba(34,197,94,0.05); }
-.cnode-thumb { font-size: 18px; }
-.cnode-gen-btn { margin-top: 4px; padding: 2px 8px; font-size: 10px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; border-radius: 4px; cursor: pointer; width: 100%; }
-.cnode-gen-btn:hover { background: rgba(239,68,68,0.3); }
+.nm-node { border-radius: 6px; padding: 8px 10px; font-size: 11px; min-width: 150px; border: 1.5px solid; display: flex; flex-direction: column; gap: 3px; }
+.nm-header { font-weight: 600; font-size: 12px; }
+.nm-desc { font-size: 10px; color: #9ca3af; max-height: 24px; overflow: hidden; }
+.nm-status { font-size: 11px; margin-top: 2px; }
+.canvas-ctxmenu { position: fixed; z-index: 10000; background: #1f1f28; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 4px; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.ctxmenu-item { padding: 8px 12px; font-size: 12px; color: #e5e7eb; cursor: pointer; border-radius: 4px; }
+.ctxmenu-item:hover { background: rgba(167,139,250,0.15); color: #c4b5fd; }
 </style>
 
 <style scoped>
-.canvas-layout { display: flex; width: 100%; height: 100%; background: #0f0f11; }
+.canvas-layout { display: flex; width: 100%; height: 100%; background: #0f0f11; outline: none; }
 .canvas-sidebar { width: 56px; flex-shrink: 0; background: rgba(255,255,255,0.02); border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 8px 0; }
 .canvas-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; cursor: pointer; color: #6b7280; transition: all 0.15s; border-left: 3px solid transparent; }
 .canvas-nav-item:hover, .canvas-nav-item.active { color: #c4b5fd; background: rgba(167,139,250,0.1); border-left-color: #a78bfa; }
 .canvas-nav-icon { font-size: 18px; } .canvas-nav-label { font-size: 10px; }
 .canvas-main { flex: 1; position: relative; display: flex; flex-direction: column; }
+.canvas-quickbar { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; }
+.quickbar-label { font-size: 11px; color: #6b7280; }
+.quickbar-btn { font-size: 10px; padding: 2px 8px; background: transparent; border: 1px solid; border-radius: 4px; cursor: pointer; }
+.quickbar-btn:hover { opacity: 0.8; }
+.quickbar-sep { color: #374151; font-size: 12px; }
 .vue-flow-canvas { flex: 1; background: #0f0f11; }
 .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.06); }
 .canvas-legend { display: flex; gap: 12px; font-size: 10px; }
-.leg { padding: 1px 6px; border-radius: 3px; color: #9ca3af; }
-.leg-asset { border-left: 3px solid #3b82f6; }
-.leg-frame { border-left: 3px solid #f59e0b; }
-.leg-video { border-left: 3px solid #ef4444; }
-.leg-result { border-left: 3px solid #22c55e; }
+.leg { padding: 1px 6px; border-radius: 3px; color: #9ca3af; border-left: 3px solid; }
 .canvas-info { font-size: 10px; color: #6b7280; }
-.canvas-gen-msg { font-size: 11px; color: #fcd34d; background: rgba(245,158,11,0.1); padding: 2px 10px; border-radius: 4px; }
 .canvas-right-panel { width: 200px; flex-shrink: 0; background: rgba(255,255,255,0.02); border-left: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
 .canvas-shot-list { padding: 8px; }
 .canvas-chapter-title { font-size: 11px; font-weight: 600; color: #c4b5fd; padding: 6px 8px; }
 .canvas-shot-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: pointer; border-radius: 4px; font-size: 11px; color: #9ca3af; }
-.canvas-shot-item:hover, .canvas-shot-item.active { background: rgba(255,255,255,0.05); color: #e5e7eb; }
-.shot-num { color: #a78bfa; font-weight: 600; flex-shrink: 0; }
-.shot-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shot-num { color: #a78bfa; font-weight: 600; flex-shrink: 0; } .shot-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
