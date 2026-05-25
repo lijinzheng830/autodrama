@@ -192,6 +192,9 @@ export interface Api {
 
   // Image Generation
   generateImage: (input: GenerateImageInput) => Promise<{ taskId: string; imagePaths: string[] }>
+  generateVideo: (input: { projectId: string; shotId: string; model?: string; channel?: string; taskId?: string }) => Promise<{ taskId: string; videoPaths: string[] }>
+  getShotVideos: (shotId: string) => Promise<any[]>
+  selectShotVideo: (shotId: string, videoId: string) => Promise<void>
   getAssetImages: (assetType: 'character' | 'scene' | 'prop', assetId: string) => Promise<unknown[]>
   selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) => Promise<void>
   deleteAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) => Promise<void>

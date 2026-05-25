@@ -842,6 +842,170 @@ export function deleteAssetImage(
   } catch { /* file may not exist */ }
 }
 
+// ===== 视频生成 =====
+
+export interface GenerateVideoInput {
+  projectId: string
+  shotId: string
+  model?: string
+  channel?: string
+  taskId?: string
+}
+
+export async function generateShotVideo(input: GenerateVideoInput): Promise<{ taskId: string; videoPaths: string[] }> {
+  const db = getDb()
+  const { projectId, shotId, model: inputModel, channel: inputChannel, taskId: inputTaskId } = input
+
+  const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as { video_prompt: string | null } | undefined
+  if (!shot) throw new Error('分镜不存在')
+
+  const videoPrompt = shot.video_prompt || ''
+  if (!videoPrompt.trim()) throw new Error('视频提示词为空，请先填写')
+
+  const project = getProject(projectId)
+  if (!project) throw new Error('项目不存在')
+
+  const finalStylePrompt = project.style_prompt || ''
+  const finalPrompt = [videoPrompt, finalStylePrompt].filter(s => s.trim()).join(', ')
+
+  // 模型配置降级
+  const purposeKey = 'video'
+  const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
+  const purposeConfig = projectConfig[purposeKey] || {}
+
+  let model = inputModel
+  let channel = inputChannel
+  let apiKey: string | undefined
+
+  if (!model || !channel) {
+    if (!model) model = purposeConfig.model
+    if (!channel) channel = purposeConfig.channel
+  }
+  if (!model || !channel) {
+    const routesRaw = getSetting('model_routes')
+    if (routesRaw) {
+      try {
+        const routes = JSON.parse(routesRaw as string)
+        const rc = routes[purposeKey]
+        if (!model && rc?.model) model = rc.model
+        if (!channel && rc?.channel) channel = rc.channel
+      } catch { /* ignore */ }
+    }
+  }
+
+  let providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
+  if (providerKey) {
+    const resolved = resolveProviderConfig(providerKey)
+    if (resolved?.apiKey) apiKey = resolved.apiKey
+  }
+
+  if (!apiKey) throw new Error('未配置 API Key')
+  if (!model) throw new Error('未配置视频模型')
+
+  // 创建任务记录
+  let taskId: string
+  if (inputTaskId) {
+    taskId = inputTaskId
+    db.prepare(`UPDATE generation_tasks SET model=COALESCE(?,model), channel=COALESCE(?,channel), updated_at=datetime('now','localtime') WHERE id=?`)
+      .run(model||null, channel||null, taskId)
+  } else {
+    taskId = randomUUID()
+    db.prepare(`INSERT INTO generation_tasks (id,project_id,shot_id,type,purpose,channel,model,status,input_params,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'pending',?,datetime('now','localtime'),datetime('now','localtime'))`)
+      .run(taskId, projectId, shotId, 'video', 'video', channel||null, model||null, JSON.stringify({ shotId, prompt: videoPrompt }))
+  }
+
+  db.prepare(`UPDATE generation_tasks SET status='running',started_at=datetime('now','localtime'),updated_at=datetime('now','localtime') WHERE id=?`).run(taskId)
+
+  try {
+    const videoUrls = await callVideoGenerationAPI(finalPrompt, model, apiKey, channel)
+    const videoDir = join(project.path, 'assets', 'videos')
+    mkdirSync(videoDir, { recursive: true })
+
+    const videoPaths: string[] = []
+    for (let i = 0; i < videoUrls.length; i++) {
+      const url = videoUrls[i]
+      const fileName = `${shotId}_video_${Date.now()}_${i}.mp4`
+      const filePath = join(videoDir, fileName)
+      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000 })
+      writeFileSync(filePath, Buffer.from(resp.data))
+      videoPaths.push(filePath)
+    }
+
+    db.prepare(`UPDATE shot_videos SET is_selected=0 WHERE shot_id=?`).run(shotId)
+    for (const vp of videoPaths) {
+      db.prepare(`INSERT INTO shot_videos (id,shot_id,video_path,is_selected,has_new_badge,created_at) VALUES (?,?,?,1,1,datetime('now','localtime'))`).run(randomUUID(), shotId, vp)
+    }
+    db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(videoPaths[0], shotId)
+    db.prepare(`UPDATE generation_tasks SET status='completed',output_path=?,updated_at=datetime('now','localtime') WHERE id=?`).run(videoPaths.join(','), taskId)
+
+    return { taskId, videoPaths }
+  } catch (err: any) {
+    db.prepare(`UPDATE generation_tasks SET status='failed',error_message=?,updated_at=datetime('now','localtime') WHERE id=?`).run(err?.message||'视频生成失败', taskId)
+    throw err
+  }
+}
+
+async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null): Promise<string[]> {
+  let baseURL = ''
+  let actualModel = model
+  const providerKey = channel || (model.includes(':') ? model.split(':')[0] : '')
+  if (providerKey) {
+    const resolved = resolveProviderConfig(providerKey)
+    if (resolved?.baseURL) baseURL = resolved.baseURL
+  }
+  if (model.includes(':')) actualModel = model.split(':').slice(1).join(':')
+  if (!baseURL) throw new Error('无法确定 API 基础地址')
+
+  let normalizedBaseURL = baseURL.replace(/\/$/, '')
+  if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
+
+  // 提交视频生成任务
+  const createResp = await axios.post(`${normalizedBaseURL}/video/generations`, {
+    model: actualModel, prompt, size: '720p'
+  }, {
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    timeout: 120000
+  })
+  const taskId = createResp.data?.task_id || createResp.data?.id
+  if (!taskId) throw new Error('视频任务创建失败：未返回 task_id')
+
+  // 轮询等待完成
+  let videoUrl = ''
+  for (let attempt = 0; attempt < 60; attempt++) {
+    await new Promise(r => setTimeout(r, 5000))
+    const statusResp = await axios.get(`${normalizedBaseURL}/video/generations/${taskId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      timeout: 30000
+    })
+    const s = statusResp.data
+    if (s.status === 'completed') {
+      videoUrl = s.video_url || s.url || (s.data?.[0]?.url) || ''
+      if (!videoUrl) {
+        // 尝试从 output 字段获取
+        videoUrl = s.output || s.result || ''
+      }
+      break
+    }
+    if (s.status === 'failed') throw new Error(`视频生成失败: ${s.error?.message || s.error || '未知错误'}`)
+  }
+  if (!videoUrl) throw new Error('视频生成超时（5分钟），请重试')
+
+  return [videoUrl]
+}
+
+export function getShotVideos(shotId: string): any[] {
+  const db = getDb()
+  return db.prepare('SELECT * FROM shot_videos WHERE shot_id = ? ORDER BY created_at DESC').all(shotId)
+}
+
+export function selectShotVideo(shotId: string, videoId: string): void {
+  const db = getDb()
+  db.prepare('UPDATE shot_videos SET is_selected = 0 WHERE shot_id = ?').run(shotId)
+  db.prepare('UPDATE shot_videos SET is_selected = 1 WHERE id = ?').run(videoId)
+  const v = db.prepare('SELECT video_path FROM shot_videos WHERE id = ?').get(videoId) as { video_path: string } | undefined
+  if (v) db.prepare('UPDATE shots SET video_path = ? WHERE id = ?').run(v.video_path, shotId)
+}
+
 /**
  * 切换分镜历史图片选中状态
  */

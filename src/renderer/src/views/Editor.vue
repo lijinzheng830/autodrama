@@ -1568,6 +1568,24 @@ async function handleSelectShotImage(shotId: string, frameType: 'first' | 'last'
   }
 }
 
+// 生视频按钮
+async function handleGenerateVideo(): Promise<void> {
+  if (!detailData.value?.id) return
+  genLoading.value = true
+  try {
+    await window.api.generateVideo({ projectId, shotId: detailData.value.id })
+    ElMessage.success('视频生成任务已提交，请稍后在生成记录中查看')
+    await loadEpisodesData()
+    genRecordTab.value = 'video'
+    genRecordVisible.value = true
+    await loadGenerationRecords()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '视频生成失败')
+  } finally {
+    genLoading.value = false
+  }
+}
+
 // 生图按钮（MVP2真实服务）
 async function handleGenerateImage(type: string, assetId?: string): Promise<void> {
   if (!assetId) return
@@ -3606,7 +3624,8 @@ onUnmounted(() => {
                     <el-button
                       type="primary"
                       class="gen-btn"
-                      @click="ElMessage.info('视频生成后续版本开放')"
+                      :loading="genLoading"
+                      @click="handleGenerateVideo"
                     >
                       AI生视频
                     </el-button>

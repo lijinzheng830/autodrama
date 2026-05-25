@@ -136,7 +136,13 @@ const api = {
   getShotImages: (shotId: string, frameType: 'first' | 'last') =>
     ipcRenderer.invoke('image:getShotImages', { shotId, frameType }),
   selectShotImage: (shotId: string, frameType: 'first' | 'last', imageId: string) =>
-    ipcRenderer.invoke('image:selectShotImage', { shotId, frameType, imageId })
+    ipcRenderer.invoke('image:selectShotImage', { shotId, frameType, imageId }),
+
+  generateVideo: (input: { projectId: string; shotId: string; model?: string; channel?: string; taskId?: string }) =>
+    ipcRenderer.invoke('video:generate', input),
+  getShotVideos: (shotId: string) => ipcRenderer.invoke('video:getShotVideos', shotId),
+  selectShotVideo: (shotId: string, videoId: string) =>
+    ipcRenderer.invoke('video:selectShotVideo', { shotId, videoId })
 }
 
 if (process.contextIsolated) {
