@@ -508,6 +508,15 @@ function buildAutoFramePrompt(description: string, frameType: 'first' | 'last', 
   return `${prefix}: ${description}${context ? ', ' + context : ''}`
 }
 
+// 自动生成视频提示词
+function buildAutoVideoPrompt(description: string, charNames: string[], sceneName: string): string {
+  const parts: string[] = [description]
+  if (sceneName) parts.push(`Scene: ${sceneName}`)
+  if (charNames.length > 0) parts.push(`Characters: ${charNames.join(', ')}`)
+  parts.push('Smooth camera movement, cinematic lighting, 4 seconds')
+  return parts.join('. ')
+}
+
 async function saveToDatabase(
   projectId: string,
   shotsData: ShotData,
@@ -661,6 +670,7 @@ async function saveToDatabase(
         const autoLFPrompt = buildAutoFramePrompt(shot.description || '', 'last', shotCharNames, shotSceneName)
         const ffPrompt = isValidPrompt(shot.first_frame_prompt) ? shot.first_frame_prompt : autoFFPrompt
         const lfPrompt = isValidPrompt(shot.last_frame_prompt) ? shot.last_frame_prompt : autoLFPrompt
+        const vPrompt = (shot.video_prompt && shot.video_prompt.trim()) ? shot.video_prompt : buildAutoVideoPrompt(shot.description || '', shotCharNames, shotSceneName)
         insertShot.run(
           shotId,
           chapterId,
@@ -668,7 +678,7 @@ async function saveToDatabase(
           (shot.description || '') + (shot.dialogue ? `\n对白: ${shot.dialogue}` : ''),
           ffPrompt,
           lfPrompt,
-          shot.video_prompt || ''
+          vPrompt
         )
 
         // 关联角色、场景、道具（复用上面已查找的 shotAssoc）
