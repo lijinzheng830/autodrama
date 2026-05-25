@@ -3722,6 +3722,7 @@ onUnmounted(() => {
             :project-data="projectData"
             :project-id="projectId"
             @back-to-editor="viewMode = 'table'; activeNav = 'episodes'"
+            @generate-video="(shotId: string) => { showDetail('video', { id: shotId }); handleGenerateVideo() }"
           />
         </div>
       </main>

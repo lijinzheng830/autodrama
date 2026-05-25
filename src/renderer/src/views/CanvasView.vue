@@ -13,7 +13,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'back-to-editor'): void
   (e: 'focus-shot', shotId: string): void
+  (e: 'generate-video', shotId: string): void
 }>()
+
+function handleVideoGenerate(shotId: string) {
+  emit('generate-video', shotId)
+}
 
 // ===== Custom Nodes using h() render functions =====
 const AssetGenNode = defineComponent({
@@ -49,7 +54,9 @@ const ResultNode = defineComponent({
       class: `cnode cnode-result${p.data.completed ? ' completed' : ''}`
     }, [
       h('div', { class: 'cnode-header' }, p.data.label),
-      h('div', { class: 'cnode-thumb' }, p.data.completed ? '🖼' : '⬚')
+      p.data.completed && p.data.thumbSrc
+        ? h('img', { class: 'cnode-result-img', src: p.data.thumbSrc, style: 'width:60px;height:40px;object-fit:cover;border-radius:4px;margin-top:2px' })
+        : h('div', { class: 'cnode-thumb' }, p.data.completed ? '📁' : '⬚')
     ])
   }
 })
@@ -62,7 +69,11 @@ const VideoGenNode = defineComponent({
     }, [
       h('div', { class: 'cnode-header' }, p.data.label),
       p.data.prompt ? h('div', { class: 'cnode-prompt' }, p.data.prompt) : null,
-      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成')
+      h('div', { class: 'cnode-status' }, p.data.completed ? '✓ 已生成' : '○ 待生成'),
+      !p.data.completed && p.data.onGenerate ? h('button', {
+        class: 'cnode-gen-btn',
+        onClick: (e: Event) => { e.stopPropagation(); p.data.onGenerate(p.data.shotId) }
+      }, '⚡ 生视频') : null
     ])
   }
 })
@@ -243,7 +254,7 @@ function buildElements() {
         nodes.push({
           id: vid, type: 'video-gen',
           position: { x: COL_X.video, y: baseY + 8 },
-          data: { label: '视频生成', prompt: (shot.video_prompt || '').substring(0, 40), completed: !!shot.video_path }
+          data: { label: '视频生成', prompt: (shot.video_prompt || '').substring(0, 40), completed: !!shot.video_path, shotId, onGenerate: handleVideoGenerate }
         })
         edges.push({ id: `e-vv-${vid}`, source: shotNodeId, target: vid, style: { stroke: 'rgba(239,68,68,0.4)', strokeWidth: 1.5 } })
 
@@ -251,7 +262,7 @@ function buildElements() {
         nodes.push({
           id: vrid, type: 'result',
           position: { x: COL_X.videoResult, y: baseY + 16 },
-          data: { label: '视频', completed: !!shot.video_path }
+          data: { label: '视频', completed: !!shot.video_path, thumbSrc: shot.video_path ? `file:///${shot.video_path.replace(/\\/g, '/')}` : '' }
         })
         edges.push({ id: `e-vr-${vrid}`, source: vid, target: vrid, style: { stroke: 'rgba(239,68,68,0.2)' } })
 
@@ -342,6 +353,8 @@ function focusShot(shotId: string) {
 .cnode-result { background: rgba(30,30,40,0.95); border-color: rgba(34,197,94,0.3); min-width: 100px; min-height: 44px; align-items: center; }
 .cnode-result.completed { border-color: #22c55e; background: rgba(34,197,94,0.05); }
 .cnode-thumb { font-size: 18px; }
+.cnode-gen-btn { margin-top: 4px; padding: 2px 8px; font-size: 10px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; border-radius: 4px; cursor: pointer; width: 100%; }
+.cnode-gen-btn:hover { background: rgba(239,68,68,0.3); }
 </style>
 
 <style scoped>
