@@ -64,6 +64,19 @@ const VideoNode = defineComponent({
   }
 })
 
+const ImageNode = defineComponent({
+  props: ['data'],
+  setup(p: any) {
+    return () => h('div', { class: `nm-node img-node${p.data.status==='done'?' completed':''}`, style: { borderColor: '#22c55e', background: 'rgba(34,197,94,0.05)' } }, [
+      h('div', { class: 'nm-header', style: { color: '#86efac' } }, p.data.label),
+      p.data.status === 'done' && p.data.imgSrc
+        ? h('img', { class: 'nm-img', src: p.data.imgSrc, style: 'width:100%;max-height:120px;object-fit:contain;border-radius:4px;margin-top:4px' })
+        : h('div', { class: 'nm-desc' }, p.data.desc || '待生成'),
+      p.data.status === 'done' ? h('div', { class: 'nm-status done' }, '✓') : null
+    ])
+  }
+})
+
 const SimpleNode = (color: string, bgColor: string, labelColor: string) => defineComponent({
   props: ['data'],
   setup(p: any) {
@@ -80,7 +93,8 @@ const nodeTypes = {
   'asset': AssetNode,
   'frame': SimpleNode('#f59e0b', 'rgba(245,158,11,0.08)', '#fcd34d'),
   'video': VideoNode,
-  'note': SimpleNode('#6b7280', 'rgba(107,114,128,0.08)', '#9ca3af')
+  'note': SimpleNode('#6b7280', 'rgba(107,114,128,0.08)', '#9ca3af'),
+  'image': ImageNode
 }
 
 // ===== Canvas state =====
@@ -216,18 +230,28 @@ function addShotNode(shot: any) {
     const nid = nextId()
     nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `角色: ${c.name}`, desc: c.description?.substring(0,25)||'生图', status: c.reference_image ? 'done' : '', projectId: props.projectId, assetId: c.id, assetType: 'character', assetDesc: c.description || c.name } })
     edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(59,130,246,0.3)', strokeWidth: 1 }, animated: false })
+    // Character image result node
+    const rid = nextId()
+    nodesToAdd.push({ id: rid, type: 'image', position: { x: col1X + 200, y: baseY + yOff }, data: { label: `${c.name}定妆照`, desc: '待生成', status: c.reference_image ? 'done' : '', imgSrc: c.reference_image ? `file:///${c.reference_image.replace(/\\/g, '/')}` : '' } })
+    edgesToAdd.push({ id: `e-cr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(59,130,246,0.15)', strokeWidth: 1, animated: false } })
     yOff += 70
   }
   for (const s of shot.scenes || []) {
     const nid = nextId()
     nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `场景: ${s.name}`, desc: s.description?.substring(0,25)||'生图', status: s.reference_image ? 'done' : '', projectId: props.projectId, assetId: s.id, assetType: 'scene', assetDesc: s.description || s.name } })
     edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(16,185,129,0.3)', strokeWidth: 1 }, animated: false })
+    const rid = nextId()
+    nodesToAdd.push({ id: rid, type: 'image', position: { x: col1X + 200, y: baseY + yOff }, data: { label: `${s.name}场景图`, desc: '待生成', status: s.reference_image ? 'done' : '', imgSrc: s.reference_image ? `file:///${s.reference_image.replace(/\\/g, '/')}` : '' } })
+    edgesToAdd.push({ id: `e-sr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(16,185,129,0.15)', strokeWidth: 1, animated: false } })
     yOff += 70
   }
   for (const p of shot.props || []) {
     const nid = nextId()
     nodesToAdd.push({ id: nid, type: 'asset', position: { x: col1X, y: baseY + yOff }, data: { label: `道具: ${p.name}`, desc: p.description?.substring(0,25)||'生图', status: p.reference_image ? 'done' : '', projectId: props.projectId, assetId: p.id, assetType: 'prop', assetDesc: p.description || p.name } })
     edgesToAdd.push({ id: `e-s-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(139,92,246,0.3)', strokeWidth: 1 }, animated: false })
+    const rid = nextId()
+    nodesToAdd.push({ id: rid, type: 'image', position: { x: col1X + 200, y: baseY + yOff }, data: { label: `${p.name}道具图`, desc: '待生成', status: p.reference_image ? 'done' : '', imgSrc: p.reference_image ? `file:///${p.reference_image.replace(/\\/g, '/')}` : '' } })
+    edgesToAdd.push({ id: `e-pr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(139,92,246,0.15)', strokeWidth: 1, animated: false } })
     yOff += 70
   }
   const col1H = yOff
@@ -239,7 +263,7 @@ function addShotNode(shot: any) {
     nodesToAdd.push({ id: nid, type: 'frame', position: { x: col2X, y: baseY + fyOff }, data: { label: '首帧提示词', desc: (shot.first_frame_prompt||'').substring(0,25), status: '' } })
     edgesToAdd.push({ id: `e-ff-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(245,158,11,0.3)', strokeWidth: 1, animated: false } })
     const rid = nextId()
-    nodesToAdd.push({ id: rid, type: 'note', position: { x: col3X, y: baseY + fyOff }, data: { label: '首帧图', desc: '', status: shot.first_frame_image_path ? 'done' : '' } })
+    nodesToAdd.push({ id: rid, type: 'image', position: { x: col3X, y: baseY + fyOff }, data: { label: '首帧图', desc: '待生成', status: shot.first_frame_image_path ? 'done' : '', imgSrc: shot.first_frame_image_path ? `file:///${shot.first_frame_image_path.replace(/\\/g, '/')}` : '' } })
     edgesToAdd.push({ id: `e-ffr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(245,158,11,0.2)', strokeWidth: 1, animated: false } })
     fyOff += 80
   }
@@ -248,7 +272,7 @@ function addShotNode(shot: any) {
     nodesToAdd.push({ id: nid, type: 'frame', position: { x: col2X, y: baseY + fyOff }, data: { label: '尾帧提示词', desc: (shot.last_frame_prompt||'').substring(0,25), status: '' } })
     edgesToAdd.push({ id: `e-lf-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(245,158,11,0.3)', strokeWidth: 1, animated: false } })
     const rid = nextId()
-    nodesToAdd.push({ id: rid, type: 'note', position: { x: col3X, y: baseY + fyOff }, data: { label: '尾帧图', desc: '', status: shot.last_frame_image_path ? 'done' : '' } })
+    nodesToAdd.push({ id: rid, type: 'image', position: { x: col3X, y: baseY + fyOff }, data: { label: '尾帧图', desc: '待生成', status: shot.last_frame_image_path ? 'done' : '', imgSrc: shot.last_frame_image_path ? `file:///${shot.last_frame_image_path.replace(/\\/g, '/')}` : '' } })
     edgesToAdd.push({ id: `e-lfr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(245,158,11,0.2)', strokeWidth: 1, animated: false } })
     fyOff += 80
   }
@@ -260,7 +284,7 @@ function addShotNode(shot: any) {
     nodesToAdd.push({ id: nid, type: 'video', position: { x: col4X, y: baseY }, data: { label: '视频生成', desc: (shot.video_prompt||'').substring(0,25), status: shot.video_path ? 'done' : '', projectId: props.projectId, shotId: shot.id } })
     edgesToAdd.push({ id: `e-vid-${nid}`, source: shotId, target: nid, style: { stroke: 'rgba(239,68,68,0.3)', strokeWidth: 1, animated: false } })
     const rid = nextId()
-    nodesToAdd.push({ id: rid, type: 'note', position: { x: col4X + 200, y: baseY }, data: { label: '视频', desc: '', status: shot.video_path ? 'done' : '' } })
+    nodesToAdd.push({ id: rid, type: 'image', position: { x: col4X + 200, y: baseY }, data: { label: '视频', desc: '待生成', status: shot.video_path ? 'done' : '', imgSrc: '' } })
     edgesToAdd.push({ id: `e-vidr-${rid}`, source: nid, target: rid, style: { stroke: 'rgba(239,68,68,0.2)', strokeWidth: 1, animated: false } })
   }
 
@@ -298,6 +322,7 @@ const quickAddTypes = [
   { type: 'asset', label: '资产', color: '#3b82f6' },
   { type: 'frame', label: '帧', color: '#f59e0b' },
   { type: 'video', label: '视频', color: '#ef4444' },
+  { type: 'image', label: '图片', color: '#22c55e' },
   { type: 'note', label: '备注', color: '#6b7280' }
 ]
 </script>
@@ -345,6 +370,7 @@ const quickAddTypes = [
           <div class="ctxmenu-item" @click="addNode('asset')">👤 添加资产节点</div>
           <div class="ctxmenu-item" @click="addNode('frame')">🖼 添加帧生图节点</div>
           <div class="ctxmenu-item" @click="addNode('video')">🎥 添加视频节点</div>
+          <div class="ctxmenu-item" @click="addNode('image')">🖼 添加图片节点</div>
           <div class="ctxmenu-item" @click="addNode('note')">📝 添加备注</div>
         </div>
       </Teleport>
