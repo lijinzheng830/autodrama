@@ -438,7 +438,7 @@ onMounted(() => {
 
 <style>
 .dark-dialog .el-dialog {
-  background: #ffffff;
+  background: #FFF8F0;
   border: 2px solid #000000;
   border-radius: 12px;
 }
@@ -473,7 +473,7 @@ onMounted(() => {
 }
 
 .dark-dialog .el-input__wrapper {
-  background: #ffffff;
+  background: #FFF8F0;
   box-shadow: 0 0 0 2px #000000 inset;
 }
 

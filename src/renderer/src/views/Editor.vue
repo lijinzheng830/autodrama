@@ -6475,68 +6475,69 @@ onUnmounted(() => {
 
 <style>
 .dark-dialog .el-dialog {
-  background: #1a1a20;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FFF8F0;
+  border: 1px solid rgba(0,0,0,0.1);
   border-radius: 12px;
 }
 
 .dark-dialog .el-dialog__title {
-  color: #f3f4f6;
-  font-weight: 600;
+  color: #1a1a1a;
+  font-weight: 700;
 }
 
 .dark-dialog .el-dialog__header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
   margin-right: 0;
   padding: 20px 24px;
 }
 
 .dark-dialog .el-dialog__body {
   padding: 24px;
+  color: #333;
 }
 
 .dark-dialog .el-dialog__footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(0,0,0,0.08);
   padding: 16px 24px;
 }
 
 .dark-dialog .el-input__wrapper,
 .dark-dialog .el-textarea__inner {
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset;
 }
 
 .dark-dialog .el-input__inner,
 .dark-dialog .el-textarea__inner {
-  color: #e5e7eb;
+  color: #222;
 }
 
 .dark-dialog .el-input__inner::placeholder,
 .dark-dialog .el-textarea__inner::placeholder {
-  color: #9ca3af;
+  color: #999;
 }
 
 .dark-dialog .el-select .el-input__wrapper {
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset;
 }
 
 .dark-dialog .el-select-dropdown {
-  background: #1a1a20;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FFF8F0;
+  border: 1px solid rgba(0,0,0,0.1);
 }
 
 .dark-dialog .el-select-dropdown__item {
-  color: #e5e7eb;
+  color: #333;
 }
 
 .dark-dialog .el-select-dropdown__item.hover,
 .dark-dialog .el-select-dropdown__item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(0,0,0,0.04);
 }
 
 .dark-dialog .el-select-dropdown__item.selected {
-  color: #a78bfa;
+  color: #6d28d9;
 }
 
 .parse-dialog .el-textarea__inner {
