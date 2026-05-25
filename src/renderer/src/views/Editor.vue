@@ -1213,10 +1213,12 @@ const fullscreenImageVisible = ref(false)
 const fullscreenImageSrc = ref('')
 const fullscreenImageList = ref<string[]>([])
 const fullscreenImageIndex = ref(0)
+const fullscreenIsVideo = ref(false)
 
-function openFullscreenImage(src: string, list?: string[]): void {
+function openFullscreenImage(src: string, list?: string[], isVideo?: boolean): void {
   if (!src) return
   fullscreenImageSrc.value = src
+  fullscreenIsVideo.value = !!isVideo
   fullscreenImageVisible.value = true
   if (list && list.length > 0) {
     fullscreenImageList.value = list
@@ -2467,7 +2469,8 @@ onUnmounted(() => {
           @click.stop="handleDeleteFullscreenImage"
         />
       </div>
-      <img :src="fullscreenImageSrc" class="fullscreen-image" @click.stop />
+      <img v-if="!fullscreenIsVideo" :src="fullscreenImageSrc" class="fullscreen-image" @click.stop />
+      <video v-else :src="fullscreenImageSrc" class="fullscreen-image" controls autoplay @click.stop />
     </div>
     <!-- 顶部栏 -->
     <header class="editor-header">
@@ -3791,6 +3794,7 @@ onUnmounted(() => {
             :project-id="projectId"
             @back-to-editor="viewMode = 'table'; activeNav = 'episodes'"
             @refresh-data="loadEpisodesData()"
+            @preview-media="(src: string, isVideo: boolean) => openFullscreenImage(src, undefined, isVideo)"
             @generate-video="(shotId: string) => { const shot = projectData?.shots?.find((s:any) => s.id === shotId); if (shot) { showDetail('video', shot); nextTick(() => handleGenerateVideo()); } }"
           />
         </div>
