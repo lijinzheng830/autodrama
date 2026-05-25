@@ -21,9 +21,8 @@ import {
   Grid,
   Document,
   RefreshLeft,
-  RefreshRight
-  //   Clock,
-  //   Download
+  RefreshRight,
+  Download
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 
@@ -1231,6 +1230,76 @@ function handleFullscreenKeydown(e: KeyboardEvent): void {
   }
 }
 
+function handleDownloadFullscreenImage(): void {
+  const src = fullscreenImageSrc.value
+  if (!src) return
+  // Convert file:// to actual path for Electron
+  let filePath = src
+  if (filePath.startsWith('file://')) {
+    filePath = filePath.replace('file://', '')
+  }
+  // Use a hidden link to trigger download
+  const link = document.createElement('a')
+  link.href = src
+  link.download = filePath.split(/[/\\]/).pop() || 'image.png'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+async function handleDeleteFullscreenImage(): Promise<void> {
+  const src = fullscreenImageSrc.value
+  if (!src) return
+  let filePath = src
+  if (filePath.startsWith('file://')) {
+    filePath = filePath.replace('file://', '')
+  }
+  // Find the image in assetImages and delete it
+  const img = assetImages.value.find((ai: any) => {
+    const p = ai.image_path || ''
+    return p === filePath || p === filePath.replace(/\//g, '\\')
+  })
+  if (!img) {
+    ElMessage.warning('未找到对应记录')
+    return
+  }
+  try {
+    await ElMessageBox.confirm('确定要删除这张图片吗？此操作不可恢复。', '确认删除', { type: 'warning' })
+  } catch {
+    return
+  }
+  // Remove from fullscreen list
+  const idx = fullscreenImageList.value.indexOf(src)
+  if (idx >= 0) {
+    fullscreenImageList.value.splice(idx, 1)
+  }
+  // If no more images, close; otherwise navigate
+  if (fullscreenImageList.value.length === 0) {
+    closeFullscreenImage()
+  } else if (fullscreenImageIndex.value >= fullscreenImageList.value.length) {
+    fullscreenImageIndex.value = fullscreenImageList.value.length - 1
+    fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value]
+  } else {
+    fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value] || fullscreenImageList.value[0]
+  }
+  // Delete from assetImages
+  const imgIdx = assetImages.value.findIndex((ai: any) => ai === img)
+  if (imgIdx >= 0) assetImages.value.splice(imgIdx, 1)
+  // If detail panel is showing, refresh
+  if (detailData.value?.reference_image === filePath) {
+    detailData.value = { ...detailData.value, reference_image: '' }
+  }
+  // Reload images
+  if (detailType.value && detailData.value?.id) {
+    const type = ['character', 'scene', 'prop'].includes(detailType.value) ? detailType.value : ''
+    if (type) await loadAssetImages(type, detailData.value.id)
+    else if (detailType.value === 'firstFrame' || detailType.value === 'lastFrame') {
+      await loadShotImages(detailData.value.id, detailType.value === 'firstFrame' ? 'first' : 'last')
+    }
+  }
+  ElMessage.success('图片已删除')
+}
+
 // ===== 会话级覆盖 =====
 const sessionOverrides = ref<Record<string, { model: string; channel: string }>>({})
 
@@ -2241,6 +2310,23 @@ onUnmounted(() => {
       <!-- 计数器 -->
       <div v-if="fullscreenImageList.length > 1" class="fullscreen-counter">
         {{ fullscreenImageIndex + 1 }} / {{ fullscreenImageList.length }}
+      </div>
+      <!-- 下载和删除 -->
+      <div class="fullscreen-actions">
+        <el-button
+          class="fullscreen-action-btn"
+          :icon="Download"
+          circle
+          size="large"
+          @click.stop="handleDownloadFullscreenImage"
+        />
+        <el-button
+          class="fullscreen-action-btn"
+          :icon="Delete"
+          circle
+          size="large"
+          @click.stop="handleDeleteFullscreenImage"
+        />
       </div>
       <img :src="fullscreenImageSrc" class="fullscreen-image" @click.stop />
     </div>
@@ -5693,6 +5779,24 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.5);
   padding: 4px 16px;
   border-radius: 12px;
+}
+
+.fullscreen-actions {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10001;
+  display: flex;
+  gap: 12px;
+}
+
+.fullscreen-action-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+.fullscreen-action-btn:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
 }
 
 .fullscreen-image {
