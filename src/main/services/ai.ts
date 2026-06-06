@@ -566,6 +566,7 @@ async function saveToDatabase(
     existingMaxChapterIndex = row?.max ?? -1
   }
 
+  console.log('[saveToDatabase] chapters:', shotsData.chapters?.length, 'characters:', extractData.characters?.length, 'scenes:', extractData.scenes?.length, 'mode:', mode)
   db.transaction(() => {
     // 1. full 模式：删除所有分镜数据；append 模式：保留已有
     if (mode === 'full') {
