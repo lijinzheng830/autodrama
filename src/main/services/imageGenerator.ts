@@ -1241,10 +1241,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       const url = videoUrls[i]
       const fileName = `${shotId}_video_${Date.now()}_${i}.mp4`
       const filePath = join(videoDir, fileName)
-      // Agnes 返回的是CDN直链，不需要 Auth header
-      const downloadHeaders: any = {}
-      if (!url.includes('agnes-ai.com')) downloadHeaders.Authorization = `Bearer ${apiKey}`
-      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000, headers: downloadHeaders })
+      // 视频下载：不传 Auth（CDN直链不需要，加了对 Google Storage 会 401）
+      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000 })
       writeFileSync(filePath, Buffer.from(resp.data))
       videoPaths.push(filePath)
     }
@@ -1311,33 +1309,35 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       if (!videoId && !fallbackTaskId) throw new Error("未返回 video_id")
 
       const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
-      let url = ""
+      let url = ''
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 5000))
-        let s: any = {}
+        let best: any = {}
+        // 同时查询两个端点，取进度更高的
+        if (fallbackTaskId) {
+          try {
+            const sr = await axios.get(normalizedBaseURL + '/videos/' + fallbackTaskId, {
+              headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+            })
+            best = sr.data || {}
+          } catch {}
+        }
         if (videoId) {
           try {
-            const sr = await axios.get(queryBase + "/agnesapi?video_id=" + videoId + "&model_name=agnes-video-v2.0", {
+            const sr2 = await axios.get(queryBase + '/agnesapi?video_id=' + videoId + '&model_name=agnes-video-v2.0', {
               headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
             })
-            s = sr.data || {}
+            const s2 = sr2.data || {}
+            if (!best.progress || (s2.progress > (best.progress || 0))) best = s2
           } catch {}
         }
-        if (!s.status && fallbackTaskId) {
-          try {
-            const sr2 = await axios.get(normalizedBaseURL + "/videos/" + fallbackTaskId, {
-              headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-            })
-            s = sr2.data || {}
-          } catch {}
-        }
-        if (i === 0 || i % 6 === 0 || s.status) console.log("[Agnes] poll", i, "status:", s.status || "no_status", s.progress !== undefined ? "progress:" + s.progress : "")
-        if (s.status === "completed") {
-          url = s.remixed_from_video_id || ""
-          console.log("[Agnes] COMPLETED url:", url ? url.slice(0, 80) : "MISSING!")
+        if (i === 0 || i % 6 === 0 || best.status === 'completed' || best.status === 'failed') console.log('[Agnes] poll', i, 'status:', best.status || 'no_status', 'progress:', best.progress)
+        if (best.status === 'completed') {
+          url = best.remixed_from_video_id || ''
+          console.log('[Agnes] COMPLETED url:', url ? url.slice(0, 80) : 'MISSING!')
           if (url) break
         }
-        if (s.status === "failed") throw new Error("视频生成失败: " + (s.error || ""))
+        if (best.status === 'failed') throw new Error('视频生成失败: ' + (best.error || ''))
       }
       if (!url) throw new Error("视频生成超时（5分钟）")
       return [url]
