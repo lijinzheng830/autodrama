@@ -1288,13 +1288,8 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     else if (ar === '1:1') { width = 1024; height = 1024 }
 
     const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
-    // 图生视频：有首帧图时传入 image 参数
-    if (refImage) {
-      try {
-        const imgBuffer = require('fs').readFileSync(refImage)
-        body.image = 'data:image/png;base64,' + imgBuffer.toString('base64')
-      } catch { /* skip */ }
-    }
+    // 注：图生视频的 image 参数暂不启用（base64 过大导致 ECONNRESET）
+    // 后续可改为上传图片到图床后用 URL 传参
     let resp: any
     try {
       resp = await axios.post(`${normalizedBaseURL}/videos`, body, {
