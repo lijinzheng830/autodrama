@@ -3701,6 +3701,18 @@ onUnmounted(() => {
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
+                  <div class="detail-fields">
+                    <div class="detail-field">
+                      <label>视频提示词</label>
+                      <el-input
+                        v-model="editVideoPrompt"
+                        type="textarea"
+                        :rows="6"
+                        resize="vertical"
+                        @blur="handleShotPromptChange(detailData.id, 'video_prompt', editVideoPrompt)"
+                      />
+                    </div>
+                  </div>
                   <div class="gen-control">
                     <div class="gen-control-row">
                       <el-popover
