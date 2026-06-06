@@ -520,13 +520,15 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
         else if (size === '1024x1792') body.size = '768x1024'
         else body.size = '1024x1024'
       }
-      // 图生图：仅传 1 张角色/场景参考图（base64 过大导致 ECONNRESET）
+      // 图生图：角色/场景参考图优先，构图锚点排后，最多2张
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      const charRef = refs.find(r => r.includes('characters') || r.includes('scenes')) || refs[0]
+      const charRefs = refs.filter(r => r.includes('characters') || r.includes('scenes'))
+      const frameRefs = refs.filter(r => !charRefs.includes(r))
+      const orderedRefs = [...charRefs, ...frameRefs].slice(0, 2)
       const imgUrls: string[] = []
-      if (charRef) {
+      for (const r of orderedRefs) {
         try {
-          const imgBuffer = require('fs').readFileSync(charRef)
+          const imgBuffer = require('fs').readFileSync(r)
           imgUrls.push(imgBuffer.toString('base64'))
         } catch { /* skip */ }
       }
@@ -1307,14 +1309,21 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：传首帧图纯base64（不加data:前缀，API要原始base64）
-      const refs = Array.isArray(refImage) ? refImage.slice(0, 1) : refImage ? [refImage] : []
-      if (refs.length > 0) {
+      // 图生视频：首帧图 + 角色参考图 + 场景参考图 → extra_body.image 数组
+      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
+      const imgB64s: string[] = []
+      for (const r of refs) {
         try {
-          const imgBuf = require('fs').readFileSync(refs[0])
-          body.image = imgBuf.toString('base64')
-          console.log('[Agnes] image-to-video ref:', (imgBuf.length / 1024).toFixed(0) + 'KB (raw)')
+          const imgBuf = require('fs').readFileSync(r)
+          imgB64s.push(imgBuf.toString('base64'))
         } catch { /* skip */ }
+      }
+      if (imgB64s.length === 1) {
+        body.image = imgB64s[0]
+        console.log('[Agnes] video 1 ref:', (imgB64s[0].length / 1024).toFixed(0) + 'KB')
+      } else if (imgB64s.length > 1) {
+        body.extra_body = { image: imgB64s }
+        console.log('[Agnes] video ' + imgB64s.length + ' refs, total:', (JSON.stringify(imgB64s).length / 1024).toFixed(0) + 'KB')
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
