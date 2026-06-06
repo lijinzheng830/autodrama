@@ -1194,7 +1194,12 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     console.log('[Agnes] charImgs:', charImgs.length, charImgs.map(function(c: any) { return c.name + ' ref:' + (c.reference_image ? 'YES' : 'NO') }).join(', '))
     for (const ch of charImgs) {
       if (ch.reference_image) {
-        try { const fs = require('fs'); if (fs.existsSync(ch.reference_image)) videoRefImages.push(ch.reference_image) } catch {}
+        try {
+          const fs = require('fs')
+          const exists = fs.existsSync(ch.reference_image)
+          console.log('[Agnes] char ref:', ch.reference_image.slice(-50), 'exists:', exists)
+          if (exists) videoRefImages.push(ch.reference_image)
+        } catch (e: any) { console.log('[Agnes] char err:', e.message) }
       }
     }
     const sceneImgs = db.prepare(
@@ -1203,7 +1208,12 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     console.log('[Agnes] sceneImgs:', sceneImgs.length, sceneImgs.map(function(s: any) { return s.name + ' ref:' + (s.reference_image ? 'YES' : 'NO') }).join(', '))
     for (const sc of sceneImgs) {
       if (sc.reference_image) {
-        try { const fs = require('fs'); if (fs.existsSync(sc.reference_image)) videoRefImages.push(sc.reference_image) } catch {}
+        try {
+          const fs = require('fs')
+          const exists = fs.existsSync(sc.reference_image)
+          console.log('[Agnes] scene ref:', sc.reference_image.slice(-50), 'exists:', exists)
+          if (exists) videoRefImages.push(sc.reference_image)
+        } catch (e: any) { console.log('[Agnes] scene err:', e.message) }
       }
     }
   } catch {}
