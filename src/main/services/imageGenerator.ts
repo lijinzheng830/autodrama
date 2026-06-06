@@ -1300,29 +1300,29 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
       throw new Error('Agnes视频请求失败: ' + d)
     }
-    const taskId = resp.data?.video_id || resp.data?.task_id || resp.data?.id
-    if (!taskId) throw new Error('未返回 video_id')
-
-    // 同时记录 task_id 用于旧端点回退
-    const legacyTaskId = resp.data?.task_id || resp.data?.id
+    // 官方推荐: 用 video_id 查询 /agnesapi?video_id=&model_name=
+    const videoId = resp.data?.video_id
+    const fallbackTaskId = resp.data?.task_id || resp.data?.id
+    if (!videoId && !fallbackTaskId) throw new Error('未返回 video_id')
 
     const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
     let url = ''
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 5000))
       let s: any = {}
-      // 优先用官方示例的旧端点（/v1/videos/{task_id}），回退推荐端点
-      if (legacyTaskId) {
+      // 优先官方推荐方式
+      if (videoId) {
         try {
-          const sr = await axios.get(`${normalizedBaseURL}/videos/${legacyTaskId}`, {
+          const sr = await axios.get(`${queryBase}/agnesapi?video_id=${videoId}&model_name=agnes-video-v2.0`, {
             headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
           })
           s = sr.data || {}
         } catch { /* skip */ }
       }
-      if (!s.status) {
+      // 回退旧端点
+      if (!s.status && fallbackTaskId) {
         try {
-          const sr2 = await axios.get(`${queryBase}/agnesapi?video_id=${taskId}`, {
+          const sr2 = await axios.get(`${normalizedBaseURL}/videos/${fallbackTaskId}`, {
             headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
           })
           s = sr2.data || {}
@@ -1331,7 +1331,7 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       if (s.status === 'completed') { url = s.remixed_from_video_id || ''; if (url) break }
       if (s.status === 'failed') throw new Error('视频生成失败: ' + (s.error || ''))
     }
-    if (!url) throw new Error('视频生成超时（5分钟），Agnes后台已生成完成，但轮询未获取到URL')
+    if (!url) throw new Error('视频生成超时（5分钟）')
     return [url]
   }
 
