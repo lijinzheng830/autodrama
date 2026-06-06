@@ -1277,65 +1277,71 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
   let normalizedBaseURL = baseURL.replace(/\/$/, '')
   const isAgnes = normalizedBaseURL.includes('agnes-ai.com')
 
-  if (isAgnes) {
-    // ===== Agnes API: POST /v1/videos =====
-    if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
+    if (isAgnes) {
+      // ===== Agnes API v2: POST /v1/videos -> poll /agnesapi?video_id= -> download =====
+      if (!normalizedBaseURL.endsWith("/v1")) normalizedBaseURL += "/v1"
 
-    // 比例 → 像素（Agnes 仅支持标准尺寸: 1152x768 / 768x1152 / 1024x1024）
-    const ar = videoAspectRatio || '16:9'
-    let width = 1152, height = 768
-    if (ar === '9:16') { width = 768; height = 1152 }
-    else if (ar === '1:1') { width = 1024; height = 1024 }
+      const ar = videoAspectRatio || "16:9"
+      let width = 1152, height = 768
+      if (ar === "9:16") { width = 768; height = 1152 }
+      else if (ar === "1:1") { width = 1024; height = 1024 }
 
-    const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
-    // 注：图生视频的 image 参数暂不启用（base64 过大导致 ECONNRESET）
-    // 后续可改为上传图片到图床后用 URL 传参
-    let resp: any
-    try {
-      resp = await axios.post(`${normalizedBaseURL}/videos`, body, {
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        timeout: 600000
-      })
-    } catch (err: any) {
-      const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
-      throw new Error('Agnes视频请求失败: ' + d)
-    }
-    // 官方推荐: 用 video_id 查询 /agnesapi?video_id=&model_name=
-    const videoId = resp.data?.video_id
-    const fallbackTaskId = resp.data?.task_id || resp.data?.id
-    if (!videoId && !fallbackTaskId) throw new Error('未返回 video_id')
+      const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
+      const postURL = normalizedBaseURL + "/videos"
+      console.log("[Agnes] POST", postURL, "model:", actualModel, "prompt:", prompt.slice(0, 80))
 
-    const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
-    let url = ''
-    for (let i = 0; i < 60; i++) {
-      await new Promise(r => setTimeout(r, 5000))
-      let s: any = {}
-      // 优先官方推荐方式
-      if (videoId) {
-        try {
-          const sr = await axios.get(`${queryBase}/agnesapi?video_id=${videoId}&model_name=agnes-video-v2.0`, {
-            headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-          })
-          s = sr.data || {}
-        } catch { /* skip */ }
+      let resp: any
+      try {
+        resp = await axios.post(postURL, body, {
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          timeout: 600000
+        })
+        console.log("[Agnes] POST OK:", JSON.stringify(resp.data).slice(0, 400))
+      } catch (err: any) {
+        console.error("[Agnes] POST ERR status:", err?.response?.status, "msg:", err?.message)
+        if (err?.response?.data) console.error("[Agnes] POST ERR body:", JSON.stringify(err.response.data).slice(0, 400))
+        const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
+        throw new Error("Agnes视频请求失败: " + d)
       }
-      // 回退旧端点
-      if (!s.status && fallbackTaskId) {
-        try {
-          const sr2 = await axios.get(`${normalizedBaseURL}/videos/${fallbackTaskId}`, {
-            headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-          })
-          s = sr2.data || {}
-        } catch { /* skip */ }
-      }
-      if (s.status === 'completed') { url = s.remixed_from_video_id || ''; if (url) break }
-      if (s.status === 'failed') throw new Error('视频生成失败: ' + (s.error || ''))
-    }
-    if (!url) throw new Error('视频生成超时（5分钟）')
-    return [url]
-  }
 
-  // ===== 通用 API: /v1/video/generations =====
+      const videoId = resp.data?.video_id
+      const fallbackTaskId = resp.data?.task_id || resp.data?.id
+      console.log("[Agnes] video_id:", videoId ? videoId.slice(0, 40) + "..." : "MISSING")
+      console.log("[Agnes] task_id:", fallbackTaskId || "MISSING")
+      if (!videoId && !fallbackTaskId) throw new Error("未返回 video_id")
+
+      const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
+      let url = ""
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 5000))
+        let s: any = {}
+        if (videoId) {
+          try {
+            const sr = await axios.get(queryBase + "/agnesapi?video_id=" + videoId + "&model_name=agnes-video-v2.0", {
+              headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+            })
+            s = sr.data || {}
+          } catch {}
+        }
+        if (!s.status && fallbackTaskId) {
+          try {
+            const sr2 = await axios.get(normalizedBaseURL + "/videos/" + fallbackTaskId, {
+              headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+            })
+            s = sr2.data || {}
+          } catch {}
+        }
+        if (i === 0 || i % 6 === 0 || s.status) console.log("[Agnes] poll", i, "status:", s.status || "no_status", s.progress !== undefined ? "progress:" + s.progress : "")
+        if (s.status === "completed") {
+          url = s.remixed_from_video_id || ""
+          console.log("[Agnes] COMPLETED url:", url ? url.slice(0, 80) : "MISSING!")
+          if (url) break
+        }
+        if (s.status === "failed") throw new Error("视频生成失败: " + (s.error || ""))
+      }
+      if (!url) throw new Error("视频生成超时（5分钟）")
+      return [url]
+    }
   if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
 
   const videoBody: any = { model: actualModel, prompt }
