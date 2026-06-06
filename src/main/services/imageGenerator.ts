@@ -337,7 +337,8 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
     const size = getAPISize(aspectRatio)
 
     // 9. 调用 OpenAI 兼容格式的生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, finalRefImage, size)
+    const refs: string[] = finalRefImage ? [finalRefImage] : []
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refs, size)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', `${type}s`)
@@ -415,7 +416,7 @@ async function callImageGenerationAPI(
   model: string,
   apiKey: string,
   channel?: string | null,
-  refImage?: string | null,
+  refImages?: string[],
   size?: string | null
 ): Promise<string[]> {
   // 解析 provider 和 modelKey
@@ -449,13 +450,13 @@ async function callImageGenerationAPI(
 
   // 最多重试2次（应对网络波动 socket hang up）
   for (let attempt = 0; attempt < 2; attempt++) {
-    // 先尝试 /v1/images/generations（标准生图端点）
-    resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage, size)
+    // 先尝试 /v1/images/generations（标准生图端点，只支持单参考图）
+    resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages?.[0], size)
 
-    // 如果 images 端点失败，回退到 chat completions
+    // 如果 images 端点失败，回退到 chat completions（支持多参考图）
     if (!resp) {
       lastError = lastImageError
-      resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage, size)
+      resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
       if (!resp && lastChatError) lastError = lastChatError
     }
 
@@ -519,22 +520,25 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
   }
 }
 
-async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null, _size?: string | null): Promise<any> {
+async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImages?: string[], _size?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/chat/completions`
-    const userContent: any[] = [{ type: 'text', text: `Generate an image based on this description: ${prompt}. Return only the image.` }]
-    if (refImage) {
+    const userContent: any[] = []
+    // 所有参考图作为 image_url 前置（chat/completions 支持多图）
+    const imgs = refImages || []
+    for (const imgPath of imgs) {
       try {
         const fs = require('fs')
-        const imgBuffer = fs.readFileSync(refImage)
-        const ext = refImage.split('.').pop()?.toLowerCase() || 'png'
+        const imgBuffer = fs.readFileSync(imgPath)
+        const ext = imgPath.split('.').pop()?.toLowerCase() || 'png'
         const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png'
-        userContent.unshift({
+        userContent.push({
           type: 'image_url',
           image_url: { url: `data:${mime};base64,${imgBuffer.toString('base64')}` }
         })
-      } catch { /* refImage file not readable, skip */ }
+      } catch { /* 文件不可读，跳过 */ }
     }
+    userContent.push({ type: 'text', text: `Generate an image based on this description: ${prompt}. Return only the image.` })
     return await axios.post(url, {
       model,
       messages: [{ role: 'user', content: userContent }],
@@ -679,6 +683,28 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       }
     }
   }
+
+  // 3.5 收集关联角色和场景的参考图（定妆照/场景图）
+  const refImages: string[] = []
+  if (refImage) refImages.push(refImage)
+  try {
+    const shotChars = db.prepare(
+      'SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
+    ).all(shotId) as { reference_image: string | null }[]
+    for (const ch of shotChars) {
+      if (ch.reference_image) {
+        try { const fs = require('fs'); if (fs.existsSync(ch.reference_image)) refImages.push(ch.reference_image) } catch {}
+      }
+    }
+    const shotScenes = db.prepare(
+      'SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
+    ).all(shotId) as { reference_image: string | null }[]
+    for (const sc of shotScenes) {
+      if (sc.reference_image) {
+        try { const fs = require('fs'); if (fs.existsSync(sc.reference_image)) refImages.push(sc.reference_image) } catch {}
+      }
+    }
+  } catch { /* 关联查询失败则跳过 */ }
 
   // 4. 加载模板并拼接 prompt
   let templateContent = ''
@@ -845,7 +871,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     const size2 = getAPISize(project.aspect_ratio || '16:9')
 
     // 8. 调用生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refImage, size2)
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refImages, size2)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', 'frames')
