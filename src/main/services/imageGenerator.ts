@@ -627,10 +627,13 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     taskId: inputTaskId
   } = input
 
-  // 1. 读取 shot 数据（含首帧图路径，尾帧用它当参考）
-  const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as
+  // 1. 读取 shot 数据（需要 chapter_id 和 shot_index 找上一个分镜）
+  const shot = db.prepare('SELECT s.*, c.project_id FROM shots s JOIN chapters c ON s.chapter_id = c.id WHERE s.id = ?').get(shotId) as
     | {
         id: string
+        chapter_id: string
+        shot_index: number
+        project_id: string
         first_frame_prompt: string | null
         last_frame_prompt: string | null
         first_frame_image_path: string | null
@@ -653,20 +656,27 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const finalStylePrompt = project.style_prompt || ''
   const finalEraPrompt = mapEra(project.era || '')
 
-  // 3. 参考图：优先用户指定 → 尾帧时自动用首帧图（保持构图一致）
+  // 3. 参考图自动继承（跨分镜连贯性）
   const purposeKey = frameType === 'first' ? 'first_frame' : 'last_frame'
   const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
   const purposeConfig = projectConfig[purposeKey] || {}
   const templateId = input.templateId || purposeConfig.templateId || ''
   let refImage = input.refImage || purposeConfig.refImage || ''
-  if (!refImage && frameType === 'last') {
-    // 尾帧自动用首帧图当参考，保持构图一致 → 视频过渡更流畅
-    const firstFramePath = shot.first_frame_image_path
-    if (firstFramePath) {
-      try {
-        const fs = require('fs')
-        if (fs.existsSync(firstFramePath)) refImage = firstFramePath
-      } catch { /* 文件不存在，跳过 */ }
+  if (!refImage) {
+    if (frameType === 'last') {
+      // 尾帧 → 用本分镜的首帧图当参考（保持同一分镜内构图一致）
+      const firstFramePath = shot.first_frame_image_path
+      if (firstFramePath) {
+        try { const fs = require('fs'); if (fs.existsSync(firstFramePath)) refImage = firstFramePath } catch {}
+      }
+    } else if (frameType === 'first' && shot.shot_index > 1) {
+      // 首帧 → 用上一个分镜的尾帧图当参考（跨分镜视觉连贯）
+      const prevShot = db.prepare(
+        'SELECT last_frame_image_path FROM shots WHERE chapter_id = ? AND shot_index = ?'
+      ).get(shot.chapter_id, shot.shot_index - 1) as { last_frame_image_path: string | null } | undefined
+      if (prevShot?.last_frame_image_path) {
+        try { const fs = require('fs'); if (fs.existsSync(prevShot.last_frame_image_path)) refImage = prevShot.last_frame_image_path } catch {}
+      }
     }
   }
 
