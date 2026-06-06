@@ -1181,43 +1181,25 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   // 用换行分隔比例指令和内容，让模型更清晰
   const finalPrompt = `${arDirective}\nVideo description: ${videoPrompt}.\n${shotContext}.\n${frameGuidance}.\nStyle: ${finalStylePrompt}`
 
-  // 收集参考图：首帧图（如有）+ 角色定妆照 + 场景图
+  // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
   const videoRefImages: string[] = []
-  if (shot.first_frame_image_path) {
-    try { const fs = require('fs'); if (fs.existsSync(shot.first_frame_image_path)) videoRefImages.push(shot.first_frame_image_path) } catch {}
+  const addRefIfExists = function(p) {
+    if (!p) return
+    try {
+      var fs2 = require("fs")
+      var path = require("path")
+      var abs = path.isAbsolute(p) ? p : path.join(project.path, p)
+      if (fs2.existsSync(abs)) videoRefImages.push(abs)
+    } catch {}
   }
-  console.log('[Agnes] shotId:', shotId, 'firstFrame:', shot.first_frame_image_path ? 'YES' : 'NO')
+  addRefIfExists(shot.first_frame_image_path)
   try {
-    const charImgs = db.prepare(
-      'SELECT c.name, c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
-    ).all(shotId) as { name: string; reference_image: string | null }[]
-    console.log('[Agnes] charImgs:', charImgs.length, charImgs.map(function(c: any) { return c.name + ' ref:' + (c.reference_image ? 'YES' : 'NO') }).join(', '))
-    for (const ch of charImgs) {
-      if (ch.reference_image) {
-        try {
-          const fs = require('fs')
-          const exists = fs.existsSync(ch.reference_image)
-          console.log('[Agnes] char ref:', ch.reference_image.slice(-50), 'exists:', exists)
-          if (exists) videoRefImages.push(ch.reference_image)
-        } catch (e: any) { console.log('[Agnes] char err:', e.message) }
-      }
-    }
-    const sceneImgs = db.prepare(
-      'SELECT s.name, s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
-    ).all(shotId) as { name: string; reference_image: string | null }[]
-    console.log('[Agnes] sceneImgs:', sceneImgs.length, sceneImgs.map(function(s: any) { return s.name + ' ref:' + (s.reference_image ? 'YES' : 'NO') }).join(', '))
-    for (const sc of sceneImgs) {
-      if (sc.reference_image) {
-        try {
-          const fs = require('fs')
-          const exists = fs.existsSync(sc.reference_image)
-          console.log('[Agnes] scene ref:', sc.reference_image.slice(-50), 'exists:', exists)
-          if (exists) videoRefImages.push(sc.reference_image)
-        } catch (e: any) { console.log('[Agnes] scene err:', e.message) }
-      }
-    }
+    var chs = db.prepare("SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?").all(shotId) as { reference_image: string | null }[]
+    chs.forEach(function(c: any) { addRefIfExists(c.reference_image) })
+    var scs = db.prepare("SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?").all(shotId) as { reference_image: string | null }[]
+    scs.forEach(function(s: any) { addRefIfExists(s.reference_image) })
   } catch {}
-  console.log('[Agnes] videoRefImages count:', videoRefImages.length)
+  console.log('[Agnes] videoRefImages:', videoRefImages.length, 'firstFrame:', shot.first_frame_image_path ? 'YES' : 'NO')
   // 传全部参考图（首帧 + 角色定妆照 + 场景图）
   const videoRefImage = videoRefImages.length > 0 ? videoRefImages : undefined
 
