@@ -1183,21 +1183,23 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
 
   // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
   const videoRefImages: string[] = []
-  const addRefIfExists = function(p) {
+  const addRefIfExists = function(p: string | null, label: string) {
     if (!p) return
     try {
       var fs2 = require("fs")
       var path = require("path")
       var abs = path.isAbsolute(p) ? p : path.join(project.path, p)
-      if (fs2.existsSync(abs)) videoRefImages.push(abs)
-    } catch {}
+      var exists = fs2.existsSync(abs)
+      console.log('[Agnes] addRef', label, 'path:', abs.slice(-60), 'exists:', exists, 'isAbs:', path.isAbsolute(p))
+      if (exists) videoRefImages.push(abs)
+    } catch (e: any) { console.log('[Agnes] addRef err:', label, e.message) }
   }
-  addRefIfExists(shot.first_frame_image_path)
+  addRefIfExists(shot.first_frame_image_path, 'frame')
   try {
     var chs = db.prepare("SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?").all(shotId) as { reference_image: string | null }[]
-    chs.forEach(function(c: any) { addRefIfExists(c.reference_image) })
+    chs.forEach(function(c: any) { addRefIfExists(c.reference_image, 'char') })
     var scs = db.prepare("SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?").all(shotId) as { reference_image: string | null }[]
-    scs.forEach(function(s: any) { addRefIfExists(s.reference_image) })
+    scs.forEach(function(s: any) { addRefIfExists(s.reference_image, 'scene') })
   } catch {}
   console.log('[Agnes] videoRefImages:', videoRefImages.length, 'firstFrame:', shot.first_frame_image_path ? 'YES' : 'NO')
   // 传全部参考图（首帧 + 角色定妆照 + 场景图）
