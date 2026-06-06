@@ -449,10 +449,15 @@ async function callImageGenerationAPI(
   let resp: any = null
 
   const hasMultipleRefs = (refImages?.length || 0) > 1
+  const isAgnes = normalizedBaseURL.includes('agnes-ai.com')
 
   // 最多重试2次
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (hasMultipleRefs) {
+    if (isAgnes) {
+      // Agnes: images/generations 支持多图 (extra_body.image数组)
+      resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+      if (!resp) lastError = lastImageError
+    } else if (hasMultipleRefs) {
       // 多参考图 → 直接走 chat/completions（images/generations 只支持单图）
       resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
       if (!resp) lastError = lastChatError
@@ -502,25 +507,31 @@ async function callImageGenerationAPI(
 let lastImageError = ''
 let lastChatError = ''
 
-async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null, size?: string | null): Promise<any> {
+async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | string[] | null, size?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/images/generations`
     const isAgnes = baseURL.includes('agnes-ai.com')
     const body: any = { prompt, model, n: 1 }
 
     if (isAgnes) {
-      // Agnes API: 文生图不传extra_body，图生图走extra_body.image
-      if (refImage) {
+      // Agnes API: 图生图必须传 extra_body.tags=["img2img"] + image=URL数组 + response_format
+      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
+      const imgUrls: string[] = []
+      for (const r of refs) {
         try {
-          const imgBuffer = require('fs').readFileSync(refImage)
-          body.extra_body = { image: imgBuffer.toString('base64') }
+          const imgBuffer = require('fs').readFileSync(r)
+          imgUrls.push('data:image/png;base64,' + imgBuffer.toString('base64'))
         } catch { /* skip */ }
+      }
+      if (imgUrls.length > 0) {
+        body.extra_body = { tags: ['img2img'], image: imgUrls, response_format: 'url' }
       }
     } else {
       if (size) body.size = size
-      if (refImage) {
+      const singleRef = Array.isArray(refImage) ? refImage[0] : refImage
+      if (singleRef) {
         try {
-          const imgBuffer = require('fs').readFileSync(refImage)
+          const imgBuffer = require('fs').readFileSync(singleRef)
           body.image = imgBuffer.toString('base64')
         } catch { /* skip */ }
       }
