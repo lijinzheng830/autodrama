@@ -320,7 +320,13 @@ export function initDatabase(): Database.Database {
     { table: 'characters', column: 'skin_images', type: 'TEXT' },
     { table: 'generation_tasks', column: 'started_at', type: 'TEXT' },
     { table: 'shot_images', column: 'type', type: 'TEXT' },
-    { table: 'prompt_templates', column: 'template_version', type: "TEXT DEFAULT 'v1'" }
+    { table: 'prompt_templates', column: 'template_version', type: "TEXT DEFAULT 'v1'" },
+    { table: 'shots', column: 'shot_type', type: 'TEXT' },
+    { table: 'shots', column: 'camera_movement', type: 'TEXT' },
+    { table: 'shots', column: 'lighting_mood', type: 'TEXT' },
+    { table: 'shots', column: 'character_actions', type: 'TEXT' },
+    { table: 'shots', column: 'audio_prompt', type: 'TEXT' },
+    { table: 'shots', column: 'grid_image_path', type: 'TEXT' }
   ]
 
   for (const m of migrations) {
