@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
@@ -167,12 +167,6 @@ app.whenReady().then(() => {
   if (process.platform === 'win32') {
     app.setAppUserModelId(app.isPackaged ? app.name : process.execPath)
   }
-
-  // 注册 local-file:// 协议，使视频原生下载可用（file:// 协议下浏览器禁用下载）
-  protocol.handle('local-file', (request) => {
-    const path = request.url.slice('local-file://'.length)
-    return net.fetch('file:///' + path)
-  })
 
   initDatabase()
 
