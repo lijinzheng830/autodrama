@@ -22,8 +22,7 @@ import {
   Document,
   RefreshLeft,
   RefreshRight,
-  Download,
-  MoreFilled
+  Download
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 import CanvasView from './CanvasView.vue'
@@ -1559,22 +1558,6 @@ async function handleDeleteHistoryVideo(shotId: string, videoId: string): Promis
     ElMessage.success('视频已删除')
   } catch (err: any) {
     ElMessage.error(err?.message || '删除失败')
-  }
-}
-
-async function handleDownloadVideo(videoPath: string): Promise<void> {
-  try {
-    const result = await window.api.showSaveDialog({
-      title: '保存视频',
-      defaultPath: 'video.mp4',
-      filters: [{ name: 'MP4 视频', extensions: ['mp4'] }]
-    })
-    if (result) {
-      await window.api.copyExportFile(videoPath, result)
-      ElMessage.success('视频已保存')
-    }
-  } catch (err: any) {
-    ElMessage.error(err?.message || '下载失败')
   }
 }
 
@@ -3724,16 +3707,8 @@ onUnmounted(() => {
                 <!-- 视频详情 -->
                 <div v-else-if="detailType === 'video'" class="detail-body">
                   <div class="detail-media">
-                    <div v-if="detailData?.video_path" class="detail-placeholder" style="position:relative">
+                    <div v-if="detailData?.video_path" class="detail-placeholder">
                       <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
-                      <el-dropdown trigger="click" class="video-more-btn">
-                        <el-button :icon="MoreFilled" circle size="small" />
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item :icon="Download" @click="handleDownloadVideo(detailData.video_path)">下载视频</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
@@ -3814,15 +3789,13 @@ onUnmounted(() => {
                       >
                         <video :src="toFileUrl(v.video_path)" class="history-img" />
                         <div v-show="v.is_selected" class="history-selected-badge">✓</div>
-                        <el-dropdown trigger="click" class="history-more-btn" @click.stop>
-                          <el-button :icon="MoreFilled" circle size="small" />
-                          <template #dropdown>
-                            <el-dropdown-menu>
-                              <el-dropdown-item :icon="Download" @click="handleDownloadVideo(v.video_path)">下载</el-dropdown-item>
-                              <el-dropdown-item :icon="Delete" @click="handleDeleteHistoryVideo(detailData?.id, v.id)">删除</el-dropdown-item>
-                            </el-dropdown-menu>
-                          </template>
-                        </el-dropdown>
+                        <el-button
+                          class="history-delete-btn"
+                          :icon="Delete"
+                          circle
+                          size="small"
+                          @click.stop="handleDeleteHistoryVideo(detailData?.id, v.id)"
+                        />
                       </div>
                     </div>
                   </div>
@@ -5787,19 +5760,8 @@ onUnmounted(() => {
   background: #000;
 }
 
-.history-more-btn {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  z-index: 10;
-}
 
-.video-more-btn {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  z-index: 10;
-}
+
 
 .detail-placeholder:has(video) {
   height: auto;
