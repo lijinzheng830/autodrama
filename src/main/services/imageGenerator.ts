@@ -1187,11 +1187,12 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 
   const finalStylePrompt = project.style_prompt || ''
-  // 参考图引导：告诉API如何利用首帧图
+
+  // 参考图引导
   const refGuidance = shot.first_frame_image_path
     ? 'Use the reference image as the starting frame. Maintain character identity, scene environment, lighting, and visual style from the reference image. Apply natural motion and cinematic pacing.'
     : ''
-  // 用换行分隔比例指令和内容，让模型更清晰
+  // 用换行分隔比例指令和内容
   const finalPrompt = `${arDirective}\nVideo description: ${videoPrompt}.\n${shotContext}.\n${refGuidance}\n${frameGuidance}.\nStyle: ${finalStylePrompt}`
 
   // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
@@ -1225,6 +1226,21 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
   const purposeConfig = projectConfig[purposeKey] || {}
 
+  let finalPromptWithTemplate = finalPrompt
+  const videoTplId = (purposeConfig as any)?.templateId
+  if (videoTplId) {
+    try {
+      const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(videoTplId) as any
+      if (tpl?.content) {
+        let tp = tpl.template_version === 'v1' ? (() => { try { return JSON.parse(tpl.content).english || '' } catch { return '' } })() : tpl.content
+        tp = tp.replace(/\{\{style_prompt\}\}/g, project.style_prompt || '')
+          .replace(/\{\{era\}\}/g, mapEra(project.era || ''))
+          .replace(/\{\{video_prompt\}\}/g, videoPrompt)
+        if (tp) { finalPromptWithTemplate = tp; console.log('[template] video template OK:', videoTplId) }
+      }
+    } catch { /* keep default */ }
+  }
+
   let model = inputModel
   let channel = inputChannel
   let apiKey: string | undefined
@@ -1232,6 +1248,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   if (!model || !channel) {
     if (!model) model = purposeConfig.model
     if (!channel) channel = purposeConfig.channel
+
+
   }
   if (!model || !channel) {
     const routesRaw = getSetting('model_routes')
@@ -1269,7 +1287,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   db.prepare(`UPDATE generation_tasks SET status='running',started_at=datetime('now','localtime'),updated_at=datetime('now','localtime') WHERE id=?`).run(taskId)
 
   try {
-    const videoUrls = await callVideoGenerationAPI(finalPrompt, model, apiKey, channel, videoRefImage, aspectRatio)
+    const videoUrls = await callVideoGenerationAPI(finalPromptWithTemplate || finalPrompt, model, apiKey, channel, videoRefImage, aspectRatio)
     const videoDir = join(project.path, 'assets', 'videos')
     mkdirSync(videoDir, { recursive: true })
 
