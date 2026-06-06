@@ -1561,13 +1561,14 @@ async function handleDeleteHistoryImage(type: string, assetId: string, imageId: 
     if (type === 'firstFrame' || type === 'lastFrame') {
       await window.api.deleteShotImage(assetId, imageId)
       const frameType = type === 'firstFrame' ? 'first' : 'last'
+      await loadEpisodesData()
       await loadShotImages(assetId, frameType)
     } else {
       const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
       await window.api.deleteAssetImage(assetType, assetId, imageId)
+      await loadEpisodesData()
       await loadAssetImages(type, assetId)
     }
-    await loadEpisodesData()
     ElMessage.success('图片已删除')
   } catch (err: any) {
     ElMessage.error(err?.message || '删除失败')
