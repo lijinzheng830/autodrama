@@ -2220,14 +2220,16 @@ function handleCustomEraSubmit(): void {
     })
 }
 
-function toFileUrl(path: string): string {
+function toFileUrl(path: string, useLocalProtocol?: boolean): string {
   if (!path) return ''
   if (path.startsWith('file://')) return path
+  if (path.startsWith('local-file://')) return path
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) return path
-  // Windows 路径 C:\Users\... → file:///C:/Users/...
+  // Windows 路径 C:\Users\... → protocol://C:/Users/...
   const normalized = path.replace(/\\/g, '/')
+  const proto = useLocalProtocol ? 'local-file://' : 'file:///'
   if (/^[A-Za-z]:/.test(normalized)) {
-    return `file:///${normalized}`
+    return `${proto}${normalized}`
   }
   return `file://${normalized}`
 }
@@ -3138,7 +3140,7 @@ onUnmounted(() => {
                     <div class="td col-video">
                       <div class="media-cell" @click="showDetail('video', shot)">
                         <div v-if="shot.video_path" class="media-preview">
-                          <video :src="toFileUrl(shot.video_path)" class="media-video" />
+                          <video :src="toFileUrl(shot.video_path, true)" class="media-video" />
                         </div>
                         <div v-else class="media-placeholder">视频</div>
                       </div>
@@ -3708,7 +3710,7 @@ onUnmounted(() => {
                 <div v-else-if="detailType === 'video'" class="detail-body">
                   <div class="detail-media">
                     <div v-if="detailData?.video_path" class="detail-placeholder">
-                      <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
+                      <video :src="toFileUrl(detailData.video_path, true)" class="detail-video" controls />
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
@@ -3787,7 +3789,7 @@ onUnmounted(() => {
                         :class="{ selected: v.is_selected }"
                         @click="handleSelectHistoryVideo(detailData?.id, v.id)"
                       >
-                        <video :src="toFileUrl(v.video_path)" class="history-img" />
+                        <video :src="toFileUrl(v.video_path, true)" class="history-img" />
                         <div v-show="v.is_selected" class="history-selected-badge">✓</div>
                         <el-button
                           class="history-delete-btn"
@@ -3810,7 +3812,7 @@ onUnmounted(() => {
                         :class="{ selected: v.is_selected }"
                         @click="handleSelectHistoryVideo(detailData?.id, v.id)"
                       >
-                        <video :src="toFileUrl(v.video_path)" class="history-img" />
+                        <video :src="toFileUrl(v.video_path, true)" class="history-img" />
                       </div>
                     </div>
                   </div>
