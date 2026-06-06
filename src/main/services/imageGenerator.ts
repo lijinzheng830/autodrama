@@ -717,7 +717,34 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     }
   } catch { /* 关联查询失败则跳过 */ }
 
-  // 4. 构建丰富提示词：frame_prompt + 分镜上下文 + 风格 + 年代
+  // 4. 构建丰富提示词：frame_prompt + 参考图说明 + 分镜上下文 + 风格 + 年代
+  // 标注每张参考图的用途，引导模型区分构图锚点 vs 角色外观 vs 场景空间
+  let refImagesNote = ''
+  if (refImages.length > 1) {
+    const labels: string[] = []
+    let charIdx = 0
+    let sceneIdx = 0
+    // refImages[0] 是构图参考（如有）
+    if (refImage && refImages[0] === refImage) {
+      labels.push('Reference image 1: COMPOSITION anchor — use for camera angle and framing only, NOT for character appearance')
+    }
+    for (const img of refImages.slice(refImage ? 1 : 0)) {
+      // 根据路径判断是角色图还是场景图
+      if (img.includes('characters')) {
+        charIdx++
+        labels.push(`Reference image ${labels.length + 1}: CHARACTER appearance anchor #${charIdx} — maintain THIS character\'s face, outfit, and proportions exactly`)
+      } else if (img.includes('scenes')) {
+        sceneIdx++
+        labels.push(`Reference image ${labels.length + 1}: SCENE space anchor #${sceneIdx} — maintain THIS environment, lighting, and spatial layout`)
+      } else {
+        labels.push(`Reference image ${labels.length + 1}: visual reference`)
+      }
+    }
+    if (labels.length > 0) {
+      refImagesNote = labels.join('. ') + '. '
+    }
+  }
+
   const shotContextParts: string[] = []
   // 角色外观描述
   if (contextChars.length > 0) shotContextParts.push(`Characters: ${contextChars.join('; ')}`)
@@ -738,8 +765,8 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   }
 
   const shotContext = shotContextParts.join('. ')
-  let finalPrompt = shotPrompt
-  if (shotContext) finalPrompt = `${shotPrompt}\n${shotContext}`
+  let finalPrompt = refImagesNote ? `${refImagesNote}${shotPrompt}` : shotPrompt
+  if (shotContext) finalPrompt = `${finalPrompt}\n${shotContext}`
   finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt].filter(s => s.trim()).join(', ')
 
   // 5. 解析模型配置（四级降级）
