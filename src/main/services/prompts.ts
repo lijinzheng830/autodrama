@@ -5,8 +5,8 @@ export const STORYBOARD_PROMPT = `你是一位专业影视分镜师。请将用�
 2. 每个章节拆分为3-8个分镜，每个分镜描述一个画面
 3. description（画面描述）用中文，描述画面中的动作、表情、场景
 4. dialogue（对白）直接引用剧本原文，没有对白则留空
-5. first_frame_prompt 和 last_frame_prompt 用英文，包含构图、光影、氛围关键词
-6. video_prompt 用英文，描述镜头运动和转场
+5. first_frame_prompt / last_frame_prompt / video_prompt 用英文（后台调API用）
+6. first_frame_prompt_zh / last_frame_prompt_zh / video_prompt_zh 用中文（前端展示给用户看）
 
 返回严格的JSON格式：
 {
@@ -19,15 +19,18 @@ export const STORYBOARD_PROMPT = `你是一位专业影视分镜师。请将用�
           "description": "中文画面描述",
           "dialogue": "角色对白原文",
           "first_frame_prompt": "English prompt for first frame",
+          "first_frame_prompt_zh": "中文首帧提示词",
           "last_frame_prompt": "English prompt for last frame",
-          "video_prompt": "English prompt for video generation"
+          "last_frame_prompt_zh": "中文尾帧提示词",
+          "video_prompt": "English prompt for video generation",
+          "video_prompt_zh": "中文视频提示词"
         }
       ]
     }
   ]
 }
 
-重要：必须为每个章节生成至少3个分镜，不要返回空的shots数组。`
+重要：必须为每个章节生成至少3个分镜，不要返回空的shots数组。双版提示词（中英文）都必须提供，不能遗漏。`
 
 export const EXTRACT_PROMPT = `从以下分镜结果中提取所有角色、场景和道具。要求：
 1. 角色：提取所有有名字或明确身份的角色，description用中文描述外貌特征

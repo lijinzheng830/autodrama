@@ -1049,9 +1049,9 @@ async function showDetail(type: string, data: any): Promise<void> {
   assetImages.value = []
   assetVideos.value = []
   // 同步编辑缓冲
-  editFirstFramePrompt.value = data?.first_frame_prompt || ''
-  editLastFramePrompt.value = data?.last_frame_prompt || ''
-  editVideoPrompt.value = data?.video_prompt || ''
+  editFirstFramePrompt.value = data?.first_frame_prompt_zh || data?.first_frame_prompt || ''
+  editLastFramePrompt.value = data?.last_frame_prompt_zh || data?.last_frame_prompt || ''
+  editVideoPrompt.value = data?.video_prompt_zh || data?.video_prompt || ''
   editAssetName.value = data?.name || ''
   editAssetDesc.value = data?.description || ''
   if (type === 'video' && data?.id) {
@@ -3057,9 +3057,8 @@ onUnmounted(() => {
                         v-else
                         class="cell-text"
                         @dblclick="
-                          startEdit(shot.id, 'first_frame_prompt', shot.first_frame_prompt || '')
-                        "
-                        v-html="getHighlightText(shot.first_frame_prompt, shot)"
+                          startEdit(shot.id, 'first_frame_prompt', shot.first_frame_prompt || '')"
+                        v-html="getHighlightText(shot.first_frame_prompt_zh || shot.first_frame_prompt || '', shot)"
                       />
                       <div class="tag-bar">
                         <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
@@ -3108,7 +3107,7 @@ onUnmounted(() => {
                         @dblclick="
                           startEdit(shot.id, 'last_frame_prompt', shot.last_frame_prompt || '')
                         "
-                        v-html="getHighlightText(shot.last_frame_prompt, shot)"
+                        v-html="getHighlightText(shot.last_frame_prompt_zh || shot.last_frame_prompt || '', shot)"
                       />
                       <div class="tag-bar">
                         <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
@@ -3152,7 +3151,7 @@ onUnmounted(() => {
                         v-else
                         class="cell-text"
                         @dblclick="startEdit(shot.id, 'video_prompt', shot.video_prompt || '')"
-                      >{{ shot.video_prompt || '-' }}</div>
+                      >{{ shot.video_prompt_zh || shot.video_prompt || '-' }}</div>
                     </div>
 
                     <!-- 操作 -->

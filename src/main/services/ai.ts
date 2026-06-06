@@ -30,8 +30,11 @@ export interface ShotDataChapter {
     description?: string
     dialogue?: string
     first_frame_prompt?: string
+    first_frame_prompt_zh?: string
     last_frame_prompt?: string
+    last_frame_prompt_zh?: string
     video_prompt?: string
+    video_prompt_zh?: string
   }[]
 }
 
@@ -297,17 +300,18 @@ function normalizeShotData(raw: any): ShotData {
           description: s.description || '',
           dialogue: s.dialogue || '',
           first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
+          first_frame_prompt_zh: s.first_frame_prompt_zh || '',
           last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
-          video_prompt: s.video_prompt || s.videoPrompt || ''
+          last_frame_prompt_zh: s.last_frame_prompt_zh || '',
+          video_prompt: s.video_prompt || s.videoPrompt || '',
+          video_prompt_zh: s.video_prompt_zh || ''
         }))
       }))
     }
   }
 
   // Has scenes array → convert to chapters
-  // 支持两种格式：① sc.shots 子数组  ② sc 自身就是一个shot（无shots字段但有description）
   if (Array.isArray(raw.scenes)) {
-    // 按"章节"分组：如果场景没有shots字段，全部归为一个章节
     const hasShots = raw.scenes.some((sc: any) => sc.shots && sc.shots.length > 0)
     if (hasShots) {
       return {
@@ -318,13 +322,15 @@ function normalizeShotData(raw: any): ShotData {
             description: s.description || '',
             dialogue: s.dialogue || '',
             first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
+            first_frame_prompt_zh: s.first_frame_prompt_zh || '',
             last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
-            video_prompt: s.video_prompt || s.videoPrompt || ''
+            last_frame_prompt_zh: s.last_frame_prompt_zh || '',
+            video_prompt: s.video_prompt || s.videoPrompt || '',
+            video_prompt_zh: s.video_prompt_zh || ''
           }))
         }))
       }
     }
-    // scenes里每个元素本身就是一shot → 合并为一个章节
     return {
       chapters: [{
         title: '第1章',
@@ -333,8 +339,11 @@ function normalizeShotData(raw: any): ShotData {
           description: sc.description || '',
           dialogue: sc.dialogue || '',
           first_frame_prompt: sc.first_frame_prompt || sc.firstFramePrompt || '',
+          first_frame_prompt_zh: sc.first_frame_prompt_zh || '',
           last_frame_prompt: sc.last_frame_prompt || sc.lastFramePrompt || '',
-          video_prompt: sc.video_prompt || sc.videoPrompt || ''
+          last_frame_prompt_zh: sc.last_frame_prompt_zh || '',
+          video_prompt: sc.video_prompt || sc.videoPrompt || '',
+          video_prompt_zh: sc.video_prompt_zh || ''
         }))
       }]
     }
@@ -634,7 +643,7 @@ async function saveToDatabase(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
     )
     const insertShot = db.prepare(
-      'INSERT INTO shots (id, chapter_id, shot_index, description, first_frame_prompt, last_frame_prompt, video_prompt) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO shots (id, chapter_id, shot_index, description, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     const insertShotChar = db.prepare(
       'INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)'
@@ -671,14 +680,20 @@ async function saveToDatabase(
         const ffPrompt = isValidPrompt(shot.first_frame_prompt) ? shot.first_frame_prompt : autoFFPrompt
         const lfPrompt = isValidPrompt(shot.last_frame_prompt) ? shot.last_frame_prompt : autoLFPrompt
         const vPrompt = (shot.video_prompt && shot.video_prompt.trim()) ? shot.video_prompt : buildAutoVideoPrompt(shot.description || '', shotCharNames, shotSceneName)
+        const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
+        const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
+        const vPromptZh = shot.video_prompt_zh || shot.description || ''
         insertShot.run(
           shotId,
           chapterId,
           shot.shot_index || 0,
           (shot.description || '') + (shot.dialogue ? `\n对白: ${shot.dialogue}` : ''),
           ffPrompt,
+          ffPromptZh,
           lfPrompt,
-          vPrompt
+          lfPromptZh,
+          vPrompt,
+          vPromptZh
         )
 
         // 关联角色、场景、道具（复用上面已查找的 shotAssoc）

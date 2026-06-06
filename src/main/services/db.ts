@@ -326,7 +326,10 @@ export function initDatabase(): Database.Database {
     { table: 'shots', column: 'lighting_mood', type: 'TEXT' },
     { table: 'shots', column: 'character_actions', type: 'TEXT' },
     { table: 'shots', column: 'audio_prompt', type: 'TEXT' },
-    { table: 'shots', column: 'grid_image_path', type: 'TEXT' }
+    { table: 'shots', column: 'grid_image_path', type: 'TEXT' },
+    { table: 'shots', column: 'first_frame_prompt_zh', type: 'TEXT' },
+    { table: 'shots', column: 'last_frame_prompt_zh', type: 'TEXT' },
+    { table: 'shots', column: 'video_prompt_zh', type: 'TEXT' }
   ]
 
   for (const m of migrations) {
