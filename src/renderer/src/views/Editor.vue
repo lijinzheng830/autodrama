@@ -1560,7 +1560,8 @@ async function handleDeleteHistoryImage(type: string, assetId: string, imageId: 
   try {
     if (type === 'firstFrame' || type === 'lastFrame') {
       await window.api.deleteShotImage(assetId, imageId)
-      await loadShotImages(assetId, type as 'first' | 'last')
+      const frameType = type === 'firstFrame' ? 'first' : 'last'
+      await loadShotImages(assetId, frameType)
     } else {
       const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
       await window.api.deleteAssetImage(assetType, assetId, imageId)
