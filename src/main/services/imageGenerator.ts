@@ -1306,21 +1306,15 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 多图视频：首帧图 + 角色参考图 + 场景参考图 → extra_body.image 数组
-      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      const imgDataURIs: string[] = []
-      for (const r of refs) {
+      // 图生视频：只传首帧图（base64 过大导致失败，单张控制在 3MB 内）
+      const refs = Array.isArray(refImage) ? refImage.slice(0, 1) : refImage ? [refImage] : []
+      if (refs.length > 0) {
         try {
-          const imgBuf = require('fs').readFileSync(r)
-          imgDataURIs.push('data:image/png;base64,' + imgBuf.toString('base64'))
+          const imgBuf = require('fs').readFileSync(refs[0])
+          const b64 = imgBuf.toString('base64')
+          body.image = 'data:image/png;base64,' + b64
+          console.log('[Agnes] image-to-video ref:', (b64.length / 1024).toFixed(0) + 'KB')
         } catch { /* skip */ }
-      }
-      if (imgDataURIs.length === 1) {
-        body.image = imgDataURIs[0]
-        console.log('[Agnes] image-to-video: 1 ref,', (imgDataURIs[0].length / 1024).toFixed(0) + 'KB')
-      } else if (imgDataURIs.length > 1) {
-        body.extra_body = { image: imgDataURIs }
-        console.log('[Agnes] multi-image video: ' + imgDataURIs.length + ' refs,', (JSON.stringify(imgDataURIs).length / 1024).toFixed(0) + 'KB total')
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
@@ -1374,7 +1368,7 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
           console.log('[Agnes] COMPLETED url:', url ? url.slice(0, 80) : 'MISSING!')
           if (url) break
         }
-        if (best.status === 'failed') throw new Error('视频生成失败: ' + (best.error || ''))
+        if (best.status === 'failed') { const errStr = typeof best.error === 'object' ? JSON.stringify(best.error) : (best.error || ''); throw new Error('视频生成失败: ' + errStr) }
       }
       if (!url) throw new Error("视频生成超时（5分钟）")
       return [url]
