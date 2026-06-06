@@ -514,7 +514,13 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
     const body: any = { prompt, model, n: 1 }
 
     if (isAgnes) {
-      // Agnes API: 图生图必须传 extra_body.tags=["img2img"] + image=URL数组 + response_format
+      // Agnes 仅支持标准尺寸: 1024x1024 / 1024x768 / 768x1024
+      if (size) {
+        if (size === '1792x1024') body.size = '1024x768'
+        else if (size === '1024x1792') body.size = '768x1024'
+        else body.size = '1024x1024'
+      }
+      // 图生图：必须传 extra_body.tags=["img2img"] + image=URL数组
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
       const imgUrls: string[] = []
       for (const r of refs) {
@@ -526,6 +532,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
       if (imgUrls.length > 0) {
         body.extra_body = { tags: ['img2img'], image: imgUrls, response_format: 'url' }
       }
+      // 文生图绝对不能传 extra_body
     } else {
       if (size) body.size = size
       const singleRef = Array.isArray(refImage) ? refImage[0] : refImage
