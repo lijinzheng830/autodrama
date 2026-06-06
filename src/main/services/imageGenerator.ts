@@ -520,16 +520,13 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
         else if (size === '1024x1792') body.size = '768x1024'
         else body.size = '1024x1024'
       }
-      // 图生图：角色/场景参考图优先，构图锚点排最后（避免模型把旧角色当参考）
+      // 图生图：仅传 1 张角色/场景参考图（base64 过大导致 ECONNRESET）
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      // 角色/场景图排前面（路径含 characters/scenes），构图锚点排后面（路径含 frames）
-      const charRefs = refs.filter(r => r.includes('characters') || r.includes('scenes'))
-      const frameRefs = refs.filter(r => !charRefs.includes(r))
-      const orderedRefs = [...charRefs, ...frameRefs].slice(0, 2)
+      const charRef = refs.find(r => r.includes('characters') || r.includes('scenes')) || refs[0]
       const imgUrls: string[] = []
-      for (const r of orderedRefs) {
+      if (charRef) {
         try {
-          const imgBuffer = require('fs').readFileSync(r)
+          const imgBuffer = require('fs').readFileSync(charRef)
           imgUrls.push('data:image/png;base64,' + imgBuffer.toString('base64'))
         } catch { /* skip */ }
       }
