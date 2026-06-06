@@ -71,7 +71,7 @@ import {
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
-import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, deleteShotImage, generateShotImage, getShotImages, selectShotImage, generateShotVideo, getShotVideos, selectShotVideo } from './services/imageGenerator'
+import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, deleteShotImage, deleteShotVideo, generateShotImage, getShotImages, selectShotImage, generateShotVideo, getShotVideos, selectShotVideo } from './services/imageGenerator'
 import type { GenerateImageInput } from './types'
 import { reviewScript, getReviewRules, getRuleStats, autoFixScript, generateFixSuggestion } from './services/scriptReviewer'
 import { getStyleTemplates, getStyleByKey } from './services/styleTemplate'
@@ -593,6 +593,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('video:selectShotVideo', async (_, { shotId, videoId }: { shotId: string; videoId: string }) => {
     selectShotVideo(shotId, videoId)
+  })
+
+  ipcMain.handle('video:deleteShotVideo', async (_, { shotId, videoId }: { shotId: string; videoId: string }) => {
+    deleteShotVideo(shotId, videoId)
   })
 
   // ===== Script Reviewer =====

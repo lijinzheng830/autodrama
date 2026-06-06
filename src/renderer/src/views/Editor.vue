@@ -1549,11 +1549,16 @@ async function handleSelectHistoryVideo(shotId: string, videoId: string): Promis
   }
 }
 
-async function handleDeleteHistoryVideo(shotId: string, _videoId: string): Promise<void> {
+async function handleDeleteHistoryVideo(shotId: string, videoId: string): Promise<void> {
   try { await ElMessageBox.confirm('确定删除该视频？', '确认', { type: 'warning' }) } catch { return }
-  // Just reload - full delete not implemented for videos yet
-  if (shotId) await loadShotVideos(shotId)
-  await loadEpisodesData()
+  try {
+    await window.api.deleteShotVideo(shotId, videoId)
+    if (shotId) await loadShotVideos(shotId)
+    await loadEpisodesData()
+    ElMessage.success('视频已删除')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '删除失败')
+  }
 }
 
 async function loadShotImages(shotId: string, frameType: 'first' | 'last'): Promise<void> {

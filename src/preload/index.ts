@@ -145,6 +145,8 @@ const api = {
   getShotVideos: (shotId: string) => ipcRenderer.invoke('video:getShotVideos', shotId),
   selectShotVideo: (shotId: string, videoId: string) =>
     ipcRenderer.invoke('video:selectShotVideo', { shotId, videoId }),
+  deleteShotVideo: (shotId: string, videoId: string) =>
+    ipcRenderer.invoke('video:deleteShotVideo', { shotId, videoId }),
 
   // Script Reviewer
   reviewScript: (script: string, options?: { mode?: string }) =>

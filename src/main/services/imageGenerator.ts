@@ -1081,6 +1081,27 @@ export function deleteShotImage(shotId: string, imageId: string): void {
   try { const fs = require('fs'); if (fs.existsSync(img.image_path)) fs.unlinkSync(img.image_path) } catch {}
 }
 
+/** 删除分镜视频历史记录 */
+export function deleteShotVideo(shotId: string, videoId: string): void {
+  const db = getDb()
+  const v = db.prepare('SELECT * FROM shot_videos WHERE id = ? AND shot_id = ?').get(videoId, shotId) as { video_path: string; is_selected: number } | undefined
+  if (!v) throw new Error('视频记录不存在')
+
+  db.prepare('DELETE FROM shot_videos WHERE id = ?').run(videoId)
+
+  if (v.is_selected) {
+    const latest = db.prepare('SELECT id, video_path FROM shot_videos WHERE shot_id = ? ORDER BY created_at DESC LIMIT 1').get(shotId) as { id: string; video_path: string } | undefined
+    if (latest) {
+      db.prepare('UPDATE shot_videos SET is_selected = 1 WHERE id = ?').run(latest.id)
+      db.prepare('UPDATE shots SET video_path = ? WHERE id = ?').run(latest.video_path, shotId)
+    } else {
+      db.prepare("UPDATE shots SET video_path = '' WHERE id = ?").run(shotId)
+    }
+  }
+
+  try { const fs = require('fs'); if (fs.existsSync(v.video_path)) fs.unlinkSync(v.video_path) } catch {}
+}
+
 // ===== 视频生成 =====
 
 export interface GenerateVideoInput {
