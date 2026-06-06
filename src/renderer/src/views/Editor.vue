@@ -3562,6 +3562,13 @@ onUnmounted(() => {
                       >
                         <img :src="toFileUrl(img.image_path)" class="history-img" />
                         <div v-show="img.is_selected" class="history-selected-badge">✓</div>
+                        <el-button
+                          class="history-delete-btn"
+                          :icon="Delete"
+                          circle
+                          size="small"
+                          @click.stop="handleDeleteHistoryImage('firstFrame', detailData?.id, img.id)"
+                        />
                       </div>
                     </div>
                   </div>
@@ -3670,6 +3677,13 @@ onUnmounted(() => {
                       >
                         <img :src="toFileUrl(img.image_path)" class="history-img" />
                         <div v-show="img.is_selected" class="history-selected-badge">✓</div>
+                        <el-button
+                          class="history-delete-btn"
+                          :icon="Delete"
+                          circle
+                          size="small"
+                          @click.stop="handleDeleteHistoryImage('lastFrame', detailData?.id, img.id)"
+                        />
                       </div>
                     </div>
                   </div>
