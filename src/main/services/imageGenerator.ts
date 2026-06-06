@@ -1111,10 +1111,10 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const aspectRatio = project.aspect_ratio || '16:9'
   const isVertical = aspectRatio === '9:16'
   const arDirective = isVertical
-    ? 'IMPORTANT: Output a vertical 9:16 portrait video.'
+    ? 'MUST output a vertical 9:16 portrait video (width:1024 height:1792).'
     : aspectRatio === '1:1'
-      ? 'IMPORTANT: Output a square 1:1 video.'
-      : 'IMPORTANT: Output a horizontal 16:9 landscape widescreen video.'
+      ? 'MUST output a square 1:1 video (width:1024 height:1024).'
+      : 'MUST output a horizontal 16:9 landscape widescreen video (width:1792 height:1024).'
 
   // 有首帧图则提示视频从该构图开始
   let frameGuidance = ''
@@ -1125,13 +1125,34 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 
   const finalStylePrompt = project.style_prompt || ''
-  const finalPrompt = [arDirective, videoPrompt, shotContext, frameGuidance, finalStylePrompt].filter(s => s.trim()).join(', ')
+  // 用换行分隔比例指令和内容，让模型更清晰
+  const finalPrompt = `${arDirective}\nVideo description: ${videoPrompt}.\n${shotContext}.\n${frameGuidance}.\nStyle: ${finalStylePrompt}`
 
-  // 收集首帧图作为视频参考图（image-to-video）
-  let videoRefImage: string | undefined
+  // 收集参考图：首帧图（如有）+ 角色定妆照 + 场景图
+  const videoRefImages: string[] = []
   if (shot.first_frame_image_path) {
-    try { const fs = require('fs'); if (fs.existsSync(shot.first_frame_image_path)) videoRefImage = shot.first_frame_image_path } catch {}
+    try { const fs = require('fs'); if (fs.existsSync(shot.first_frame_image_path)) videoRefImages.push(shot.first_frame_image_path) } catch {}
   }
+  try {
+    const charImgs = db.prepare(
+      'SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
+    ).all(shotId) as { reference_image: string | null }[]
+    for (const ch of charImgs) {
+      if (ch.reference_image) {
+        try { const fs = require('fs'); if (fs.existsSync(ch.reference_image)) videoRefImages.push(ch.reference_image) } catch {}
+      }
+    }
+    const sceneImgs = db.prepare(
+      'SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
+    ).all(shotId) as { reference_image: string | null }[]
+    for (const sc of sceneImgs) {
+      if (sc.reference_image) {
+        try { const fs = require('fs'); if (fs.existsSync(sc.reference_image)) videoRefImages.push(sc.reference_image) } catch {}
+      }
+    }
+  } catch {}
+  // 取第一张参考图（video API 通常只支持单张）
+  const videoRefImage = videoRefImages.length > 0 ? videoRefImages[0] : undefined
 
   // 模型配置降级
   const purposeKey = 'video'
