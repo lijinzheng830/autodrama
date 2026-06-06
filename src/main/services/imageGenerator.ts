@@ -1281,10 +1281,10 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     // ===== Agnes API: POST /v1/videos =====
     if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
 
-    // 比例 → 像素
+    // 比例 → 像素（Agnes 仅支持标准尺寸: 1152x768 / 768x1152 / 1024x1024）
     const ar = videoAspectRatio || '16:9'
-    let width = 1152, height = 640
-    if (ar === '9:16') { width = 640; height = 1152 }
+    let width = 1152, height = 768
+    if (ar === '9:16') { width = 768; height = 1152 }
     else if (ar === '1:1') { width = 1024; height = 1024 }
 
     const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
