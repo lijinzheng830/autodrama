@@ -1294,7 +1294,7 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     try {
       resp = await axios.post(`${normalizedBaseURL}/videos`, body, {
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        timeout: 120000
+        timeout: 600000
       })
     } catch (err: any) {
       const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
