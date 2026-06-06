@@ -1557,13 +1557,13 @@ async function handleDeleteHistoryImage(type: string, assetId: string, imageId: 
   } catch {
     return
   }
-  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : (type === 'prop' ? 'prop' : 'character')
   try {
-    await window.api.deleteAssetImage(assetType, assetId, imageId)
-    // Reload
     if (type === 'firstFrame' || type === 'lastFrame') {
+      await window.api.deleteShotImage(assetId, imageId)
       await loadShotImages(assetId, type as 'first' | 'last')
     } else {
+      const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
+      await window.api.deleteAssetImage(assetType, assetId, imageId)
       await loadAssetImages(type, assetId)
     }
     await loadEpisodesData()

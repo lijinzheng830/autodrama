@@ -989,6 +989,30 @@ export function deleteAssetImage(
   } catch { /* file may not exist */ }
 }
 
+/** 删除分镜首帧/尾帧历史图片 */
+export function deleteShotImage(shotId: string, imageId: string): void {
+  const db = getDb()
+  const img = db.prepare('SELECT * FROM shot_images WHERE id = ? AND shot_id = ?').get(imageId, shotId) as { image_path: string; type: string; is_selected: number } | undefined
+  if (!img) throw new Error('图片记录不存在')
+
+  db.prepare('DELETE FROM shot_images WHERE id = ?').run(imageId)
+
+  // 如果删除的是当前选中图，自动选最新的一张
+  if (img.is_selected) {
+    const latest = db.prepare('SELECT id, image_path FROM shot_images WHERE shot_id = ? AND type = ? ORDER BY created_at DESC LIMIT 1').get(shotId, img.type) as { id: string; image_path: string } | undefined
+    if (latest) {
+      db.prepare('UPDATE shot_images SET is_selected = 1 WHERE id = ?').run(latest.id)
+      const col = img.type === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
+      db.prepare(`UPDATE shots SET ${col} = ? WHERE id = ?`).run(latest.image_path, shotId)
+    } else {
+      const col = img.type === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
+      db.prepare(`UPDATE shots SET ${col} = '' WHERE id = ?`).run(shotId)
+    }
+  }
+
+  try { const fs = require('fs'); if (fs.existsSync(img.image_path)) fs.unlinkSync(img.image_path) } catch {}
+}
+
 // ===== 视频生成 =====
 
 export interface GenerateVideoInput {

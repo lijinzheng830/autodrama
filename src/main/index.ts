@@ -71,7 +71,7 @@ import {
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
-import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, generateShotImage, getShotImages, selectShotImage, generateShotVideo, getShotVideos, selectShotVideo } from './services/imageGenerator'
+import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, deleteShotImage, generateShotImage, getShotImages, selectShotImage, generateShotVideo, getShotVideos, selectShotVideo } from './services/imageGenerator'
 import type { GenerateImageInput } from './types'
 import { reviewScript, getReviewRules, getRuleStats, autoFixScript, generateFixSuggestion } from './services/scriptReviewer'
 import { getStyleTemplates, getStyleByKey } from './services/styleTemplate'
@@ -565,6 +565,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('image:deleteAssetImage', async (_, { assetType, assetId, imageId }: { assetType: 'character' | 'scene' | 'prop'; assetId: string; imageId: string }) => {
     deleteAssetImage(assetType, assetId, imageId)
+  })
+
+  ipcMain.handle('image:deleteShotImage', async (_, { shotId, imageId }: { shotId: string; imageId: string }) => {
+    deleteShotImage(shotId, imageId)
   })
 
   ipcMain.handle('image:generateShot', async (_, input) => {
