@@ -1241,7 +1241,10 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       const url = videoUrls[i]
       const fileName = `${shotId}_video_${Date.now()}_${i}.mp4`
       const filePath = join(videoDir, fileName)
-      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000, headers: { Authorization: `Bearer ${apiKey}` } })
+      // Agnes 返回的是CDN直链，不需要 Auth header
+      const downloadHeaders: any = {}
+      if (!url.includes('agnes-ai.com')) downloadHeaders.Authorization = `Bearer ${apiKey}`
+      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000, headers: downloadHeaders })
       writeFileSync(filePath, Buffer.from(resp.data))
       videoPaths.push(filePath)
     }
