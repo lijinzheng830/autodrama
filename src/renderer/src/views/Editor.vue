@@ -22,7 +22,8 @@ import {
   Document,
   RefreshLeft,
   RefreshRight,
-  Download
+  Download,
+  MoreFilled
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 import CanvasView from './CanvasView.vue'
@@ -3725,7 +3726,14 @@ onUnmounted(() => {
                   <div class="detail-media">
                     <div v-if="detailData?.video_path" class="detail-placeholder" style="position:relative">
                       <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
-                      <el-button :icon="Download" circle size="small" class="video-download-btn" @click="handleDownloadVideo(detailData.video_path)" />
+                      <el-dropdown trigger="click" class="video-more-btn">
+                        <el-button :icon="MoreFilled" circle size="small" />
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item :icon="Download" @click="handleDownloadVideo(detailData.video_path)">下载视频</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
@@ -5777,7 +5785,7 @@ onUnmounted(() => {
   background: #000;
 }
 
-.video-download-btn {
+.video-more-btn {
   position: absolute;
   top: 8px;
   right: 8px;
