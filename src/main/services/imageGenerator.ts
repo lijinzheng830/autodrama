@@ -1318,20 +1318,13 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：单图→image字符串，多图→extra_body.image数组
+      // 图生视频：传首帧图（image单图模式已验证可用，多图有base64解码问题）
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      if (refs.length === 1) {
+      if (refs.length > 0) {
         try {
           body.image = 'data:image/png;base64,' + require('fs').readFileSync(refs[0]).toString('base64')
+          console.log('[Agnes] video image ref:', (body.image.length / 1024).toFixed(0) + 'KB')
         } catch { /* skip */ }
-      } else if (refs.length > 1) {
-        body.extra_body = { image: [] as string[] }
-        for (const r of refs) {
-          try {
-            (body.extra_body.image as string[]).push(require('fs').readFileSync(r).toString('base64'))
-          } catch { /* skip */ }
-        }
-        console.log('[Agnes] video extra_body.image:', body.extra_body.image.length, 'refs, size:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80), 'body:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
