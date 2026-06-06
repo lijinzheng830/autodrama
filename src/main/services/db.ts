@@ -254,7 +254,11 @@ export function initDatabase(): Database.Database {
   try {
     const fs = require('fs') as typeof import('fs')
     const path = require('path') as typeof import('path')
-    const templatesDir = path.join(__dirname, '..', 'data', 'prompt-templates')
+    // 优先 dev 路径（src/main/data/），回退到编译输出路径（out/main/data/）
+    let templatesDir = path.join(app.getAppPath(), 'src', 'main', 'data', 'prompt-templates')
+    if (!fs.existsSync(templatesDir)) {
+      templatesDir = path.join(__dirname, '..', 'data', 'prompt-templates')
+    }
 
     // 18 条官方模板注册表
     const registry: Array<{ file: string; id: string; usage: string; name: string; version: string }> = [
