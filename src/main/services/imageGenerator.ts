@@ -1180,8 +1180,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       }
     }
   } catch {}
-  // 取第一张参考图（video API 通常只支持单张）
-  const videoRefImage = videoRefImages.length > 0 ? videoRefImages[0] : undefined
+  // 传全部参考图（首帧 + 角色定妆照 + 场景图）
+  const videoRefImage = videoRefImages.length > 0 ? videoRefImages : undefined
 
   // 模型配置降级
   const purposeKey = 'video'
@@ -1261,7 +1261,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 }
 
-async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null, refImage?: string | null, videoAspectRatio?: string): Promise<string[]> {
+async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null, refImage?: string | string[], videoAspectRatio?: string): Promise<string[]> {
   let baseURL = ''
   let actualModel = model
   const providerKey = channel || (model.includes(':') ? model.split(':')[0] : '')
@@ -1285,14 +1285,21 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：有首帧图时传 image 参数（base64 data URI）
-      if (refImage) {
+      // 多图视频：首帧图 + 角色参考图 + 场景参考图 → extra_body.image 数组
+      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
+      const imgDataURIs: string[] = []
+      for (const r of refs) {
         try {
-          const imgBuf = require('fs').readFileSync(refImage)
-          const b64 = imgBuf.toString('base64')
-          body.image = 'data:image/png;base64,' + b64
-          console.log('[Agnes] image-to-video, ref size:', (imgBuf.length / 1024).toFixed(0) + 'KB')
-        } catch { console.log('[Agnes] refImage read failed') }
+          const imgBuf = require('fs').readFileSync(r)
+          imgDataURIs.push('data:image/png;base64,' + imgBuf.toString('base64'))
+        } catch { /* skip */ }
+      }
+      if (imgDataURIs.length === 1) {
+        body.image = imgDataURIs[0]
+        console.log('[Agnes] image-to-video: 1 ref,', (imgDataURIs[0].length / 1024).toFixed(0) + 'KB')
+      } else if (imgDataURIs.length > 1) {
+        body.extra_body = { image: imgDataURIs }
+        console.log('[Agnes] multi-image video: ' + imgDataURIs.length + ' refs,', (JSON.stringify(imgDataURIs).length / 1024).toFixed(0) + 'KB total')
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
