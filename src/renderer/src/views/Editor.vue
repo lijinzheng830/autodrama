@@ -458,7 +458,7 @@ async function openParseDialog(mode: 'full' | 'append'): Promise<void> {
 
 async function loadTemplates(): Promise<void> {
   try {
-    const list = (await window.api.getPromptTemplates(projectId, 'shot_image')) as any[]
+    const list = (await window.api.getPromptTemplates(projectId, 'script_parse')) as any[]
     templates.value = list
     if (list.length > 0 && !selectedTemplate.value) {
       selectedTemplate.value = list[0].id
