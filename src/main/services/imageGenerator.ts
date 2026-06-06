@@ -1309,14 +1309,23 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：只传首帧图（image参数支持base64，extra_body.image不支持）
+      // 图生视频：image 参数支持数组，传首帧+角色+场景全部参考图
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      if (refs.length > 0) {
+      if (refs.length === 1) {
         try {
           const imgBuf = require('fs').readFileSync(refs[0])
           body.image = 'data:image/png;base64,' + imgBuf.toString('base64')
-          console.log('[Agnes] video 1 ref (first frame):', (imgBuf.length / 1024).toFixed(0) + 'KB')
         } catch { /* skip */ }
+      } else if (refs.length > 1) {
+        const imgs: string[] = []
+        for (const r of refs) {
+          try {
+            const imgBuf = require('fs').readFileSync(r)
+            imgs.push('data:image/png;base64,' + imgBuf.toString('base64'))
+          } catch { /* skip */ }
+        }
+        if (imgs.length > 0) body.image = imgs
+        console.log('[Agnes] video ' + imgs.length + ' refs')
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
