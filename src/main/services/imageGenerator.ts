@@ -1255,7 +1255,7 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     if (ar === '9:16') { width = 640; height = 1152 }
     else if (ar === '1:1') { width = 1024; height = 1024 }
 
-    const body: any = { model: actualModel, prompt, width, height, num_frames: 121, frame_rate: 24 }
+    const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
     let resp: any
     try {
       resp = await axios.post(`${normalizedBaseURL}/videos`, body, {
