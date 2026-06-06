@@ -527,7 +527,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
       if (charRef) {
         try {
           const imgBuffer = require('fs').readFileSync(charRef)
-          imgUrls.push('data:image/png;base64,' + imgBuffer.toString('base64'))
+          imgUrls.push(imgBuffer.toString('base64'))
         } catch { /* skip */ }
       }
       if (imgUrls.length > 0) {
@@ -1307,14 +1307,13 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：只传首帧图（base64 过大导致失败，单张控制在 3MB 内）
+      // 图生视频：传首帧图纯base64（不加data:前缀，API要原始base64）
       const refs = Array.isArray(refImage) ? refImage.slice(0, 1) : refImage ? [refImage] : []
       if (refs.length > 0) {
         try {
           const imgBuf = require('fs').readFileSync(refs[0])
-          const b64 = imgBuf.toString('base64')
-          body.image = 'data:image/png;base64,' + b64
-          console.log('[Agnes] image-to-video ref:', (b64.length / 1024).toFixed(0) + 'KB')
+          body.image = imgBuf.toString('base64')
+          console.log('[Agnes] image-to-video ref:', (imgBuf.length / 1024).toFixed(0) + 'KB (raw)')
         } catch { /* skip */ }
       }
       const postURL = normalizedBaseURL + '/videos'
