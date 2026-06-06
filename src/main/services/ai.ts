@@ -291,6 +291,26 @@ export function extractJSON(text: string): string {
 function normalizeShotData(raw: any): ShotData {
   if (!raw || typeof raw !== 'object') return { chapters: [] }
 
+  // AI 直接返回数组 [{shot_description: ..., ...}] → 包装为章节
+  if (Array.isArray(raw) && raw.length > 0 && !raw[0]?.shots) {
+    return {
+      chapters: [{
+        title: '第1章',
+        shots: raw.map((s: any, i: number) => ({
+          shot_index: s.shot_index ?? s.shot_id ?? i + 1,
+          description: s.shot_description || s.description || '',
+          dialogue: s.dialogue || '',
+          first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
+          first_frame_prompt_zh: s.first_frame_prompt_zh || '',
+          last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
+          last_frame_prompt_zh: s.last_frame_prompt_zh || '',
+          video_prompt: s.video_prompt || s.videoPrompt || '',
+          video_prompt_zh: s.video_prompt_zh || ''
+        }))
+      }]
+    }
+  }
+
   // Already has chapters array → return as-is
   if (Array.isArray(raw.chapters)) {
     return {
