@@ -1052,6 +1052,8 @@ async function showDetail(type: string, data: any): Promise<void> {
   editFirstFramePrompt.value = data?.first_frame_prompt || ''
   editLastFramePrompt.value = data?.last_frame_prompt || ''
   editVideoPrompt.value = data?.video_prompt || ''
+  editAssetName.value = data?.name || ''
+  editAssetDesc.value = data?.description || ''
   if (type === 'video' && data?.id) {
     await loadShotVideos(data.id)
   }
@@ -1129,6 +1131,7 @@ async function handleAssetNameChange(type: string, asset: any, newName: string):
     if (type === 'character') await window.api.updateCharacter(asset.id, { name: newName.trim() })
     else if (type === 'scene') await window.api.updateScene(asset.id, { name: newName.trim() })
     else if (type === 'prop') await window.api.updateProp(asset.id, { name: newName.trim() })
+    editAssetName.value = newName.trim()
     await loadEpisodesData()
   } catch (err) {
     ElMessage.error('改名失败')
@@ -1141,6 +1144,7 @@ async function handleAssetDescChange(type: string, asset: any, newDesc: string):
     if (type === 'character') await window.api.updateCharacter(asset.id, { description: newDesc })
     else if (type === 'scene') await window.api.updateScene(asset.id, { description: newDesc })
     else if (type === 'prop') await window.api.updateProp(asset.id, { description: newDesc })
+    editAssetDesc.value = newDesc
     await loadEpisodesData()
   } catch (err) {
     ElMessage.error('保存描述失败')
@@ -1224,6 +1228,8 @@ const assetVideos = ref<any[]>([])
 const editFirstFramePrompt = ref('')
 const editLastFramePrompt = ref('')
 const editVideoPrompt = ref('')
+const editAssetName = ref('')
+const editAssetDesc = ref('')
 
 // ===== 全屏大图预览 =====
 const fullscreenImageVisible = ref(false)
@@ -3366,21 +3372,17 @@ onUnmounted(() => {
                     <div class="detail-field">
                       <label>名称</label>
                       <el-input
-                        :model-value="detailData?.name"
-                        @blur="
-                          (e: any) => handleAssetNameChange(detailType, detailData, e.target.value)
-                        "
+                        v-model="editAssetName"
+                        @blur="handleAssetNameChange(detailType, detailData, editAssetName)"
                       />
                     </div>
                     <div class="detail-field">
                       <label>描述</label>
                       <el-input
-                        :model-value="detailData?.description"
+                        v-model="editAssetDesc"
                         type="textarea"
                         :rows="4"
-                        @blur="
-                          (e: any) => handleAssetDescChange(detailType, detailData, e.target.value)
-                        "
+                        @blur="handleAssetDescChange(detailType, detailData, editAssetDesc)"
                       />
                     </div>
                   </div>
