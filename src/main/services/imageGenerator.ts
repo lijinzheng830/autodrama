@@ -1285,8 +1285,17 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      const postURL = normalizedBaseURL + "/videos"
-      console.log("[Agnes] POST", postURL, "model:", actualModel, "prompt:", prompt.slice(0, 80))
+      // 图生视频：有首帧图时传 image 参数（base64 data URI）
+      if (refImage) {
+        try {
+          const imgBuf = require('fs').readFileSync(refImage)
+          const b64 = imgBuf.toString('base64')
+          body.image = 'data:image/png;base64,' + b64
+          console.log('[Agnes] image-to-video, ref size:', (imgBuf.length / 1024).toFixed(0) + 'KB')
+        } catch { console.log('[Agnes] refImage read failed') }
+      }
+      const postURL = normalizedBaseURL + '/videos'
+      console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
 
       let resp: any
       try {
