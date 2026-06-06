@@ -1186,18 +1186,21 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   if (shot.first_frame_image_path) {
     try { const fs = require('fs'); if (fs.existsSync(shot.first_frame_image_path)) videoRefImages.push(shot.first_frame_image_path) } catch {}
   }
+  console.log('[Agnes] shotId:', shotId, 'firstFrame:', shot.first_frame_image_path ? 'YES' : 'NO')
   try {
     const charImgs = db.prepare(
-      'SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
-    ).all(shotId) as { reference_image: string | null }[]
+      'SELECT c.name, c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
+    ).all(shotId) as { name: string; reference_image: string | null }[]
+    console.log('[Agnes] charImgs:', charImgs.length, charImgs.map(function(c: any) { return c.name + ' ref:' + (c.reference_image ? 'YES' : 'NO') }).join(', '))
     for (const ch of charImgs) {
       if (ch.reference_image) {
         try { const fs = require('fs'); if (fs.existsSync(ch.reference_image)) videoRefImages.push(ch.reference_image) } catch {}
       }
     }
     const sceneImgs = db.prepare(
-      'SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
-    ).all(shotId) as { reference_image: string | null }[]
+      'SELECT s.name, s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
+    ).all(shotId) as { name: string; reference_image: string | null }[]
+    console.log('[Agnes] sceneImgs:', sceneImgs.length, sceneImgs.map(function(s: any) { return s.name + ' ref:' + (s.reference_image ? 'YES' : 'NO') }).join(', '))
     for (const sc of sceneImgs) {
       if (sc.reference_image) {
         try { const fs = require('fs'); if (fs.existsSync(sc.reference_image)) videoRefImages.push(sc.reference_image) } catch {}
