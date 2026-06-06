@@ -1203,7 +1203,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   db.prepare(`UPDATE generation_tasks SET status='running',started_at=datetime('now','localtime'),updated_at=datetime('now','localtime') WHERE id=?`).run(taskId)
 
   try {
-    const videoUrls = await callVideoGenerationAPI(finalPrompt, model, apiKey, channel, videoRefImage)
+    const videoUrls = await callVideoGenerationAPI(finalPrompt, model, apiKey, channel, videoRefImage, aspectRatio)
     const videoDir = join(project.path, 'assets', 'videos')
     mkdirSync(videoDir, { recursive: true })
 
@@ -1231,7 +1231,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 }
 
-async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null, refImage?: string | null): Promise<string[]> {
+async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null, refImage?: string | null, videoAspectRatio?: string): Promise<string[]> {
   let baseURL = ''
   let actualModel = model
   const providerKey = channel || (model.includes(':') ? model.split(':')[0] : '')
@@ -1243,13 +1243,51 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
   if (!baseURL) throw new Error('无法确定 API 基础地址')
 
   let normalizedBaseURL = baseURL.replace(/\/$/, '')
+  const isAgnes = normalizedBaseURL.includes('agnes-ai.com')
+
+  if (isAgnes) {
+    // ===== Agnes API: POST /v1/videos =====
+    if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
+
+    // 比例 → 像素
+    const ar = videoAspectRatio || '16:9'
+    let width = 1152, height = 640
+    if (ar === '9:16') { width = 640; height = 1152 }
+    else if (ar === '1:1') { width = 1024; height = 1024 }
+
+    const body: any = { model: actualModel, prompt, width, height, num_frames: 121, frame_rate: 24 }
+    let resp: any
+    try {
+      resp = await axios.post(`${normalizedBaseURL}/videos`, body, {
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        timeout: 120000
+      })
+    } catch (err: any) {
+      const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
+      throw new Error('Agnes视频请求失败: ' + d)
+    }
+    const taskId = resp.data?.task_id || resp.data?.id
+    if (!taskId) throw new Error('未返回 task_id')
+
+    let url = ''
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 5000))
+      const sr = await axios.get(`${normalizedBaseURL}/videos/${taskId}`, {
+        headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+      })
+      const s = sr.data || {}
+      if ((s.status || '').toUpperCase() === 'COMPLETED') { url = s.video_url || s.result_url || s.url || ''; if (url) break }
+      if ((s.status || '').toUpperCase() === 'FAILED') throw new Error('视频生成失败: ' + (s.error || ''))
+    }
+    if (!url) throw new Error('视频生成超时（5分钟）')
+    return [url]
+  }
+
+  // ===== 通用 API: /v1/video/generations =====
   if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
 
-  // 提交视频生成任务
   const videoBody: any = { model: actualModel, prompt }
-  // grok-imagine 系列不传 size（避免 400）
   if (!actualModel.startsWith('grok-imagine')) videoBody.size = '720p'
-  // 有首帧图则作为 image-to-video 的起始画面
   if (refImage) {
     try {
       const imgBuffer = require('fs').readFileSync(refImage)
@@ -1265,12 +1303,11 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     })
   } catch (err: any) {
     const detail = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
-    throw new Error(`视频API请求失败: ${detail}`)
+    throw new Error('视频API请求失败: ' + detail)
   }
   const taskId = createResp.data?.task_id || createResp.data?.id
   if (!taskId) throw new Error('视频任务创建失败：未返回 task_id')
 
-  // 轮询等待完成
   let videoUrl = ''
   for (let attempt = 0; attempt < 60; attempt++) {
     await new Promise(r => setTimeout(r, 5000))
@@ -1278,46 +1315,29 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       headers: { Authorization: `Bearer ${apiKey}` },
       timeout: 30000
     })
-    const s = statusResp.data?.data || statusResp.data  // 兼容 data 嵌套
+    const s = statusResp.data?.data || statusResp.data
     const st = (s?.status || '').toUpperCase()
     if (st === 'COMPLETED' || st === 'SUCCESS') {
-      // 尝试多个可能的 URL 字段（manxueapi 返回 result_url）
       videoUrl = s?.result_url || s?.video_url || s?.url || ''
       if (!videoUrl && s?.data) {
         const inner = s.data
         videoUrl = inner?.result_url || inner?.url || inner?.video_url || ''
-        if (!videoUrl && inner?.output) {
-          videoUrl = typeof inner.output === 'string' ? inner.output : inner.output?.url || ''
-        }
-        if (!videoUrl && inner?.result) {
-          videoUrl = typeof inner.result === 'string' ? inner.result : inner.result?.url || ''
-        }
-        if (!videoUrl && inner?.video) {
-          videoUrl = typeof inner.video === 'string' ? inner.video : inner.video?.url || ''
-        }
       }
       if (!videoUrl) {
-        // 深度搜索：遍历 data 对象查找 URL
         const findURL = (obj: any): string => {
           if (typeof obj === 'string' && (obj.startsWith('http://') || obj.startsWith('https://'))) return obj
-          if (typeof obj === 'object' && obj) {
-            for (const v of Object.values(obj)) {
-              const found = findURL(v)
-              if (found) return found
-            }
-          }
+          if (typeof obj === 'object' && obj) { for (const v of Object.values(obj)) { const f = findURL(v); if (f) return f } }
           return ''
         }
         videoUrl = findURL(s)
       }
-      break
+      if (videoUrl) break
     }
     if (st === 'FAILED' || st === 'ERROR') {
-      throw new Error(`视频生成失败: ${s?.fail_reason || s?.error?.message || '未知错误'}`)
+      throw new Error('视频生成失败: ' + (s?.fail_reason || s?.error?.message || st))
     }
   }
   if (!videoUrl) throw new Error('视频生成超时（5分钟），请重试')
-
   return [videoUrl]
 }
 
