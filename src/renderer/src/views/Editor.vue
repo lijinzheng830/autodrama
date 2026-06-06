@@ -951,7 +951,7 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
     } catch (err: any) {
       const msg = (err?.message || '').toLowerCase()
       if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many requests')) {
-        await new Promise((r) => setTimeout(r, 5000))
+        await new Promise((r) => setTimeout(r, 3000))
         try {
           await generateFn()
           return true
@@ -1013,8 +1013,8 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       }
       const prog = batchProgress.value[type] || { current: 0, total }
       batchProgress.value[type] = { current: Math.min(prog.current + 1, total), total }
-      // 间隔 3 秒，避免 API 限流，同时让 UI 有机会刷新
-      await new Promise((r) => setTimeout(r, 3000))
+      // 间隔 1 秒，避免 API 限流
+      await new Promise((r) => setTimeout(r, 1000))
       await new Promise((r) => requestAnimationFrame(r))
     }
   }
