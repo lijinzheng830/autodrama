@@ -136,7 +136,8 @@ export async function callAI(
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.1
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
       }),
       signal: controller.signal
     })
