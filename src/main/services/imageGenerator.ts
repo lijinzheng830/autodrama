@@ -1212,12 +1212,20 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
   if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
 
   // 提交视频生成任务
-  const createResp = await axios.post(`${normalizedBaseURL}/video/generations`, {
-    model: actualModel, prompt, size: '720p'
-  }, {
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    timeout: 120000
-  })
+  const videoBody: any = { model: actualModel, prompt }
+  // grok-imagine 系列不传 size（避免 400）
+  if (!actualModel.startsWith('grok-imagine')) videoBody.size = '720p'
+
+  let createResp: any
+  try {
+    createResp = await axios.post(`${normalizedBaseURL}/video/generations`, videoBody, {
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      timeout: 120000
+    })
+  } catch (err: any) {
+    const detail = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
+    throw new Error(`视频API请求失败: ${detail}`)
+  }
   const taskId = createResp.data?.task_id || createResp.data?.id
   if (!taskId) throw new Error('视频任务创建失败：未返回 task_id')
 
