@@ -1108,6 +1108,13 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     } catch {}
   }
   const shotContext = ctxParts.join('. ')
+  const aspectRatio = project.aspect_ratio || '16:9'
+  const isVertical = aspectRatio === '9:16'
+  const arDirective = isVertical
+    ? 'IMPORTANT: Output a vertical 9:16 portrait video.'
+    : aspectRatio === '1:1'
+      ? 'IMPORTANT: Output a square 1:1 video.'
+      : 'IMPORTANT: Output a horizontal 16:9 landscape widescreen video.'
 
   // 有首帧图则提示视频从该构图开始
   let frameGuidance = ''
@@ -1118,7 +1125,13 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 
   const finalStylePrompt = project.style_prompt || ''
-  const finalPrompt = [videoPrompt, shotContext, frameGuidance, finalStylePrompt].filter(s => s.trim()).join(', ')
+  const finalPrompt = [arDirective, videoPrompt, shotContext, frameGuidance, finalStylePrompt].filter(s => s.trim()).join(', ')
+
+  // 收集首帧图作为视频参考图（image-to-video）
+  let videoRefImage: string | undefined
+  if (shot.first_frame_image_path) {
+    try { const fs = require('fs'); if (fs.existsSync(shot.first_frame_image_path)) videoRefImage = shot.first_frame_image_path } catch {}
+  }
 
   // 模型配置降级
   const purposeKey = 'video'
@@ -1169,7 +1182,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   db.prepare(`UPDATE generation_tasks SET status='running',started_at=datetime('now','localtime'),updated_at=datetime('now','localtime') WHERE id=?`).run(taskId)
 
   try {
-    const videoUrls = await callVideoGenerationAPI(finalPrompt, model, apiKey, channel)
+    const videoUrls = await callVideoGenerationAPI(finalPrompt, model, apiKey, channel, videoRefImage)
     const videoDir = join(project.path, 'assets', 'videos')
     mkdirSync(videoDir, { recursive: true })
 
@@ -1197,7 +1210,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 }
 
-async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null): Promise<string[]> {
+async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null, refImage?: string | null): Promise<string[]> {
   let baseURL = ''
   let actualModel = model
   const providerKey = channel || (model.includes(':') ? model.split(':')[0] : '')
@@ -1215,6 +1228,13 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
   const videoBody: any = { model: actualModel, prompt }
   // grok-imagine 系列不传 size（避免 400）
   if (!actualModel.startsWith('grok-imagine')) videoBody.size = '720p'
+  // 有首帧图则作为 image-to-video 的起始画面
+  if (refImage) {
+    try {
+      const imgBuffer = require('fs').readFileSync(refImage)
+      videoBody.image = imgBuffer.toString('base64')
+    } catch { /* 图片不可读，跳过 */ }
+  }
 
   let createResp: any
   try {
