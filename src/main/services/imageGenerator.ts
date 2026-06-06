@@ -1136,6 +1136,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     camera_movement: string | null
     lighting_mood: string | null
     character_actions: string | null
+    dialogue: string | null
   } | undefined
   if (!shot) throw new Error('分镜不存在')
 
@@ -1145,21 +1146,24 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const project = getProject(projectId)
   if (!project) throw new Error('项目不存在')
 
-  // 收集分镜上下文（角色描述 + 场景描述 + 景别 + 运镜 + 光线 + 动作）
+  // 收集分镜上下文（角色描述 + 场景描述 + 台词 + 景别 + 运镜 + 光线 + 动作）
   const ctxParts: string[] = []
+  let charDescsForTpl: string[] = []
+  let sceneDescForTpl = ''
   try {
     const chars = db.prepare(
       'SELECT c.name, c.description FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null }[]
-    const charDescs = chars.map(c => c.description ? `${c.name}: ${c.description}` : c.name).filter(Boolean)
-    if (charDescs.length) ctxParts.push(`Characters: ${charDescs.join('; ')}`)
+    charDescsForTpl = chars.map(c => c.description ? `${c.name}: ${c.description}` : c.name).filter(Boolean)
+    if (charDescsForTpl.length) ctxParts.push(`Characters: ${charDescsForTpl.join('; ')}`)
 
     const scenes = db.prepare(
       'SELECT s.name, s.description FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null }[]
-    const sceneDesc = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
-    if (sceneDesc) ctxParts.push(`Scene: ${sceneDesc}`)
+    sceneDescForTpl = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
+    if (sceneDescForTpl) ctxParts.push(`Scene: ${sceneDescForTpl}`)
   } catch {}
+  if (shot.dialogue) ctxParts.push(`Dialogue: ${shot.dialogue}`)
   if (shot.shot_type) ctxParts.push(`Shot type: ${shot.shot_type}`)
   if (shot.camera_movement) ctxParts.push(`Camera: ${shot.camera_movement}`)
   if (shot.lighting_mood) ctxParts.push(`Lighting: ${shot.lighting_mood}`)
@@ -1232,11 +1236,44 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     try {
       const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(videoTplId) as any
       if (tpl?.content) {
-        let tp = tpl.template_version === 'v1' ? (() => { try { return JSON.parse(tpl.content).english || '' } catch { return '' } })() : tpl.content
-        tp = tp.replace(/\{\{style_prompt\}\}/g, project.style_prompt || '')
-          .replace(/\{\{era\}\}/g, mapEra(project.era || ''))
-          .replace(/\{\{video_prompt\}\}/g, videoPrompt)
-        if (tp) { finalPromptWithTemplate = tp; console.log('[template] video template OK:', videoTplId) }
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+        // 构建完整的变量映射
+        const vars: Record<string, string> = {
+          duration_seconds: '10',
+          style_prompt: project.style_prompt || '',
+          style_prompt_zh: project.style_prompt || '',
+          era: mapEra(project.era || ''),
+          era_zh: project.era || '',
+          video_prompt: videoPrompt,
+          shot_description: videoPrompt,
+          shot_description_zh: videoPrompt,
+          dialogue: shot.dialogue || '',
+          dialogue_en: shot.dialogue || '',
+          shot_type: shot.shot_type || '',
+          shot_type_en: shot.shot_type || '',
+          lighting_mood: shot.lighting_mood || '',
+          lighting_mood_en: shot.lighting_mood || '',
+          camera_movement: shot.camera_movement || '',
+          character_actions: shot.character_actions ? (() => { try { return JSON.parse(shot.character_actions!).map((a: any) => a.character_name + ' ' + a.action).join(', ') } catch { return '' } })() : '',
+          character_actions_en: '',
+          used_scene_description: sceneDescForTpl || '',
+          used_scene_description_zh: sceneDescForTpl || '',
+          used_character_descriptions: charDescsForTpl.join('; '),
+          used_character_descriptions_zh: charDescsForTpl.join('; '),
+          used_prop_descriptions: '',
+          used_prop_descriptions_zh: ''
+        }
+        // 中文变量回退到英文
+        for (const k of Object.keys(vars)) {
+          if (k.endsWith('_zh') && !vars[k]) vars[k] = vars[k.replace('_zh', '')] || ''
+        }
+        // 替换所有 {{var}}
+        for (const [k, v] of Object.entries(vars)) {
+          tp = tp.replace(new RegExp('\\{\\{' + k + '\\}\\}', 'g'), v)
+        }
+        // 清理未替换的变量
+        tp = tp.replace(/\{\{[^}]+\}\}/g, '')
+        if (tp.trim()) { finalPromptWithTemplate = tp.trim(); console.log('[template] video template OK:', videoTplId) }
       }
     } catch { /* keep default */ }
   }
