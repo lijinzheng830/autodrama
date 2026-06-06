@@ -137,32 +137,79 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       ? `IMPORTANT: This must be a square 1:1 image (width:1024 height:1024). All panels in a 2x2 grid.`
       : `IMPORTANT: This must be a horizontal 16:9 landscape image (width:1792 height:1024). All panels arranged left-to-right.`
 
-  let finalPrompt: string
-  if (type === 'character') {
-    finalPrompt = `${ratioDirective}
+  // 获取资产名称（用于模板变量）
+  let assetName = ''
+  if (type === 'character' || type === 'scene' || type === 'prop') {
+    const table = type === 'character' ? 'characters' : type === 'scene' ? 'scenes' : 'props'
+    const row = db.prepare(`SELECT name FROM ${table} WHERE id = ?`).get(assetId) as { name: string } | undefined
+    if (row) assetName = row.name
+  }
+
+  let finalPrompt = ''
+  // 加载模板（如有配置），无模板回退硬编码
+  const tplId = input.templateId || ((project.model_config_json ? JSON.parse(project.model_config_json) : {})[type === 'character' ? 'character_image' : type === 'scene' ? 'scene_image' : 'prop_image'] as any)?.templateId
+  let tplUsed = false
+  if (tplId) {
+    try {
+      const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(tplId) as any
+      if (tpl?.content) {
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+        if (tp) {
+          tp = tp.replace(/\{\{character_name\}\}/g, assetName || description)
+            .replace(/\{\{character_description\}\}/g, description)
+            .replace(/\{\{character_appearance_prompt\}\}/g, description)
+            .replace(/\{\{scene_name\}\}/g, assetName || description)
+            .replace(/\{\{scene_description\}\}/g, description)
+            .replace(/\{\{scene_prompt\}\}/g, description)
+            .replace(/\{\{prop_name\}\}/g, assetName || description)
+            .replace(/\{\{prop_description\}\}/g, description)
+            .replace(/\{\{prop_prompt\}\}/g, description)
+            .replace(/\{\{style_prompt\}\}/g, finalStylePrompt)
+            .replace(/\{\{style_name\}\}/g, project.style_name || '')
+            .replace(/\{\{era\}\}/g, finalEraPrompt)
+            .replace(/\{\{era_zh\}\}/g, project.era || '')
+            .replace(/\{\{[^}]+\}\}/g, '')
+          if (tp.trim()) { finalPrompt = tp.trim(); tplUsed = true }
+        }
+      }
+    } catch { /* keep default */ }
+  }
+  if (!tplUsed) {
+    if (type === 'character') {
+      finalPrompt = `${ratioDirective}
 Scene: A character reference sheet on pure white background
 Subject: ${description}
 Details: ${layoutDir} four-panel layout in ${styleDesc} - Panel 1: Close-up portrait showing facial features, expression, hair and accessories; Panel 2: Full body front view, standing pose, displaying outfit and overall silhouette; Panel 3: Full body 45-degree angle view, showing profile and garment depth; Panel 4: Full body back view, showing outfit back details and hair from behind. Professional lighting, pure white background
 Constraints: Pure white background, ${aspectHint} aspect ratio, uniform spacing, consistent proportions across all panels, professional character design reference quality`
-  } else if (type === 'scene') {
-    finalPrompt = `${ratioDirective}
+    } else if (type === 'scene') {
+      finalPrompt = `${ratioDirective}
 Scene: Modular visual analysis board on pure white background
 Subject: ${description}
 Details: Four-quadrant grid layout in ${styleDesc} - Top-left quadrant: panoramic establishing shot of the scene; Top-right quadrant: line art structural diagram with composition overlay and color palette strip; Bottom-left quadrant: close-up detail shot showing textures and surfaces; Bottom-right quadrant: visual element breakdown modules with labels. Professional lighting, pure white background
 Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid layout with thin gray dividing lines, absolutely NO people — no human figures, no silhouettes, no body parts, no shadows of people, professional visual reference board aesthetic`
-  } else {
-    // props 道具：沿用模板 + 风格拼接
+    } else {
+    // props 道具：模板替换变量
     let basePrompt = description
     if (templateId) {
       try {
-        const template = db.prepare('SELECT content FROM prompt_templates WHERE id = ?').get(templateId) as { content: string } | undefined
-        if (template) {
-          basePrompt = template.content.replace(/\{\{描述\}\}/g, description).replace(/\{\{角色描述\}\}/g, description)
-          if (basePrompt === template.content) basePrompt = template.content + '\n' + description
+        const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(templateId) as any
+        if (tpl?.content) {
+          let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+          if (tp) {
+            tp = tp.replace(/\{\{prop_name\}\}/g, description)
+              .replace(/\{\{prop_description\}\}/g, description)
+              .replace(/\{\{prop_prompt\}\}/g, description)
+              .replace(/\{\{style_prompt\}\}/g, finalStylePrompt)
+              .replace(/\{\{style_name\}\}/g, project.style_name || '')
+              .replace(/\{\{era\}\}/g, finalEraPrompt)
+              .replace(/\{\{[^}]+\}\}/g, '')
+            basePrompt = tp.trim() || basePrompt
+          }
         }
       } catch { /* ignore */ }
     }
     finalPrompt = [basePrompt, finalStylePrompt, finalEraPrompt].filter((s) => s.trim()).join(', ')
+    }
   }
 
   // 3. 解析模型配置（四级降级）
@@ -788,8 +835,8 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   if (contextScene) shotContextParts.push(`Scene: ${contextScene}`)
   // 景别 + 运镜（shots 表的中文字段）
   const extraFields = db.prepare(
-    'SELECT shot_type, camera_movement, lighting_mood, character_actions FROM shots WHERE id = ?'
-  ).get(shotId) as { shot_type: string | null; camera_movement: string | null; lighting_mood: string | null; character_actions: string | null } | undefined
+    'SELECT shot_type, camera_movement, lighting_mood, character_actions, dialogue FROM shots WHERE id = ?'
+  ).get(shotId) as { shot_type: string | null; camera_movement: string | null; lighting_mood: string | null; character_actions: string | null; dialogue: string | null } | undefined
   if (extraFields?.shot_type) shotContextParts.push(`Shot type: ${extraFields.shot_type}`)
   if (extraFields?.camera_movement) shotContextParts.push(`Camera: ${extraFields.camera_movement}`)
   if (extraFields?.lighting_mood) shotContextParts.push(`Lighting: ${extraFields.lighting_mood}`)
@@ -801,9 +848,37 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   }
 
   const shotContext = shotContextParts.join('. ')
-  let finalPrompt = refImagesNote ? `${refImagesNote}${shotPrompt}` : shotPrompt
-  if (shotContext) finalPrompt = `${finalPrompt}\n${shotContext}`
-  finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt].filter(s => s.trim()).join(', ')
+  let shotFinalPrompt = refImagesNote ? `${refImagesNote}${shotPrompt}` : shotPrompt
+  if (shotContext) shotFinalPrompt = `${shotFinalPrompt}\n${shotContext}`
+  shotFinalPrompt = [shotFinalPrompt, finalStylePrompt, finalEraPrompt].filter(s => s.trim()).join(', ')
+
+  // 加载模板（如有配置），替换默认 prompt
+  const shotTplId = (purposeConfig as any)?.templateId
+  if (shotTplId) {
+    try {
+      const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(shotTplId) as any
+      if (tpl?.content) {
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+        if (tp) {
+          const sv: Record<string, string> = {
+            style_prompt: finalStylePrompt, style_prompt_zh: finalStylePrompt,
+            era: finalEraPrompt, era_zh: project.era || '',
+            shot_description: shotPrompt, shot_description_zh: shotPrompt,
+            dialogue: extraFields?.dialogue || '', dialogue_en: extraFields?.dialogue || '',
+            shot_type: extraFields?.shot_type || '', shot_type_en: extraFields?.shot_type || '', shot_type_zh: extraFields?.shot_type || '',
+            lighting_mood: extraFields?.lighting_mood || '', lighting_mood_en: extraFields?.lighting_mood || '',
+            character_actions: extraFields?.character_actions || '', character_actions_en: extraFields?.character_actions || '',
+            used_scene_description: contextScene || '', used_scene_description_zh: contextScene || '',
+            used_character_descriptions: contextChars.join('; '), used_character_descriptions_zh: contextChars.join('; '),
+            used_prop_descriptions: '', used_prop_descriptions_zh: ''
+          }
+          for (const [k, v] of Object.entries(sv)) { tp = tp.replace(new RegExp('\\{\\{' + k + '\\}\\}', 'g'), v) }
+          tp = tp.replace(/\{\{[^}]+\}\}/g, '')
+          if (tp.trim()) { shotFinalPrompt = tp.trim(); console.log('[template] shot template OK:', shotTplId) }
+        }
+      }
+    } catch { /* keep default */ }
+  }
 
   // 5. 解析模型配置（四级降级）
 
@@ -952,7 +1027,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     const size2 = getAPISize(project.aspect_ratio || '16:9')
 
     // 8. 调用生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refImages, size2)
+    const imageUrls = await callImageGenerationAPI(shotFinalPrompt, model, apiKey, channel, refImages, size2)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', 'frames')
