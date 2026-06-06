@@ -297,10 +297,10 @@ export function initDatabase(): Database.Database {
           loaded++
         }
       } catch {
-        console.error(`[db] 模板文件不存在: ${filePath}`)
+        console.error(`[db] template file not found: ${filePath}`)
       }
     }
-    console.log(`[db] 已加载 ${loaded}/${registry.length} 条官方提示词模板`)
+    console.log(`[db] loaded ${loaded}/${registry.length} official prompt templates`)
   } catch (e) {
     console.error('[db] 加载官方模板失败:', e)
   }
