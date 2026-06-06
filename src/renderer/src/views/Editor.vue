@@ -1561,6 +1561,22 @@ async function handleDeleteHistoryVideo(shotId: string, videoId: string): Promis
   }
 }
 
+async function handleDownloadVideo(videoPath: string): Promise<void> {
+  try {
+    const result = await window.api.showSaveDialog({
+      title: '保存视频',
+      defaultPath: 'video.mp4',
+      filters: [{ name: 'MP4 视频', extensions: ['mp4'] }]
+    })
+    if (result) {
+      await window.api.copyExportFile(videoPath, result)
+      ElMessage.success('视频已保存')
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '下载失败')
+  }
+}
+
 async function loadShotImages(shotId: string, frameType: 'first' | 'last'): Promise<void> {
   try {
     const images = await window.api.getShotImages(shotId, frameType)
@@ -3704,6 +3720,7 @@ onUnmounted(() => {
                       <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
+                    <el-button v-if="detailData?.video_path" type="primary" :icon="Download" size="small" style="margin-top:8px" @click="handleDownloadVideo(detailData.video_path)">下载视频</el-button>
                   </div>
                   <div class="detail-fields">
                     <div class="detail-field">
