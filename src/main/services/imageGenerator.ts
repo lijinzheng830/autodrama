@@ -505,14 +505,25 @@ let lastChatError = ''
 async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null, size?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/images/generations`
+    const isAgnes = baseURL.includes('agnes-ai.com')
     const body: any = { prompt, model, n: 1 }
-    if (size) body.size = size
-    if (refImage) {
-      try {
-        const fs = require('fs')
-        const imgBuffer = fs.readFileSync(refImage)
-        body.image = imgBuffer.toString('base64')
-      } catch { /* refImage file not readable, skip */ }
+
+    if (isAgnes) {
+      // Agnes API: 文生图不传extra_body，图生图走extra_body.image
+      if (refImage) {
+        try {
+          const imgBuffer = require('fs').readFileSync(refImage)
+          body.extra_body = { image: imgBuffer.toString('base64') }
+        } catch { /* skip */ }
+      }
+    } else {
+      if (size) body.size = size
+      if (refImage) {
+        try {
+          const imgBuffer = require('fs').readFileSync(refImage)
+          body.image = imgBuffer.toString('base64')
+        } catch { /* skip */ }
+      }
     }
     return await axios.post(url, body, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
