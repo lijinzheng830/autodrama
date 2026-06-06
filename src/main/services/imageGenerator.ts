@@ -1204,6 +1204,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       }
     }
   } catch {}
+  console.log('[Agnes] videoRefImages count:', videoRefImages.length)
   // 传全部参考图（首帧 + 角色定妆照 + 场景图）
   const videoRefImage = videoRefImages.length > 0 ? videoRefImages : undefined
 
