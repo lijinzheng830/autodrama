@@ -448,19 +448,25 @@ async function callImageGenerationAPI(
   let lastError = ''
   let resp: any = null
 
-  // 最多重试2次（应对网络波动 socket hang up）
-  for (let attempt = 0; attempt < 2; attempt++) {
-    // 先尝试 /v1/images/generations（标准生图端点，只支持单参考图）
-    resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages?.[0], size)
+  const hasMultipleRefs = (refImages?.length || 0) > 1
 
-    // 如果 images 端点失败，回退到 chat completions（支持多参考图）
-    if (!resp) {
-      lastError = lastImageError
+  // 最多重试2次
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (hasMultipleRefs) {
+      // 多参考图 → 直接走 chat/completions（images/generations 只支持单图）
       resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
-      if (!resp && lastChatError) lastError = lastChatError
+      if (!resp) lastError = lastChatError
+    } else {
+      // 单参考图或无参考图 → 先尝试 images/generations
+      resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages?.[0], size)
+      if (!resp) {
+        lastError = lastImageError
+        resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+        if (!resp && lastChatError) lastError = lastChatError
+      }
     }
 
-    if (resp) break // 成功就退出
+    if (resp) break
     if (attempt < 1) {
       await new Promise(r => setTimeout(r, 3000))
     }
