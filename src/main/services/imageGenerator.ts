@@ -149,7 +149,7 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, uniform spacing,
 Scene: Modular visual analysis board on pure white background
 Subject: ${description}
 Details: Four-quadrant grid layout in ${styleDesc} - Top-left quadrant: panoramic establishing shot of the scene; Top-right quadrant: line art structural diagram with composition overlay and color palette strip; Bottom-left quadrant: close-up detail shot showing textures and surfaces; Bottom-right quadrant: visual element breakdown modules with labels. Professional lighting, pure white background
-Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid layout with thin gray dividing lines, professional visual reference board aesthetic`
+Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid layout with thin gray dividing lines, absolutely NO people — no human figures, no silhouettes, no body parts, no shadows of people, professional visual reference board aesthetic`
   } else {
     // props 道具：沿用模板 + 风格拼接
     let basePrompt = description
