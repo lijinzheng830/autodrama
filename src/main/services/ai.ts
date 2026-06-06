@@ -412,8 +412,10 @@ export async function autoProcess(
     modelOverride
   )
   let shotsData: ShotData
+  console.log('[autoProcess] AI response length:', shotsResult.length, 'first 300:', shotsResult.slice(0, 300))
   try {
     const extracted = extractJSON(shotsResult)
+    console.log('[autoProcess] extracted JSON length:', extracted.length, 'first 200:', extracted.slice(0, 200))
     shotsData = JSON.parse(extracted)
     // Normalize: AI may return different structures depending on the template
     shotsData = normalizeShotData(shotsData)
