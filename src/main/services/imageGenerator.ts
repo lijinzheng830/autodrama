@@ -627,12 +627,14 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     taskId: inputTaskId
   } = input
 
-  // 1. 读取 shot 数据
+  // 1. 读取 shot 数据（含首帧图路径，尾帧用它当参考）
   const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as
     | {
         id: string
         first_frame_prompt: string | null
         last_frame_prompt: string | null
+        first_frame_image_path: string | null
+        last_frame_image_path: string | null
       }
     | undefined
   if (!shot) throw new Error('分镜不存在')
@@ -651,12 +653,22 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const finalStylePrompt = project.style_prompt || ''
   const finalEraPrompt = mapEra(project.era || '')
 
-  // 3. 读取模型配置（模板和参考图）
+  // 3. 参考图：优先用户指定 → 尾帧时自动用首帧图（保持构图一致）
   const purposeKey = frameType === 'first' ? 'first_frame' : 'last_frame'
   const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
   const purposeConfig = projectConfig[purposeKey] || {}
   const templateId = input.templateId || purposeConfig.templateId || ''
-  const refImage = input.refImage || purposeConfig.refImage || ''
+  let refImage = input.refImage || purposeConfig.refImage || ''
+  if (!refImage && frameType === 'last') {
+    // 尾帧自动用首帧图当参考，保持构图一致 → 视频过渡更流畅
+    const firstFramePath = shot.first_frame_image_path
+    if (firstFramePath) {
+      try {
+        const fs = require('fs')
+        if (fs.existsSync(firstFramePath)) refImage = firstFramePath
+      } catch { /* 文件不存在，跳过 */ }
+    }
+  }
 
   // 4. 加载模板并拼接 prompt
   let templateContent = ''
@@ -949,7 +961,11 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const db = getDb()
   const { projectId, shotId, model: inputModel, channel: inputChannel, taskId: inputTaskId } = input
 
-  const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as { video_prompt: string | null } | undefined
+  const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as {
+    video_prompt: string | null
+    first_frame_image_path: string | null
+    last_frame_image_path: string | null
+  } | undefined
   if (!shot) throw new Error('分镜不存在')
 
   const videoPrompt = shot.video_prompt || ''
@@ -958,8 +974,16 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const project = getProject(projectId)
   if (!project) throw new Error('项目不存在')
 
+  // 有首帧图则提示视频从该构图开始
+  let frameGuidance = ''
+  if (shot.first_frame_image_path) {
+    frameGuidance = shot.last_frame_image_path
+      ? 'Start from the first frame composition and smoothly transition to the last frame composition.'
+      : 'Start from the first frame composition and naturally expand the motion.'
+  }
+
   const finalStylePrompt = project.style_prompt || ''
-  const finalPrompt = [videoPrompt, finalStylePrompt].filter(s => s.trim()).join(', ')
+  const finalPrompt = [videoPrompt, frameGuidance, finalStylePrompt].filter(s => s.trim()).join(', ')
 
   // 模型配置降级
   const purposeKey = 'video'
