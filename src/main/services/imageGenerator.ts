@@ -1328,7 +1328,7 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
         body.extra_body = { image: [] as string[] }
         for (const r of refs) {
           try {
-            (body.extra_body.image as string[]).push('data:image/png;base64,' + require('fs').readFileSync(r).toString('base64'))
+            (body.extra_body.image as string[]).push(require('fs').readFileSync(r).toString('base64'))
           } catch { /* skip */ }
         }
         console.log('[Agnes] video extra_body.image:', body.extra_body.image.length, 'refs, size:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
