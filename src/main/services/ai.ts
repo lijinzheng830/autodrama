@@ -432,10 +432,8 @@ export async function autoProcess(
     modelOverride
   )
   let shotsData: ShotData
-  console.log('[autoProcess] AI response length:', shotsResult.length, 'first 300:', shotsResult.slice(0, 300))
   try {
     const extracted = extractJSON(shotsResult)
-    console.log('[autoProcess] extracted JSON length:', extracted.length, 'first 200:', extracted.slice(0, 200))
     shotsData = JSON.parse(extracted)
     // Normalize: AI may return different structures depending on the template
     shotsData = normalizeShotData(shotsData)
@@ -588,7 +586,6 @@ async function saveToDatabase(
     existingMaxChapterIndex = row?.max ?? -1
   }
 
-  console.log('[saveToDatabase] chapters:', shotsData.chapters?.length, 'characters:', extractData.characters?.length, 'scenes:', extractData.scenes?.length, 'mode:', mode)
   db.transaction(() => {
     // 1. full 模式：删除所有分镜数据；append 模式：保留已有
     if (mode === 'full') {
