@@ -1309,14 +1309,20 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：传首帧图（单图data:URI已验证可用，数组模式base64 padding有问题）
+      // 图生视频：image支持数组，每项都加data:前缀（纯base64会被整体解码导致padding错误）
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      if (refs.length > 0) {
+      if (refs.length === 1) {
         try {
-          const imgBuf = require('fs').readFileSync(refs[0])
-          body.image = 'data:image/png;base64,' + imgBuf.toString('base64')
-          console.log('[Agnes] video ref:', (imgBuf.length / 1024).toFixed(0) + 'KB')
+          body.image = 'data:image/png;base64,' + require('fs').readFileSync(refs[0]).toString('base64')
         } catch { /* skip */ }
+      } else if (refs.length > 1) {
+        body.image = []
+        for (const r of refs) {
+          try {
+            body.image.push('data:image/png;base64,' + require('fs').readFileSync(r).toString('base64'))
+          } catch { /* skip */ }
+        }
+        console.log('[Agnes] video refs:', body.image.length)
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
