@@ -1276,7 +1276,7 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
         headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
       })
       const s = sr.data || {}
-      if ((s.status || '').toUpperCase() === 'COMPLETED') { url = s.video_url || s.result_url || s.url || ''; if (url) break }
+      if ((s.status || '').toUpperCase() === 'COMPLETED') { url = s.remixed_from_video_id || s.video_url || s.result_url || s.url || ''; if (url) break }
       if ((s.status || '').toUpperCase() === 'FAILED') throw new Error('视频生成失败: ' + (s.error || ''))
     }
     if (!url) throw new Error('视频生成超时（5分钟）')
