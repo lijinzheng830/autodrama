@@ -529,7 +529,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
       for (const r of orderedRefs) {
         try {
           const imgBuffer = require('fs').readFileSync(r)
-          imgUrls.push(imgBuffer.toString('base64'))
+          imgUrls.push('data:image/png;base64,' + imgBuffer.toString('base64'))
         } catch { /* skip */ }
       }
       if (imgUrls.length > 0) {
@@ -1309,21 +1309,14 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
       const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：首帧图 + 角色参考图 + 场景参考图 → extra_body.image 数组
+      // 图生视频：只传首帧图（image参数支持base64，extra_body.image不支持）
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      const imgB64s: string[] = []
-      for (const r of refs) {
+      if (refs.length > 0) {
         try {
-          const imgBuf = require('fs').readFileSync(r)
-          imgB64s.push(imgBuf.toString('base64'))
+          const imgBuf = require('fs').readFileSync(refs[0])
+          body.image = 'data:image/png;base64,' + imgBuf.toString('base64')
+          console.log('[Agnes] video 1 ref (first frame):', (imgBuf.length / 1024).toFixed(0) + 'KB')
         } catch { /* skip */ }
-      }
-      if (imgB64s.length === 1) {
-        body.image = imgB64s[0]
-        console.log('[Agnes] video 1 ref:', (imgB64s[0].length / 1024).toFixed(0) + 'KB')
-      } else if (imgB64s.length > 1) {
-        body.extra_body = { image: imgB64s }
-        console.log('[Agnes] video ' + imgB64s.length + ' refs, total:', (JSON.stringify(imgB64s).length / 1024).toFixed(0) + 'KB')
       }
       const postURL = normalizedBaseURL + '/videos'
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
