@@ -3724,16 +3724,8 @@ onUnmounted(() => {
                 <!-- 视频详情 -->
                 <div v-else-if="detailType === 'video'" class="detail-body">
                   <div class="detail-media">
-                    <div v-if="detailData?.video_path" class="detail-placeholder" style="position:relative">
+                    <div v-if="detailData?.video_path" class="detail-placeholder">
                       <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
-                      <el-dropdown trigger="click" class="video-more-btn">
-                        <el-button :icon="MoreFilled" circle size="small" />
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item :icon="Download" @click="handleDownloadVideo(detailData.video_path)">下载视频</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
@@ -3814,13 +3806,15 @@ onUnmounted(() => {
                       >
                         <video :src="toFileUrl(v.video_path)" class="history-img" />
                         <div v-show="v.is_selected" class="history-selected-badge">✓</div>
-                        <el-button
-                          class="history-delete-btn"
-                          :icon="Delete"
-                          circle
-                          size="small"
-                          @click.stop="handleDeleteHistoryVideo(detailData?.id, v.id)"
-                        />
+                        <el-dropdown trigger="click" class="history-more-btn" @click.stop>
+                          <el-button :icon="MoreFilled" circle size="small" />
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item :icon="Download" @click="handleDownloadVideo(v.video_path)">下载</el-dropdown-item>
+                              <el-dropdown-item :icon="Delete" @click="handleDeleteHistoryVideo(detailData?.id, v.id)">删除</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
                       </div>
                     </div>
                   </div>
@@ -5785,10 +5779,10 @@ onUnmounted(() => {
   background: #000;
 }
 
-.video-more-btn {
+.history-more-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  bottom: 4px;
+  right: 4px;
   z-index: 10;
 }
 
