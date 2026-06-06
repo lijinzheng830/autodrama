@@ -1288,6 +1288,13 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     else if (ar === '1:1') { width = 1024; height = 1024 }
 
     const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
+    // 图生视频：有首帧图时传入 image 参数
+    if (refImage) {
+      try {
+        const imgBuffer = require('fs').readFileSync(refImage)
+        body.image = 'data:image/png;base64,' + imgBuffer.toString('base64')
+      } catch { /* skip */ }
+    }
     let resp: any
     try {
       resp = await axios.post(`${normalizedBaseURL}/videos`, body, {
@@ -1298,18 +1305,19 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
       throw new Error('Agnes视频请求失败: ' + d)
     }
-    const taskId = resp.data?.task_id || resp.data?.id
-    if (!taskId) throw new Error('未返回 task_id')
+    const taskId = resp.data?.video_id || resp.data?.task_id || resp.data?.id
+    if (!taskId) throw new Error('未返回 video_id')
 
     let url = ''
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 5000))
-      const sr = await axios.get(`${normalizedBaseURL}/videos/${taskId}`, {
+      const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
+      const sr = await axios.get(`${queryBase}/agnesapi?video_id=${taskId}`, {
         headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
       })
       const s = sr.data || {}
-      if ((s.status || '').toUpperCase() === 'COMPLETED') { url = s.remixed_from_video_id || s.video_url || s.result_url || s.url || ''; if (url) break }
-      if ((s.status || '').toUpperCase() === 'FAILED') throw new Error('视频生成失败: ' + (s.error || ''))
+      if (s.status === 'completed') { url = s.remixed_from_video_id || ''; if (url) break }
+      if (s.status === 'failed') throw new Error('视频生成失败: ' + (s.error || ''))
     }
     if (!url) throw new Error('视频生成超时（5分钟）')
     return [url]
