@@ -5369,7 +5369,7 @@ onUnmounted(() => {
 }
 
 .col-op {
-  width: 70px;
+  width: 35px;
 }
 
 /* 章节行 */
@@ -5564,6 +5564,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 2px;
+  width: 35px;
 }
 
 .col-op .delete-btn:hover {
