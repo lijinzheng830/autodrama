@@ -3724,8 +3724,16 @@ onUnmounted(() => {
                 <!-- 视频详情 -->
                 <div v-else-if="detailType === 'video'" class="detail-body">
                   <div class="detail-media">
-                    <div v-if="detailData?.video_path" class="detail-placeholder">
+                    <div v-if="detailData?.video_path" class="detail-placeholder" style="position:relative">
                       <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
+                      <el-dropdown trigger="click" class="video-more-btn">
+                        <el-button :icon="MoreFilled" circle size="small" />
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item :icon="Download" @click="handleDownloadVideo(detailData.video_path)">下载视频</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
                   </div>
@@ -5783,6 +5791,13 @@ onUnmounted(() => {
   position: absolute;
   bottom: 4px;
   right: 4px;
+  z-index: 10;
+}
+
+.video-more-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
   z-index: 10;
 }
 
