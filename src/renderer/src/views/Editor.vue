@@ -5564,8 +5564,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0;
   width: 35px;
+}
+.col-op .el-button {
+  width: 100%;
+  justify-content: center;
+  padding: 1px 0;
 }
 
 .col-op .delete-btn:hover {
