@@ -3723,11 +3723,11 @@ onUnmounted(() => {
                 <!-- 视频详情 -->
                 <div v-else-if="detailType === 'video'" class="detail-body">
                   <div class="detail-media">
-                    <div v-if="detailData?.video_path" class="detail-placeholder">
+                    <div v-if="detailData?.video_path" class="detail-placeholder" style="position:relative">
                       <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
+                      <el-button :icon="Download" circle size="small" class="video-download-btn" @click="handleDownloadVideo(detailData.video_path)" />
                     </div>
                     <div v-else class="detail-placeholder">视频占位</div>
-                    <el-button v-if="detailData?.video_path" type="primary" :icon="Download" size="small" style="margin-top:8px" @click="handleDownloadVideo(detailData.video_path)">下载视频</el-button>
                   </div>
                   <div class="detail-fields">
                     <div class="detail-field">
@@ -5775,6 +5775,13 @@ onUnmounted(() => {
   max-height: 420px;
   object-fit: contain;
   background: #000;
+}
+
+.video-download-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
 }
 
 .detail-placeholder:has(video) {
