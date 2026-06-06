@@ -5339,7 +5339,7 @@ onUnmounted(() => {
 }
 
 .col-voice {
-  width: 120px;
+  width: 60px;
 }
 
 .col-first,
