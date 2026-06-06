@@ -1303,18 +1303,34 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     const taskId = resp.data?.video_id || resp.data?.task_id || resp.data?.id
     if (!taskId) throw new Error('未返回 video_id')
 
+    // 同时记录 task_id 用于旧端点回退
+    const legacyTaskId = resp.data?.task_id || resp.data?.id
+
+    const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
     let url = ''
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 5000))
-      const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
-      const sr = await axios.get(`${queryBase}/agnesapi?video_id=${taskId}`, {
-        headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-      })
-      const s = sr.data || {}
+      // 优先用推荐端点，回退旧端点
+      let s: any = {}
+      try {
+        const sr = await axios.get(`${queryBase}/agnesapi?video_id=${taskId}`, {
+          headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+        })
+        s = sr.data || {}
+      } catch { /* 端点不可用 */ }
+      // 旧端点回退
+      if (!s.status && legacyTaskId) {
+        try {
+          const sr2 = await axios.get(`${normalizedBaseURL}/videos/${legacyTaskId}`, {
+            headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+          })
+          s = sr2.data || {}
+        } catch { /* skip */ }
+      }
       if (s.status === 'completed') { url = s.remixed_from_video_id || ''; if (url) break }
       if (s.status === 'failed') throw new Error('视频生成失败: ' + (s.error || ''))
     }
-    if (!url) throw new Error('视频生成超时（5分钟）')
+    if (!url) throw new Error('视频生成超时（5分钟），Agnes后台已生成完成，但轮询未获取到URL')
     return [url]
   }
 
