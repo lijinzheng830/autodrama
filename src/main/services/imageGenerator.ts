@@ -1187,8 +1187,12 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 
   const finalStylePrompt = project.style_prompt || ''
+  // 参考图引导：告诉API如何利用首帧图
+  const refGuidance = shot.first_frame_image_path
+    ? 'Use the reference image as the starting frame. Maintain character identity, scene environment, lighting, and visual style from the reference image. Apply natural motion and cinematic pacing.'
+    : ''
   // 用换行分隔比例指令和内容，让模型更清晰
-  const finalPrompt = `${arDirective}\nVideo description: ${videoPrompt}.\n${shotContext}.\n${frameGuidance}.\nStyle: ${finalStylePrompt}`
+  const finalPrompt = `${arDirective}\nVideo description: ${videoPrompt}.\n${shotContext}.\n${refGuidance}\n${frameGuidance}.\nStyle: ${finalStylePrompt}`
 
   // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
   const videoRefImages: string[] = []
