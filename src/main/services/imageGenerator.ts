@@ -533,7 +533,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
         } catch { /* skip */ }
       }
       if (imgUrls.length > 0) {
-        body.extra_body = { tags: ['img2img'], image: imgUrls, response_format: 'url' }
+        body.extra_body = { tags: ['img2img'], image: imgUrls }
       }
       // 文生图绝对不能传 extra_body
     } else {
