@@ -1207,8 +1207,10 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   try {
     var chs = db.prepare("SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?").all(shotId) as { reference_image: string | null }[]
     chs.forEach(function(c: any) { addRefIfExists(c.reference_image, 'char') })
-    var scs = db.prepare("SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?").all(shotId) as { reference_image: string | null }[]
-    scs.forEach(function(s: any) { addRefIfExists(s.reference_image, 'scene') })
+    if (videoRefImages.length < 2) {
+      var scs = db.prepare("SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?").all(shotId) as { reference_image: string | null }[]
+      scs.forEach(function(s: any) { addRefIfExists(s.reference_image, 'scene') })
+    }
   } catch {}
   console.log('[Agnes] videoRefImages:', videoRefImages.length, 'firstFrame:', shot.first_frame_image_path ? 'YES' : 'NO')
   // 传全部参考图（首帧 + 角色定妆照 + 场景图）
