@@ -2337,6 +2337,13 @@ async function loadModelConfigTemplates(): Promise<void> {
     }
     const usageKey = usageMap[tabKey] || undefined
     let list = (await window.api.getPromptTemplates(projectId, usageKey)) as any[]
+    // 视频模板有多个子类(video_basic/first_frame/both_frames/grid)，合并加载
+    if (tabKey === 'video') {
+      for (const vu of ['video_basic', 'video_first_frame', 'video_both_frames', 'video_grid']) {
+        const sub = await window.api.getPromptTemplates(projectId, vu) as any[]
+        for (const t of sub) { if (!list.find((x: any) => x.id === t.id)) list.push(t) }
+      }
+    }
     // 首帧/尾帧兼容旧的 shot_image usage
     if (tabKey === 'first_frame' || tabKey === 'last_frame') {
       const legacyList = await window.api.getPromptTemplates(projectId, 'shot_image') as any[]

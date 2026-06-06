@@ -178,7 +178,11 @@ const usageOptions = [
   { label: '道具生图', value: 'prop_image' },
   { label: '首帧', value: 'first_frame' },
   { label: '尾帧', value: 'last_frame' },
-  { label: '视频', value: 'video' }
+  { label: '视频', value: 'video' },
+  { label: '视频基础', value: 'video_basic' },
+  { label: '视频首帧', value: 'video_first_frame' },
+  { label: '视频首尾帧', value: 'video_both_frames' },
+  { label: '视频宫格', value: 'video_grid' }
 ]
 
 async function loadTemplates(): Promise<void> {
