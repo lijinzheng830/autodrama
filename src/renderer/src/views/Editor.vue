@@ -1048,6 +1048,10 @@ async function showDetail(type: string, data: any): Promise<void> {
   genCount.value = 1
   assetImages.value = []
   assetVideos.value = []
+  // 同步编辑缓冲
+  editFirstFramePrompt.value = data?.first_frame_prompt || ''
+  editLastFramePrompt.value = data?.last_frame_prompt || ''
+  editVideoPrompt.value = data?.video_prompt || ''
   if (type === 'video' && data?.id) {
     await loadShotVideos(data.id)
   }
@@ -1215,6 +1219,11 @@ const genLoading = ref<Set<string>>(new Set())
 // 历史图片记录
 const assetImages = ref<any[]>([])
 const assetVideos = ref<any[]>([])
+
+// 详情面板编辑缓冲（v-model 绑本地 ref，blur 时提交）
+const editFirstFramePrompt = ref('')
+const editLastFramePrompt = ref('')
+const editVideoPrompt = ref('')
 
 // ===== 全屏大图预览 =====
 const fullscreenImageVisible = ref(false)
@@ -1779,6 +1788,11 @@ async function handleShotPromptChange(shotId: string, field: string, value: stri
     const update: any = {}
     update[field] = value
     await window.api.updateShot(shotId, update)
+    // 本地同步 detailData 和编辑缓冲
+    if (detailData.value) (detailData.value as any)[field] = value
+    if (field === 'first_frame_prompt') editFirstFramePrompt.value = value
+    else if (field === 'last_frame_prompt') editLastFramePrompt.value = value
+    else if (field === 'video_prompt') editVideoPrompt.value = value
     await checkAndCreateAssociations(shotId, value)
     await loadEpisodesData()
   } catch (err) {
@@ -3472,19 +3486,12 @@ onUnmounted(() => {
                     <div class="detail-field">
                       <label>首帧提示词</label>
                       <el-input
-                        :model-value="detailData?.first_frame_prompt"
+                        v-model="editFirstFramePrompt"
                         type="textarea"
                         :rows="8"
                         resize="vertical"
                         style="min-height:120px"
-                        @blur="
-                          (e: any) =>
-                            handleShotPromptChange(
-                              detailData.id,
-                              'first_frame_prompt',
-                              e.target.value
-                            )
-                        "
+                        @blur="handleShotPromptChange(detailData.id, 'first_frame_prompt', editFirstFramePrompt)"
                       />
                     </div>
                   </div>
@@ -3589,17 +3596,10 @@ onUnmounted(() => {
                     <div class="detail-field">
                       <label>尾帧提示词</label>
                       <el-input
-                        :model-value="detailData?.last_frame_prompt"
+                        v-model="editLastFramePrompt"
                         type="textarea"
                         :rows="4"
-                        @blur="
-                          (e: any) =>
-                            handleShotPromptChange(
-                              detailData.id,
-                              'last_frame_prompt',
-                              e.target.value
-                            )
-                        "
+                        @blur="handleShotPromptChange(detailData.id, 'last_frame_prompt', editLastFramePrompt)"
                       />
                     </div>
                   </div>
