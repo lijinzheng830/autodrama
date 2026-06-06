@@ -142,17 +142,34 @@ const api = {
     ipcRenderer.invoke('video:generate', input),
   getShotVideos: (shotId: string) => ipcRenderer.invoke('video:getShotVideos', shotId),
   selectShotVideo: (shotId: string, videoId: string) =>
-    ipcRenderer.invoke('video:selectShotVideo', { shotId, videoId })
+    ipcRenderer.invoke('video:selectShotVideo', { shotId, videoId }),
+
+  // Script Reviewer
+  reviewScript: (script: string, options?: { mode?: string }) =>
+    ipcRenderer.invoke('reviewer:review', { script, options }),
+  getReviewRules: () => ipcRenderer.invoke('reviewer:rules'),
+  getRuleStats: () => ipcRenderer.invoke('reviewer:ruleStats'),
+  autoFixScript: (script: string, findings: any[]) =>
+    ipcRenderer.invoke('reviewer:autoFix', { script, findings }),
+  generateFixSuggestion: (script: string, finding: any) =>
+    ipcRenderer.invoke('reviewer:fixSuggestion', { script, finding }),
+
+  // Style Templates
+  getStyleTemplates: () => ipcRenderer.invoke('style:list'),
+  getStyleByKey: (key: string) => ipcRenderer.invoke('style:getByKey', key)
 }
 
+console.log('[PRELOAD] Starting, contextIsolated:', process.contextIsolated)
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
+    console.log('[PRELOAD] contextBridge.exposeInMainWorld succeeded')
   } catch (error) {
-    console.error(error)
+    console.error('[PRELOAD] contextBridge.exposeInMainWorld failed:', error)
   }
 } else {
+  console.log('[PRELOAD] contextIsolated is falsy, setting window directly')
   // @ts-ignore (define in dts)
   window.electron = electronAPI
   // @ts-ignore (define in dts)

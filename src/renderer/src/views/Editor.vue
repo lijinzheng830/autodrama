@@ -341,6 +341,14 @@ const stylePresets = [
     negative:
       'dark, violent, scary, intense, dramatic, photorealistic, 3d render, blurry, low quality, chaotic',
     color: '#fcd34d'
+  },
+  {
+    name: '中国仙侠',
+    prompt:
+      'Chinese Xianxia fantasy art, semi-realistic cel-shaded rendering, ink wash influences, ethereal glow, dramatic god rays, misty atmosphere, jade green and celestial gold palette, painterly textures, spiritual mood',
+    negative:
+      'modern, urban, western, photorealistic, 3d render, dark gritty, cartoon, anime, mecha, sci-fi, blurry, low quality, mundane',
+    color: '#7BC5A8'
   }
 ]
 
@@ -1202,7 +1210,7 @@ function handleImportAsset(): void {
 }
 
 // 生图loading状态
-const genLoading = ref(false)
+const genLoading = ref<Set<string>>(new Set())
 
 // 历史图片记录
 const assetImages = ref<any[]>([])
@@ -1430,16 +1438,6 @@ function handleGearModelChange(val: string): void {
   }
 }
 
-function handleGearChannelChange(val: string): void {
-  gearChannel.value = val
-  const firstModel = filteredGearModels.value.find((m) => m.provider === val)
-  if (firstModel) {
-    gearModel.value = firstModel.value
-  } else {
-    gearModel.value = ''
-  }
-}
-
 async function handleGearRestoreDefault(): Promise<void> {
   const purposeMap: Record<string, string> = {
     character: 'character_image',
@@ -1471,11 +1469,6 @@ const filteredGearModels = computed(() => {
   const neededType = typeMap[detailType.value]
   if (!neededType) return providerModels.value
   return providerModels.value.filter((m) => m.modelType === neededType)
-})
-
-const filteredGearChannels = computed(() => {
-  const modelProviders = new Set(filteredGearModels.value.map((m) => m.provider))
-  return providerChannels.value.filter((c) => modelProviders.has(c.value))
 })
 
 const gearEffectiveDisplay = computed(() => {
@@ -1620,7 +1613,8 @@ async function handleSelectShotImage(shotId: string, frameType: 'first' | 'last'
 async function handleGenerateVideo(): Promise<void> {
   if (!detailData.value?.id) return
   const override = sessionOverrides.value['video']
-  genLoading.value = true
+  const glKey = 'video_' + (detailData.value?.id || '')
+  genLoading.value.add(glKey)
   try {
     await window.api.generateVideo({
       projectId,
@@ -1637,7 +1631,7 @@ async function handleGenerateVideo(): Promise<void> {
   } catch (err: any) {
     ElMessage.error(err?.message || '视频生成失败')
   } finally {
-    genLoading.value = false
+    genLoading.value.delete(glKey)
   }
 }
 
@@ -1664,7 +1658,8 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     const model = override?.model || undefined
     const channel = override?.channel || undefined
 
-    genLoading.value = true
+    const glKey2 = type + '_' + assetId
+    genLoading.value.add(glKey2)
     try {
       await window.api.generateShotImage({
         projectId,
@@ -1692,7 +1687,7 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
       ElMessage.error(err?.message || '图片生成失败')
       console.error(err)
     } finally {
-      genLoading.value = false
+      genLoading.value.delete(glKey2)
     }
     return
   }
@@ -1734,7 +1729,8 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     if (!channel) channel = purposeConfig.channel || ''
   }
 
-  genLoading.value = true
+  const glKey3 = type + '_' + assetId
+  genLoading.value.add(glKey3)
   try {
     // 读取该用途的模板和参考图
     const purposeConfig = modelConfig[purposeKey] || {}
@@ -1771,7 +1767,7 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     ElMessage.error(err?.message || '图片生成失败')
     console.error(err)
   } finally {
-    genLoading.value = false
+    genLoading.value.delete(glKey3)
   }
 }
 
@@ -3430,7 +3426,7 @@ onUnmounted(() => {
                     <el-button
                       type="primary"
                       class="gen-btn"
-                      :loading="genLoading"
+                      :loading="genLoading.has(detailType + '_' + detailData?.id)"
                       @click="handleGenerateImage(detailType, detailData?.id)"
                     >
                       AI生图
@@ -3547,7 +3543,7 @@ onUnmounted(() => {
                     <el-button
                       type="primary"
                       class="gen-btn"
-                      :loading="genLoading"
+                      :loading="genLoading.has('firstFrame_' + detailData?.id)"
                       @click="handleGenerateImage('firstFrame', detailData?.id)"
                     >
                       AI生图
@@ -3655,7 +3651,7 @@ onUnmounted(() => {
                     <el-button
                       type="primary"
                       class="gen-btn"
-                      :loading="genLoading"
+                      :loading="genLoading.has('lastFrame_' + detailData?.id)"
                       @click="handleGenerateImage('lastFrame', detailData?.id)"
                     >
                       AI生图
@@ -3733,7 +3729,7 @@ onUnmounted(() => {
                     <el-button
                       type="primary"
                       class="gen-btn"
-                      :loading="genLoading"
+                      :loading="genLoading.has('video_' + detailData?.id)"
                       @click="handleGenerateVideo"
                     >
                       AI生视频

@@ -7,83 +7,33 @@ export interface PromptTemplate {
   usage: string
   name: string
   content: string
+  template_version?: string | null
   is_default: number
   created_at: string
   updated_at: string
 }
 
-// 官方预设模板（硬编码，作为兜底；db.ts 中会尝试同步到数据库）
-export const OFFICIAL_TEMPLATES: PromptTemplate[] = [
-  {
-    id: 'official-shot-image-standard',
-    project_id: null,
-    usage: 'shot_image',
-    name: '标准分镜模板',
-    content:
-      '【占位】标准分镜描述模板，用于生成常规分镜图像。包含场景描述、角色动作、镜头角度等要素。',
-    is_default: 1,
-    created_at: '',
-    updated_at: ''
-  },
-  {
-    id: 'official-shot-image-detailed',
-    project_id: null,
-    usage: 'shot_image',
-    name: '精细镜头拆分模板',
-    content: '【占位】精细镜头拆分模板，用于详细拆解每个镜头的构图、角色表情、光影效果和动作细节。',
-    is_default: 1,
-    created_at: '',
-    updated_at: ''
-  },
-  {
-    id: 'official-shot-image-pure',
-    project_id: null,
-    usage: 'shot_image',
-    name: '纯分镜模板',
-    content: '【占位】纯分镜模板，不包含额外描述，仅输出分镜的基本画面信息。',
-    is_default: 1,
-    created_at: '',
-    updated_at: ''
-  },
-  {
-    id: 'official-shot-video',
-    project_id: null,
-    usage: 'shot_video',
-    name: '短视频制作模板',
-    content: '【占位】短视频制作模板，用于生成视频分镜描述，包含运镜方式、时长、转场等要素。',
-    is_default: 1,
-    created_at: '',
-    updated_at: ''
-  }
-]
-
+/** 从数据库统一读取模板（官方 + 自定义），不再使用硬编码 */
 export function getPromptTemplates(projectId: string, usage?: string): PromptTemplate[] {
   const db = getDb()
 
-  let sql: string
+  let sql = 'SELECT * FROM prompt_templates WHERE (project_id IS NULL'
   const params: unknown[] = []
 
   if (projectId) {
-    sql = 'SELECT * FROM prompt_templates WHERE (project_id = ? OR project_id IS NULL) AND is_default = 0'
+    sql += ' OR project_id = ?'
     params.push(projectId)
-  } else {
-    sql = 'SELECT * FROM prompt_templates WHERE project_id IS NULL AND is_default = 0'
   }
+  sql += ')'
 
   if (usage) {
     sql += ' AND "usage" = ?'
     params.push(usage)
   }
 
-  const customTemplates = db.prepare(sql).all(...params) as PromptTemplate[]
+  sql += ' ORDER BY is_default DESC, created_at ASC'
 
-  // 合并官方模板
-  let officialTemplates = OFFICIAL_TEMPLATES.map((t) => ({ ...t }))
-  if (usage) {
-    officialTemplates = officialTemplates.filter((t) => t.usage === usage)
-  }
-
-  return [...officialTemplates, ...customTemplates]
+  return db.prepare(sql).all(...params) as PromptTemplate[]
 }
 
 export function savePromptTemplate(

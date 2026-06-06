@@ -13,50 +13,7 @@ export interface Provider {
   implemented: boolean
 }
 
-export const PROVIDERS: Provider[] = [
-  {
-    key: 'qwen',
-    name: '阿里云百炼',
-    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    implemented: true,
-    models: [
-      { key: 'qwen3.6-flash', name: 'Qwen3.6 Flash', type: 'text', free: true },
-      { key: 'qwen3.5-plus', name: 'Qwen3.5 Plus', type: 'text', free: false },
-      { key: 'qwen3.6-max-preview', name: 'Qwen3.6 Max', type: 'text', free: false }
-    ]
-  },
-  {
-    key: 'moonshot',
-    name: 'Moonshot (Kimi)',
-    baseURL: 'https://api.moonshot.cn/v1',
-    implemented: false,
-    models: [
-      { key: 'moonshot-v1-8k', name: 'Moonshot 8K', type: 'text', free: true },
-      { key: 'moonshot-v1-32k', name: 'Moonshot 32K', type: 'text', free: false },
-      { key: 'moonshot-v1-128k', name: 'Moonshot 128K', type: 'text', free: false }
-    ]
-  },
-  {
-    key: 'deepseek',
-    name: 'DeepSeek',
-    baseURL: 'https://api.deepseek.com',
-    implemented: false,
-    models: [
-      { key: 'deepseek-chat', name: 'DeepSeek Chat', type: 'text', free: true },
-      { key: 'deepseek-reasoner', name: 'DeepSeek Reasoner', type: 'text', free: false }
-    ]
-  },
-  {
-    key: 'siliconflow',
-    name: '硅基流动',
-    baseURL: 'https://api.siliconflow.cn/v1',
-    implemented: false,
-    models: [
-      { key: 'Kwai-Kolors/Kolors', name: 'Kolors', type: 'image', free: false },
-      { key: 'stabilityai/stable-diffusion-3-medium', name: 'SD3 Medium', type: 'image', free: false }
-    ]
-  }
-]
+export const PROVIDERS: Provider[] = []
 
 export function getProvider(key: string): Provider | undefined {
   return PROVIDERS.find((p) => p.key === key)

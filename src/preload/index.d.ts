@@ -201,6 +201,75 @@ export interface Api {
   generateShotImage: (input: GenerateShotImageInput) => Promise<{ taskId: string; imagePaths: string[] }>
   getShotImages: (shotId: string, frameType: 'first' | 'last') => Promise<unknown[]>
   selectShotImage: (shotId: string, frameType: 'first' | 'last', imageId: string) => Promise<void>
+
+  // Script Reviewer
+  reviewScript: (script: string, options?: { mode?: string }) => Promise<{
+    overallVerdict: string
+    score: number
+    redlineCount: number
+    qualityIssueCount: number
+    technicalIssueCount: number
+    findings: Array<{
+      ruleId: string
+      category: string
+      severity: string
+      ruleName: string
+      passed: boolean
+      details: string
+      matchedContent: string[]
+      suggestions: string[]
+    }>
+    summary: string
+    checkedAt: string
+    mode: string
+  }>
+  getReviewRules: () => Promise<Array<{
+    id: string
+    category: string
+    name: string
+    description: string
+    severity: string
+    patterns: string[]
+    aiCheckPrompt: string
+    suggestion: string
+  }>>
+  getRuleStats: () => Promise<{ redline: number; quality: number; technical: number; total: number }>
+  autoFixScript: (script: string, findings: any[]) => Promise<{
+    fixedScript: string
+    changes: Array<{ ruleName: string; original: string; modified: string; reason: string }>
+  }>
+  generateFixSuggestion: (script: string, finding: any) => Promise<{
+    fixedSnippet: string
+    reason: string
+  }>
+
+  // Style Templates
+  getStyleTemplates: () => Promise<Array<{
+    id: string
+    name: string
+    key: string
+    prompt: string | null
+    negativePrompt: string | null
+    characterRefImage: string | null
+    sceneRefImage: string | null
+    gridRefImage: string | null
+    styleRefImage: string | null
+    colorScheme: string | null
+    sortOrder: number
+  }>>
+  getStyleByKey: (key: string) => Promise<{
+    id: string
+    name: string
+    key: string
+    prompt: string | null
+    negativePrompt: string | null
+    characterRefImage: string | null
+    sceneRefImage: string | null
+    gridRefImage: string | null
+    styleRefImage: string | null
+    colorScheme: string | null
+    sortOrder: number
+  } | null>
 }
 
 declare global {

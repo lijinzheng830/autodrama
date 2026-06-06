@@ -1,5 +1,5 @@
 import { getDb } from './db'
-import { PROVIDERS, Provider } from './providers'
+import type { Provider } from './providers'
 
 export interface ProviderRecord extends Provider {
   id?: string
@@ -23,12 +23,11 @@ export function setSetting(key: string, value: string): void {
 // Providers CRUD
 export function getProviders(): ProviderRecord[] {
   const raw = getSetting('providers')
-  if (!raw) return PROVIDERS
+  if (!raw) return []
   try {
-    const userProviders = JSON.parse(raw)
-    return userProviders.length > 0 ? userProviders : PROVIDERS
+    return JSON.parse(raw)
   } catch {
-    return PROVIDERS
+    return []
   }
 }
 

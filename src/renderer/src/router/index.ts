@@ -6,7 +6,13 @@ import Settings from '../views/Settings.vue'
 const routes = [
   { path: '/', name: 'Home', component: Home },
   { path: '/editor/:id', name: 'Editor', component: Editor },
-  { path: '/settings', name: 'Settings', component: Settings }
+  { path: '/settings', name: 'Settings', component: Settings },
+  {
+    path: '/reviewer',
+    name: 'ScriptReviewer',
+    // 懒加载：避免 CSS 处理问题影响首页加载
+    component: () => import('../views/ScriptReviewerView.vue')
+  }
 ]
 
 const router = createRouter({

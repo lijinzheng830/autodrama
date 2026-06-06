@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Setting, FolderOpened, Delete } from '@element-plus/icons-vue'
+import { Plus, Setting, FolderOpened, Delete, DocumentChecked } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -143,6 +143,9 @@ onMounted(() => {
       <div class="header-actions">
         <el-button text :icon="Setting" class="settings-btn" @click="router.push('/settings')">
           设置
+        </el-button>
+        <el-button text :icon="DocumentChecked" class="settings-btn" @click="router.push('/reviewer')">
+          剧本审查
         </el-button>
         <el-button type="primary" size="large" :icon="Plus" @click="dialogVisible = true">
           创建项目

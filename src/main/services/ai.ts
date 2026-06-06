@@ -1,5 +1,4 @@
 import { getDb } from './db'
-import { getProvider } from './providers'
 import { getProviders } from './settings'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 import { updateProjectScript, Character, Scene, Prop } from './project'
@@ -112,17 +111,6 @@ export async function callAI(
   let baseURL = userProvider?.baseURL
   let apiKey = (userProvider as any)?.apiKey || config.apiKey
 
-  // fallback 到硬编码配置取 baseURL
-  if (!baseURL) {
-    const hardcoded = getProvider(provider)
-    if (hardcoded) {
-      baseURL = hardcoded.baseURL
-      if (!apiKey && hardcoded.implemented) {
-        // 硬编码供应商没有 apiKey，继续用旧配置
-      }
-    }
-  }
-
   if (!baseURL) {
     throw new Error(`未找到供应商配置: ${provider}`)
   }
@@ -145,8 +133,7 @@ export async function callAI(
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
+        temperature: 0.1
       }),
       signal: controller.signal
     })
@@ -317,20 +304,39 @@ function normalizeShotData(raw: any): ShotData {
     }
   }
 
-  // Has scenes array (common AI output format) → convert to chapters
+  // Has scenes array → convert to chapters
+  // 支持两种格式：① sc.shots 子数组  ② sc 自身就是一个shot（无shots字段但有description）
   if (Array.isArray(raw.scenes)) {
-    return {
-      chapters: raw.scenes.map((sc: any) => ({
-        title: sc.scene_name || sc.title || sc.name || '',
-        shots: (sc.shots || []).map((s: any, i: number) => ({
-          shot_index: s.shot_index ?? s.shot_id ?? i + 1,
-          description: s.description || '',
-          dialogue: s.dialogue || '',
-          first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
-          last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
-          video_prompt: s.video_prompt || s.videoPrompt || ''
+    // 按"章节"分组：如果场景没有shots字段，全部归为一个章节
+    const hasShots = raw.scenes.some((sc: any) => sc.shots && sc.shots.length > 0)
+    if (hasShots) {
+      return {
+        chapters: raw.scenes.map((sc: any) => ({
+          title: sc.scene_name || sc.title || sc.name || '',
+          shots: (sc.shots || []).map((s: any, i: number) => ({
+            shot_index: s.shot_index ?? s.shot_id ?? i + 1,
+            description: s.description || '',
+            dialogue: s.dialogue || '',
+            first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
+            last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
+            video_prompt: s.video_prompt || s.videoPrompt || ''
+          }))
         }))
-      }))
+      }
+    }
+    // scenes里每个元素本身就是一shot → 合并为一个章节
+    return {
+      chapters: [{
+        title: '第1章',
+        shots: raw.scenes.map((sc: any, i: number) => ({
+          shot_index: sc.shot_index ?? sc.id ?? sc.shot_id ?? i + 1,
+          description: sc.description || '',
+          dialogue: sc.dialogue || '',
+          first_frame_prompt: sc.first_frame_prompt || sc.firstFramePrompt || '',
+          last_frame_prompt: sc.last_frame_prompt || sc.lastFramePrompt || '',
+          video_prompt: sc.video_prompt || sc.videoPrompt || ''
+        }))
+      }]
     }
   }
 
@@ -401,9 +407,6 @@ export async function autoProcess(
     shotsData = JSON.parse(extracted)
     // Normalize: AI may return different structures depending on the template
     shotsData = normalizeShotData(shotsData)
-    // Debug: write parsed data to file
-    const fs = await import('fs')
-    fs.writeFileSync('C:/Users/Administrator/ai_shots_debug.log', JSON.stringify(shotsData, null, 2), 'utf8')
   } catch (e) {
     const fs = await import('fs')
     const logPath = 'C:/Users/Administrator/ai_response_debug.log'

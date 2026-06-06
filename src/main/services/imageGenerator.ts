@@ -1,11 +1,55 @@
 import { getDb } from './db'
 import { getProject } from './project'
 import { getProviders, getSetting } from './settings'
-import { getProvider } from './providers'
+
 import { join } from 'path'
 import { mkdirSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import axios from 'axios'
+
+/** 年代中文 → 英文映射（生图 API 需要英文年代描述） */
+const ERA_MAP: Record<string, string> = {
+  '古代': 'ancient China, traditional architecture, historical setting',
+  '近代': 'early modern China, 19th-20th century transition era',
+  '现代': 'modern China, contemporary urban setting',
+  '当代': 'present-day China, current era',
+  '未来': 'futuristic sci-fi China, advanced technology',
+  '末世': 'post-apocalyptic wasteland, ruined world',
+  '民国': 'Republican era China, 1912-1949, Shanghai Bund style',
+  '唐朝': 'Tang Dynasty China, golden age of imperial China',
+  '宋朝': 'Song Dynasty China, refined scholarly aesthetics',
+  '明朝': 'Ming Dynasty China, classical gardens and architecture',
+  '清朝': 'Qing Dynasty China, Manchu-influenced imperial style',
+  '汉朝': 'Han Dynasty China, ancient silk road era',
+  '上古': 'mythological ancient China, legendary era',
+  '仙侠': 'Chinese xianxia fantasy realm, immortal cultivation world',
+  '洪荒': 'primordial mythical era, creation myth times',
+  '武侠': 'martial arts world, jianghu wandering swordsmen era',
+  '赛博朋克': 'cyberpunk dystopian future, neon-lit megacity',
+  '蒸汽朋克': 'steampunk retro-futuristic, brass and gears aesthetic',
+}
+
+function mapEra(eraText: string): string {
+  if (!eraText || !eraText.trim()) return ''
+  // 精确匹配
+  if (ERA_MAP[eraText.trim()]) return ERA_MAP[eraText.trim()]
+  // 模糊匹配：包含关键词
+  for (const [key, value] of Object.entries(ERA_MAP)) {
+    if (eraText.includes(key) || key.includes(eraText)) return value
+  }
+  // 已经是英文或自定义，原样返回
+  return eraText.trim()
+}
+
+/** 画面比例 → API size 参数 */
+function getAPISize(aspectRatio: string): string | undefined {
+  const map: Record<string, string> = {
+    '16:9': '1792x1024',
+    '9:16': '1024x1792',
+    '1:1': '1024x1024'
+  }
+  return map[aspectRatio]
+}
 
 /**
  * 统一解析供应商配置：从用户配置 → 硬编码 fallback
@@ -27,12 +71,6 @@ function resolveProviderConfig(providerKey: string): { baseURL: string; apiKey: 
     if (apiKey && userProvider.baseURL) {
       return { baseURL: userProvider.baseURL.trim(), apiKey }
     }
-  }
-
-  // 2. fallback 到硬编码配置
-  const hardcoded = getProvider(providerKey)
-  if (hardcoded?.baseURL) {
-    return { baseURL: hardcoded.baseURL.trim(), apiKey: '' }
   }
 
   return null
@@ -84,26 +122,48 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   if (!project) throw new Error('项目不存在')
 
   const finalStylePrompt = stylePrompt || project.style_prompt || ''
-  const finalEraPrompt = eraPrompt || project.era || ''
+  const finalEraPrompt = mapEra(eraPrompt || project.era || '')
+  const aspectRatio = project.aspect_ratio || '16:9'
 
-  // 2. 加载模板内容（如有指定）
-  let templateContent = ''
-  if (templateId) {
-    try {
-      const template = db.prepare('SELECT content FROM prompt_templates WHERE id = ?').get(templateId) as { content: string } | undefined
-      if (template) templateContent = template.content
-    } catch { /* ignore */ }
-  }
+  // 3.5 格式提示词：比例、布局、风格全部动态
+  const isVertical = aspectRatio === '9:16'
+  const isSquare = aspectRatio === '1:1'
+  const layoutDir = isVertical ? 'Vertical' : isSquare ? 'Square' : 'Horizontal'
+  const aspectHint = aspectRatio || '16:9'
+  const styleDesc = finalStylePrompt || 'high quality illustration'
+  const ratioDirective = isVertical
+    ? `IMPORTANT: This must be a vertical 9:16 portrait image (width:1024 height:1792). All panels stacked top-to-bottom.`
+    : isSquare
+      ? `IMPORTANT: This must be a square 1:1 image (width:1024 height:1024). All panels in a 2x2 grid.`
+      : `IMPORTANT: This must be a horizontal 16:9 landscape image (width:1792 height:1024). All panels arranged left-to-right.`
 
-  // 3. 拼接最终 prompt：模板替换变量 + 描述 + 风格 + 年代
-  let finalPrompt = templateContent
-    ? templateContent.replace(/\{\{描述\}\}/g, description).replace(/\{\{角色描述\}\}/g, description)
-    : description
-  if (templateContent && finalPrompt === templateContent) {
-    // 模板不含变量，追加描述
-    finalPrompt = templateContent + '\n' + description
+  let finalPrompt: string
+  if (type === 'character') {
+    finalPrompt = `${ratioDirective}
+Scene: A character reference sheet on pure white background
+Subject: ${description}
+Details: ${layoutDir} four-panel layout in ${styleDesc} - Panel 1: Close-up portrait showing facial features, expression, hair and accessories; Panel 2: Full body front view, standing pose, displaying outfit and overall silhouette; Panel 3: Full body 45-degree angle view, showing profile and garment depth; Panel 4: Full body back view, showing outfit back details and hair from behind. Professional lighting, pure white background
+Constraints: Pure white background, ${aspectHint} aspect ratio, uniform spacing, consistent proportions across all panels, professional character design reference quality`
+  } else if (type === 'scene') {
+    finalPrompt = `${ratioDirective}
+Scene: Modular visual analysis board on pure white background
+Subject: ${description}
+Details: Four-quadrant grid layout in ${styleDesc} - Top-left quadrant: panoramic establishing shot of the scene; Top-right quadrant: line art structural diagram with composition overlay and color palette strip; Bottom-left quadrant: close-up detail shot showing textures and surfaces; Bottom-right quadrant: visual element breakdown modules with labels. Professional lighting, pure white background
+Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid layout with thin gray dividing lines, professional visual reference board aesthetic`
+  } else {
+    // props 道具：沿用模板 + 风格拼接
+    let basePrompt = description
+    if (templateId) {
+      try {
+        const template = db.prepare('SELECT content FROM prompt_templates WHERE id = ?').get(templateId) as { content: string } | undefined
+        if (template) {
+          basePrompt = template.content.replace(/\{\{描述\}\}/g, description).replace(/\{\{角色描述\}\}/g, description)
+          if (basePrompt === template.content) basePrompt = template.content + '\n' + description
+        }
+      } catch { /* ignore */ }
+    }
+    finalPrompt = [basePrompt, finalStylePrompt, finalEraPrompt].filter((s) => s.trim()).join(', ')
   }
-  finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt].filter((s) => s.trim()).join(', ')
 
   // 3. 解析模型配置（四级降级）
   const purposeMap: Record<string, string> = {
@@ -258,8 +318,26 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   ).run(taskId)
 
   try {
-    // 8. 调用 OpenAI 兼容格式的生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, input.refImage)
+    // 8. 参考图：优先用户指定 → 该资产已生成的图（保持角色/场景一致性）
+    let finalRefImage: string | undefined = input.refImage
+    if (!finalRefImage) {
+      try {
+        const assetTable = type === 'character' ? 'characters' : type === 'scene' ? 'scenes' : 'props'
+        const row = db.prepare(`SELECT reference_image FROM ${assetTable} WHERE id = ?`).get(assetId) as { reference_image: string | null } | undefined
+        if (row?.reference_image) {
+          const fs = require('fs')
+          if (fs.existsSync(row.reference_image)) {
+            finalRefImage = row.reference_image
+          }
+        }
+      } catch { /* 无已有图片或文件不存在，跳过 */ }
+    }
+
+    // 8.5 画面比例 → API size 参数
+    const size = getAPISize(aspectRatio)
+
+    // 9. 调用 OpenAI 兼容格式的生图 API
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, finalRefImage, size)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', `${type}s`)
@@ -273,13 +351,12 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       const filePath = join(imageDir, fileName)
 
       if (url.startsWith('data:')) {
-        // base64 数据
         const base64Data = url.split(',')[1]
         writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
-      } else {
-        // URL 下载
-        const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000 })
-        writeFileSync(filePath, Buffer.from(resp.data))
+      } else if (url.startsWith('http')) {
+        // 远程URL：直接使用，不下载（图床不稳定）
+        imagePaths.push(url)
+        continue
       }
       imagePaths.push(filePath)
     }
@@ -338,7 +415,8 @@ async function callImageGenerationAPI(
   model: string,
   apiKey: string,
   channel?: string | null,
-  refImage?: string | null
+  refImage?: string | null,
+  size?: string | null
 ): Promise<string[]> {
   // 解析 provider 和 modelKey
   let baseURL = ''
@@ -367,30 +445,43 @@ async function callImageGenerationAPI(
   }
 
   let lastError = ''
-  // 先尝试 /v1/images/generations（标准生图端点）
-  let resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
+  let resp: any = null
 
-  // 如果 images 端点失败(404/500/网络错误)，回退到 chat completions 端点
-  if (!resp) {
-    lastError = lastImageError
-    resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage)
-    if (!resp && lastChatError) lastError = lastChatError
+  // 最多重试2次（应对网络波动 socket hang up）
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // 先尝试 /v1/images/generations（标准生图端点）
+    resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage, size)
+
+    // 如果 images 端点失败，回退到 chat completions
+    if (!resp) {
+      lastError = lastImageError
+      resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImage, size)
+      if (!resp && lastChatError) lastError = lastChatError
+    }
+
+    if (resp) break // 成功就退出
+    if (attempt < 1) {
+      await new Promise(r => setTimeout(r, 3000))
+    }
   }
 
   if (!resp) {
     throw new Error(lastError || '生图 API 不可用，请检查供应商配置和账户余额')
   }
 
-  const data = resp.data?.data || resp.data?.images || resp.choices?.[0]?.message?.content || []
+  const data = resp.data?.data || resp.data?.images || resp.data?.choices?.[0]?.message?.content || []
   const urls: string[] = []
   for (const item of Array.isArray(data) ? data : [data]) {
     if (typeof item === 'string') {
-      // 可能是 base64 或 URL
-      if (item.startsWith('data:')) urls.push(item)
-      else if (item.startsWith('http')) urls.push(item)
-      else if (item.length > 100) urls.push(`data:image/png;base64,${item}`)
-    } else if (item.url) urls.push(item.url)
-    else if (item.b64_json) urls.push(`data:image/png;base64,${item.b64_json}`)
+      // 尝试从 Markdown 格式提取 URL: ![alt](url)  支持 http 和 data: 两种
+      const mdMatch = item.match(/!\[.*?\]\(((?:https?:\/\/|data:[^)]+)\S*)\)/)
+      const actualUrl = mdMatch ? mdMatch[1] : item
+      if (actualUrl.startsWith('data:')) urls.push(actualUrl)
+      else if (actualUrl.startsWith('http')) urls.push(actualUrl)
+    } else if (item.url) {
+      const mdMatch2 = item.url.match(/!\[.*?\]\(((?:https?:\/\/|data:[^)]+)\S*)\)/)
+      urls.push(mdMatch2 ? mdMatch2[1] : item.url)
+    } else if (item.b64_json) urls.push(`data:image/png;base64,${item.b64_json}`)
     else if (item.image_url) urls.push(item.image_url)
   }
 
@@ -404,10 +495,11 @@ async function callImageGenerationAPI(
 let lastImageError = ''
 let lastChatError = ''
 
-async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null): Promise<any> {
+async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null, size?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/images/generations`
     const body: any = { prompt, model, n: 1 }
+    if (size) body.size = size
     if (refImage) {
       try {
         const fs = require('fs')
@@ -417,7 +509,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
     }
     return await axios.post(url, body, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 120000
+      timeout: 300000
     })
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
@@ -427,7 +519,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
   }
 }
 
-async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null): Promise<any> {
+async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | null, _size?: string | null): Promise<any> {
   try {
     const url = `${baseURL}/chat/completions`
     const userContent: any[] = [{ type: 'text', text: `Generate an image based on this description: ${prompt}. Return only the image.` }]
@@ -449,7 +541,7 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
       max_tokens: 4096
     }, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 120000
+      timeout: 300000
     })
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
@@ -557,7 +649,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   if (!project) throw new Error('项目不存在')
 
   const finalStylePrompt = project.style_prompt || ''
-  const finalEraPrompt = project.era || ''
+  const finalEraPrompt = mapEra(project.era || '')
 
   // 3. 读取模型配置（模板和参考图）
   const purposeKey = frameType === 'first' ? 'first_frame' : 'last_frame'
@@ -727,8 +819,11 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   ).run(taskId)
 
   try {
+    // 8. 画面比例 → API size 参数
+    const size2 = getAPISize(project.aspect_ratio || '16:9')
+
     // 8. 调用生图 API
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refImage)
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refImage, size2)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', 'frames')
@@ -744,9 +839,9 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       if (url.startsWith('data:')) {
         const base64Data = url.split(',')[1]
         writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
-      } else {
-        const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000 })
-        writeFileSync(filePath, Buffer.from(resp.data))
+      } else if (url.startsWith('http')) {
+        imagePaths.push(url)
+        continue
       }
       imagePaths.push(filePath)
     }

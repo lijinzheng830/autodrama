@@ -73,6 +73,8 @@ import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
 import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, generateShotImage, getShotImages, selectShotImage, generateShotVideo, getShotVideos, selectShotVideo } from './services/imageGenerator'
 import type { GenerateImageInput } from './types'
+import { reviewScript, getReviewRules, getRuleStats, autoFixScript, generateFixSuggestion } from './services/scriptReviewer'
+import { getStyleTemplates, getStyleByKey } from './services/styleTemplate'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -133,6 +135,8 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
       webSecurity: app.isPackaged
     }
   })
@@ -586,6 +590,51 @@ app.whenReady().then(() => {
   ipcMain.handle('video:selectShotVideo', async (_, { shotId, videoId }: { shotId: string; videoId: string }) => {
     selectShotVideo(shotId, videoId)
   })
+
+  // ===== Script Reviewer =====
+  ipcMain.handle(
+    'reviewer:review',
+    async (_, { script, options }: { script: string; options?: { mode?: string } }) => {
+      const mode = (options?.mode as 'quick' | 'deep') || 'quick'
+      const startTime = Date.now()
+      const logPath = join(app.getPath('userData'), 'reviewer.log')
+      try {
+        const fs = await import('fs')
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] 开始审查 模式=${mode} 剧本长度=${script.length}字\n`)
+        const result = await reviewScript(script, { mode })
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] 审查完成 耗时=${Date.now() - startTime}ms 结论=${result.overallVerdict} 分数=${result.score}\n`)
+        console.log(`[reviewer] 审查完成，耗时: ${Date.now() - startTime}ms, 结论: ${result.overallVerdict}`)
+        return result
+      } catch (err) {
+        console.error(`[reviewer] 审查失败:`, err)
+        throw err
+      }
+    }
+  )
+  ipcMain.handle('reviewer:rules', async () => {
+    return getReviewRules()
+  })
+  ipcMain.handle('reviewer:ruleStats', async () => {
+    return getRuleStats()
+  })
+  ipcMain.handle('style:list', async () => {
+    return getStyleTemplates()
+  })
+  ipcMain.handle('style:getByKey', async (_, key: string) => {
+    return getStyleByKey(key)
+  })
+  ipcMain.handle(
+    'reviewer:autoFix',
+    async (_, { script, findings }: { script: string; findings: any[] }) => {
+      return autoFixScript(script, findings)
+    }
+  )
+  ipcMain.handle(
+    'reviewer:fixSuggestion',
+    async (_, { script, finding }: { script: string; finding: any }) => {
+      return generateFixSuggestion(script, finding)
+    }
+  )
 
   // LICENSE CHECK
   if (!checkLicense()) {
