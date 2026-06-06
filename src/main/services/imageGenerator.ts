@@ -355,9 +355,13 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
         const base64Data = url.split(',')[1]
         writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
       } else if (url.startsWith('http')) {
-        // 远程URL：直接使用，不下载（图床不稳定）
-        imagePaths.push(url)
-        continue
+        try {
+          const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 })
+          writeFileSync(filePath, Buffer.from(resp.data))
+        } catch {
+          imagePaths.push(url)
+          continue
+        }
       }
       imagePaths.push(filePath)
     }
@@ -965,8 +969,13 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
         const base64Data = url.split(',')[1]
         writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
       } else if (url.startsWith('http')) {
-        imagePaths.push(url)
-        continue
+        try {
+          const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 })
+          writeFileSync(filePath, Buffer.from(resp.data))
+        } catch {
+          imagePaths.push(url)
+          continue
+        }
       }
       imagePaths.push(filePath)
     }
