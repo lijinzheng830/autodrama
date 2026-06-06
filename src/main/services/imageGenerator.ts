@@ -1280,11 +1280,11 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       if (!normalizedBaseURL.endsWith("/v1")) normalizedBaseURL += "/v1"
 
       const ar = videoAspectRatio || "16:9"
-      let width = 1152, height = 768
-      if (ar === "9:16") { width = 768; height = 1152 }
+      let width = 1280, height = 768
+      if (ar === "9:16") { width = 768; height = 1280 }
       else if (ar === "1:1") { width = 1024; height = 1024 }
 
-      const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24 }
+      const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
       const postURL = normalizedBaseURL + "/videos"
       console.log("[Agnes] POST", postURL, "model:", actualModel, "prompt:", prompt.slice(0, 80))
 
