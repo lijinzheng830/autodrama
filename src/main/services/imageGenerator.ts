@@ -520,8 +520,8 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
         else if (size === '1024x1792') body.size = '768x1024'
         else body.size = '1024x1024'
       }
-      // 图生图：必须传 extra_body.tags=["img2img"] + image=URL数组
-      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
+      // 图生图：最多传 2 张参考图（构图锚点 + 角色外观），避免请求体过大
+      const refs = Array.isArray(refImage) ? refImage.slice(0, 2) : refImage ? [refImage] : []
       const imgUrls: string[] = []
       for (const r of refs) {
         try {
