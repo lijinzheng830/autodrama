@@ -670,7 +670,6 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const purposeKey = frameType === 'first' ? 'first_frame' : 'last_frame'
   const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
   const purposeConfig = projectConfig[purposeKey] || {}
-  const templateId = input.templateId || purposeConfig.templateId || ''
   let refImage = input.refImage || purposeConfig.refImage || ''
   if (!refImage) {
     if (frameType === 'last') {
@@ -690,45 +689,58 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     }
   }
 
-  // 3.5 收集关联角色和场景的参考图（定妆照/场景图）
+  // 3.5 收集关联角色和场景的参考图 + 描述（用于丰富 prompt）
   const refImages: string[] = []
   if (refImage) refImages.push(refImage)
+  const contextChars: string[] = []
+  let contextScene = ''
   try {
     const shotChars = db.prepare(
-      'SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
-    ).all(shotId) as { reference_image: string | null }[]
+      'SELECT c.name, c.description, c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
+    ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
     for (const ch of shotChars) {
       if (ch.reference_image) {
         try { const fs = require('fs'); if (fs.existsSync(ch.reference_image)) refImages.push(ch.reference_image) } catch {}
       }
+      if (ch.description) contextChars.push(`${ch.name}: ${ch.description}`)
+      else if (ch.name) contextChars.push(ch.name)
     }
     const shotScenes = db.prepare(
-      'SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
-    ).all(shotId) as { reference_image: string | null }[]
+      'SELECT s.name, s.description, s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
+    ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
     for (const sc of shotScenes) {
       if (sc.reference_image) {
         try { const fs = require('fs'); if (fs.existsSync(sc.reference_image)) refImages.push(sc.reference_image) } catch {}
       }
+      if (sc.description) contextScene = `${sc.name}: ${sc.description}`
+      else if (sc.name && !contextScene) contextScene = sc.name
     }
   } catch { /* 关联查询失败则跳过 */ }
 
-  // 4. 加载模板并拼接 prompt
-  let templateContent = ''
-  if (templateId) {
+  // 4. 构建丰富提示词：frame_prompt + 分镜上下文 + 风格 + 年代
+  const shotContextParts: string[] = []
+  // 角色外观描述
+  if (contextChars.length > 0) shotContextParts.push(`Characters: ${contextChars.join('; ')}`)
+  // 场景描述
+  if (contextScene) shotContextParts.push(`Scene: ${contextScene}`)
+  // 景别 + 运镜（shots 表的中文字段）
+  const extraFields = db.prepare(
+    'SELECT shot_type, camera_movement, lighting_mood, character_actions FROM shots WHERE id = ?'
+  ).get(shotId) as { shot_type: string | null; camera_movement: string | null; lighting_mood: string | null; character_actions: string | null } | undefined
+  if (extraFields?.shot_type) shotContextParts.push(`Shot type: ${extraFields.shot_type}`)
+  if (extraFields?.camera_movement) shotContextParts.push(`Camera: ${extraFields.camera_movement}`)
+  if (extraFields?.lighting_mood) shotContextParts.push(`Lighting: ${extraFields.lighting_mood}`)
+  if (extraFields?.character_actions) {
     try {
-      const template = db.prepare('SELECT content FROM prompt_templates WHERE id = ?').get(templateId) as { content: string } | undefined
-      if (template) templateContent = template.content
-    } catch { /* ignore */ }
+      const actions = JSON.parse(extraFields.character_actions) as Array<{ character_name: string; action: string }>
+      if (actions.length > 0) shotContextParts.push(`Actions: ${actions.map(a => `${a.character_name} ${a.action}`).join(', ')}`)
+    } catch { /* JSON parse fail */ }
   }
-  let finalPrompt = templateContent
-    ? templateContent.replace(/\{\{描述\}\}/g, shotPrompt).replace(/\{\{分镜描述\}\}/g, shotPrompt)
-    : shotPrompt
-  if (templateContent && finalPrompt === templateContent) {
-    finalPrompt = templateContent + '\n' + shotPrompt
-  }
-  finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt]
-    .filter((s) => s.trim())
-    .join(', ')
+
+  const shotContext = shotContextParts.join('. ')
+  let finalPrompt = shotPrompt
+  if (shotContext) finalPrompt = `${shotPrompt}\n${shotContext}`
+  finalPrompt = [finalPrompt, finalStylePrompt, finalEraPrompt].filter(s => s.trim()).join(', ')
 
   // 5. 解析模型配置（四级降级）
 
@@ -1031,6 +1043,10 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     video_prompt: string | null
     first_frame_image_path: string | null
     last_frame_image_path: string | null
+    shot_type: string | null
+    camera_movement: string | null
+    lighting_mood: string | null
+    character_actions: string | null
   } | undefined
   if (!shot) throw new Error('分镜不存在')
 
@@ -1039,6 +1055,32 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
 
   const project = getProject(projectId)
   if (!project) throw new Error('项目不存在')
+
+  // 收集分镜上下文（角色描述 + 场景描述 + 景别 + 运镜 + 光线 + 动作）
+  const ctxParts: string[] = []
+  try {
+    const chars = db.prepare(
+      'SELECT c.name, c.description FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
+    ).all(shotId) as { name: string; description: string | null }[]
+    const charDescs = chars.map(c => c.description ? `${c.name}: ${c.description}` : c.name).filter(Boolean)
+    if (charDescs.length) ctxParts.push(`Characters: ${charDescs.join('; ')}`)
+
+    const scenes = db.prepare(
+      'SELECT s.name, s.description FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
+    ).all(shotId) as { name: string; description: string | null }[]
+    const sceneDesc = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
+    if (sceneDesc) ctxParts.push(`Scene: ${sceneDesc}`)
+  } catch {}
+  if (shot.shot_type) ctxParts.push(`Shot type: ${shot.shot_type}`)
+  if (shot.camera_movement) ctxParts.push(`Camera: ${shot.camera_movement}`)
+  if (shot.lighting_mood) ctxParts.push(`Lighting: ${shot.lighting_mood}`)
+  if (shot.character_actions) {
+    try {
+      const actions = JSON.parse(shot.character_actions) as Array<{ character_name: string; action: string }>
+      if (actions.length) ctxParts.push(`Actions: ${actions.map(a => `${a.character_name} ${a.action}`).join(', ')}`)
+    } catch {}
+  }
+  const shotContext = ctxParts.join('. ')
 
   // 有首帧图则提示视频从该构图开始
   let frameGuidance = ''
@@ -1049,7 +1091,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   }
 
   const finalStylePrompt = project.style_prompt || ''
-  const finalPrompt = [videoPrompt, frameGuidance, finalStylePrompt].filter(s => s.trim()).join(', ')
+  const finalPrompt = [videoPrompt, shotContext, frameGuidance, finalStylePrompt].filter(s => s.trim()).join(', ')
 
   // 模型配置降级
   const purposeKey = 'video'
