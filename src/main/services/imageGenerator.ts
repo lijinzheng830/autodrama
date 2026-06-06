@@ -1310,18 +1310,19 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
     let url = ''
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 5000))
-      // 优先用推荐端点，回退旧端点
       let s: any = {}
-      try {
-        const sr = await axios.get(`${queryBase}/agnesapi?video_id=${taskId}`, {
-          headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-        })
-        s = sr.data || {}
-      } catch { /* 端点不可用 */ }
-      // 旧端点回退
-      if (!s.status && legacyTaskId) {
+      // 优先用官方示例的旧端点（/v1/videos/{task_id}），回退推荐端点
+      if (legacyTaskId) {
         try {
-          const sr2 = await axios.get(`${normalizedBaseURL}/videos/${legacyTaskId}`, {
+          const sr = await axios.get(`${normalizedBaseURL}/videos/${legacyTaskId}`, {
+            headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+          })
+          s = sr.data || {}
+        } catch { /* skip */ }
+      }
+      if (!s.status) {
+        try {
+          const sr2 = await axios.get(`${queryBase}/agnesapi?video_id=${taskId}`, {
             headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
           })
           s = sr2.data || {}
