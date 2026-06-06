@@ -1337,18 +1337,24 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
       console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80), 'body:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
 
       let resp: any
-      try {
-        resp = await axios.post(postURL, body, {
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          timeout: 600000
-        })
-        console.log("[Agnes] POST OK:", JSON.stringify(resp.data).slice(0, 400))
-      } catch (err: any) {
-        console.error("[Agnes] POST ERR status:", err?.response?.status, "msg:", err?.message)
-        if (err?.response?.data) console.error("[Agnes] POST ERR body:", JSON.stringify(err.response.data).slice(0, 400))
-        const d = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
-        throw new Error("Agnes视频请求失败: " + d)
+      let lastPostErr = ''
+      for (let postTry = 0; postTry < 3; postTry++) {
+        try {
+          resp = await axios.post(postURL, body, {
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            timeout: 600000,
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity
+          })
+          console.log("[Agnes] POST OK:", JSON.stringify(resp.data).slice(0, 400))
+          break
+        } catch (err: any) {
+          lastPostErr = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
+          console.error("[Agnes] POST try", postTry + 1, "ERR:", err?.response?.status || err?.code, lastPostErr.slice(0, 100))
+          if (postTry < 2) { console.log("[Agnes] POST retry in 5s..."); await new Promise(r => setTimeout(r, 5000)) }
+        }
       }
+      if (!resp) throw new Error("Agnes视频请求失败(重试3次): " + lastPostErr)
 
       const videoId = resp.data?.video_id
       const fallbackTaskId = resp.data?.task_id || resp.data?.id
