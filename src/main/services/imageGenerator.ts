@@ -1322,10 +1322,10 @@ async function callVideoGenerationAPI(prompt: string, model: string, apiKey: str
             (body.extra_body.image as string[]).push('data:image/png;base64,' + require('fs').readFileSync(r).toString('base64'))
           } catch { /* skip */ }
         }
-        console.log('[Agnes] video extra_body.image:', body.extra_body.image.length, 'refs')
+        console.log('[Agnes] video extra_body.image:', body.extra_body.image.length, 'refs, size:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
       }
       const postURL = normalizedBaseURL + '/videos'
-      console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80))
+      console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80), 'body:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
 
       let resp: any
       try {
