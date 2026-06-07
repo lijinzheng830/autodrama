@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, resolve, normalize } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
 import {
@@ -75,6 +75,13 @@ import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, dele
 import type { GenerateImageInput } from './types'
 import { reviewScript, getReviewRules, getRuleStats, autoFixScript, generateFixSuggestion } from './services/scriptReviewer'
 import { getStyleTemplates, getStyleByKey } from './services/styleTemplate'
+
+/** 路径校验：仅允许在 userData 目录内读写 */
+function isPathAllowed(filePath: string): boolean {
+  const resolvedPath = normalize(resolve(filePath))
+  const allowedBase = normalize(resolve(app.getPath('userData')))
+  return resolvedPath.startsWith(allowedBase + '\\') || resolvedPath.startsWith(allowedBase + '/')
+}
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -514,6 +521,10 @@ app.whenReady().then(() => {
   ipcMain.handle(
     'config:writeFile',
     async (_, { filePath, content }: { filePath: string; content: string }) => {
+      if (!isPathAllowed(filePath)) {
+        console.error('[security] Write file rejected: path outside allowed directory', filePath)
+        return false
+      }
       try {
         const fs = await import('fs')
         fs.writeFileSync(filePath, content, 'utf8')
@@ -526,6 +537,10 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle('config:readFile', async (_, filePath: string) => {
+    if (!isPathAllowed(filePath)) {
+      console.error('[security] Read file rejected: path outside allowed directory', filePath)
+      return null
+    }
     try {
       const fs = await import('fs')
       return fs.readFileSync(filePath, 'utf8')
