@@ -1,5 +1,6 @@
 import { getDb } from './db'
 import { randomUUID } from 'crypto'
+import { safeStorage } from 'electron'
 import type { Provider } from './providers'
 
 export interface ProviderRecord extends Provider {
@@ -8,17 +9,41 @@ export interface ProviderRecord extends Provider {
   updated_at?: number
 }
 
+/** 加密 API Key，返回 base64 编码的密文 */
+function encryptApiKey(plainText: string): string {
+  if (!safeStorage.isEncryptionAvailable()) {
+    console.warn('safeStorage 不可用，API Key 将以明文存储')
+    return plainText
+  }
+  return safeStorage.encryptString(plainText).toString('base64')
+}
+
+/** 解密 API Key，返回明文 */
+function decryptApiKey(cipherText: string): string {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return cipherText
+  }
+  try {
+    return safeStorage.decryptString(Buffer.from(cipherText, 'base64'))
+  } catch {
+    // 解密失败说明是旧版明文数据，直接返回原值
+    return cipherText
+  }
+}
+
 export function getSetting(key: string): string | null {
   const db = getDb()
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
     | { value: string }
     | undefined
-  return row ? row.value : null
+  if (!row) return null
+  return key.startsWith('apikey') ? decryptApiKey(row.value) : row.value
 }
 
 export function setSetting(key: string, value: string): void {
   const db = getDb()
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
+  const encryptedValue = key.startsWith('apikey') ? encryptApiKey(value) : value
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, encryptedValue)
 }
 
 // Providers CRUD

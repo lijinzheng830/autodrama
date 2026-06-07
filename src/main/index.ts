@@ -489,7 +489,11 @@ app.whenReady().then(() => {
     'config:export',
     async (_, data: { systemPrompt: string; templates: unknown[]; modelRoutes: unknown }) => {
       const json = JSON.stringify(data, null, 2)
-      return encrypt(json)
+      const encrypted = encrypt(json)
+      if (!encrypted) {
+        throw new Error('加密失败，safeStorage 不可用')
+      }
+      return encrypted
     }
   )
 
