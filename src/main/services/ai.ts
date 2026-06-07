@@ -3,6 +3,8 @@ import { getProviders } from './settings'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 import { updateProjectScript, Character, Scene, Prop } from './project'
 import { checkLicense } from '../utils/license'
+import { app } from 'electron'
+import { join } from 'path'
 
 export interface AutoProcessOptions {
   promptTemplate?: string
@@ -439,7 +441,7 @@ export async function autoProcess(
     shotsData = normalizeShotData(shotsData)
   } catch (e) {
     const fs = await import('fs')
-    const logPath = 'C:/Users/Administrator/ai_response_debug.log'
+    const logPath = join(app.getPath('userData'), 'ai_response_debug.log')
     fs.writeFileSync(logPath, shotsResult, 'utf8')
     console.error('[autoProcess] 分镜步骤 JSON 提取失败. 完整响应已写入:', logPath)
     console.error('[autoProcess] Parse error:', (e as Error).message)

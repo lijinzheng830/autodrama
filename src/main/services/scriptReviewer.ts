@@ -12,6 +12,8 @@ import { getAIConfig } from './ai'
 import { getProviders } from './settings'
 import { request as httpsRequest } from 'https'
 import { URL } from 'url'
+import { app } from 'electron'
+import { join } from 'path'
 
 // ============ 专用 AI 调用（使用 https 模块，避免 fetch 兼容问题） ============
 
@@ -38,7 +40,7 @@ function getEffectiveApiConfig(): { apiKey: string; model: string; baseURL: stri
   return { apiKey, model, baseURL }
 }
 
-const REVIEWER_LOG = 'C:/Users/Administrator/autodrama_ai_review.log'
+const REVIEWER_LOG = join(app.getPath('userData'), 'autodrama_ai_review.log')
 
 function reviewerLog(msg: string): void {
   try {

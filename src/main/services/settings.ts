@@ -1,4 +1,5 @@
 import { getDb } from './db'
+import { randomUUID } from 'crypto'
 import type { Provider } from './providers'
 
 export interface ProviderRecord extends Provider {
@@ -33,7 +34,7 @@ export function getProviders(): ProviderRecord[] {
 
 export function addProvider(provider: ProviderRecord): ProviderRecord {
   const providers = getProviders()
-  const id = crypto.randomUUID()
+  const id = randomUUID()
   const newProvider = { id, ...provider, created_at: Date.now() }
   providers.push(newProvider)
   setSetting('providers', JSON.stringify(providers))
