@@ -9,7 +9,7 @@ import { mapEra, getStylePromptZh, fillZhFallback, translateCnField, detectShotT
 import { resolveModelConfig, resolveProviderConfig } from './modelRouter'
 import { translateToEnglish } from './ai'
 import { join, isAbsolute } from 'path'
-import { writeFileSync, mkdirSync, readFileSync, existsSync, unlinkSync } from 'fs'
+import { writeFileSync, mkdirSync, readFileSync, existsSync, unlinkSync, appendFileSync } from 'fs'
 import { execFile, execFileSync } from 'child_process'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
@@ -277,7 +277,26 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     console.log(`[VideoGen] Composition: ${compositionGuide}`)
     console.log('═══════════════════════════════════════')
 
+    const videoTraceStart = Date.now()
     const videoUrls = await callVideoGenerationAPI(finalPromptWithTemplate || finalPrompt, model, apiKey, channel, videoRefImage, aspectRatio, videoParams)
+    try {
+      const dir = join(project.path, 'exports')
+      mkdirSync(dir, { recursive: true })
+      appendFileSync(join(dir, 'generation_trace.jsonl'), JSON.stringify({
+        ts: new Date().toISOString(),
+        type: 'video',
+        shotId,
+        model,
+        channel: channel || '',
+        promptLength: (finalPromptWithTemplate || finalPrompt).length,
+        promptFirst: (finalPromptWithTemplate || finalPrompt).slice(0, 200),
+        refImageCount: videoRefImages.length,
+        compositionGuide,
+        imageCount: videoUrls.length,
+        durationMs: Date.now() - videoTraceStart
+      }) + '\n', 'utf8')
+    } catch { /* ignore */ }
+
     const videoDir = join(project.path, 'assets', 'videos')
     mkdirSync(videoDir, { recursive: true })
 
