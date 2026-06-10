@@ -18,6 +18,8 @@ function updateShotPrompts(projectId: string, oldName: string, newName: string):
     )
   `
   ).run(oldName, newName, oldName, newName, oldName, newName, projectId)
+  // Keep updated_at in sync with the rename
+  db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(Date.now(), projectId)
 }
 
 // ========== Character ==========
@@ -31,8 +33,10 @@ export interface CreateCharacterInput {
 export interface UpdateCharacterInput {
   name?: string
   description?: string
+  description_zh?: string
   referenceImage?: string
   skinImages?: string
+  voicePreset?: string
 }
 
 export function createCharacter(
@@ -81,6 +85,10 @@ export function updateCharacter(characterId: string, input: UpdateCharacterInput
     fields.push('description = ?')
     values.push(input.description)
   }
+  if ((input as any).description_zh !== undefined) {
+    fields.push('description_zh = ?')
+    values.push((input as any).description_zh)
+  }
   if (input.referenceImage !== undefined) {
     fields.push('reference_image = ?')
     values.push(input.referenceImage)
@@ -89,11 +97,21 @@ export function updateCharacter(characterId: string, input: UpdateCharacterInput
     fields.push('skin_images = ?')
     values.push(input.skinImages)
   }
+  if (input.voicePreset !== undefined) {
+    fields.push('voice_preset = ?')
+    values.push(input.voicePreset)
+  }
 
   if (fields.length === 0) return
 
   values.push(characterId)
   db.prepare(`UPDATE characters SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+
+  // 上传参考图时写入历史记录
+  if (input.referenceImage !== undefined && input.referenceImage) {
+    const { randomUUID } = require('crypto')
+    db.prepare(`INSERT INTO character_images (id, character_id, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now', 'localtime'))`).run(randomUUID(), characterId, input.referenceImage)
+  }
 
   // 改名全局联动
   if (input.name !== undefined && input.name !== char.name) {
@@ -117,6 +135,7 @@ export interface CreateSceneInput {
 export interface UpdateSceneInput {
   name?: string
   description?: string
+  description_zh?: string
   referenceImage?: string
 }
 
@@ -161,6 +180,10 @@ export function updateScene(sceneId: string, input: UpdateSceneInput): void {
     fields.push('description = ?')
     values.push(input.description)
   }
+  if ((input as any).description_zh !== undefined) {
+    fields.push('description_zh = ?')
+    values.push((input as any).description_zh)
+  }
   if (input.referenceImage !== undefined) {
     fields.push('reference_image = ?')
     values.push(input.referenceImage)
@@ -170,6 +193,11 @@ export function updateScene(sceneId: string, input: UpdateSceneInput): void {
 
   values.push(sceneId)
   db.prepare(`UPDATE scenes SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+
+  if (input.referenceImage !== undefined && input.referenceImage) {
+    const { randomUUID } = require('crypto')
+    db.prepare(`INSERT INTO scene_images (id, scene_id, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now', 'localtime'))`).run(randomUUID(), sceneId, input.referenceImage)
+  }
 
   // 改名全局联动
   if (input.name !== undefined && input.name !== scene.name) {
@@ -193,6 +221,7 @@ export interface CreatePropInput {
 export interface UpdatePropInput {
   name?: string
   description?: string
+  description_zh?: string
   referenceImage?: string
 }
 
@@ -237,6 +266,10 @@ export function updateProp(propId: string, input: UpdatePropInput): void {
     fields.push('description = ?')
     values.push(input.description)
   }
+  if ((input as any).description_zh !== undefined) {
+    fields.push('description_zh = ?')
+    values.push((input as any).description_zh)
+  }
   if (input.referenceImage !== undefined) {
     fields.push('reference_image = ?')
     values.push(input.referenceImage)
@@ -248,6 +281,11 @@ export function updateProp(propId: string, input: UpdatePropInput): void {
 
   values.push(propId)
   db.prepare(`UPDATE props SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+
+  if (input.referenceImage !== undefined && input.referenceImage) {
+    const { randomUUID } = require('crypto')
+    db.prepare(`INSERT INTO prop_images (id, prop_id, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now', 'localtime'))`).run(randomUUID(), propId, input.referenceImage)
+  }
 
   // 改名全局联动
   if (input.name !== undefined && input.name !== prop.name) {

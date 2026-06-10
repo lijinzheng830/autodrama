@@ -5,3 +5,5 @@ out
 .eslintcache
 *.log*
 autodrama.db
+resources/ffmpeg/
+CODE_REVIEW_*.md

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
+import { existsSync, readFileSync } from 'fs'
 
 let db: Database.Database | null = null
 
@@ -187,6 +188,7 @@ export function initDatabase(): Database.Database {
       id TEXT PRIMARY KEY,
       shot_id TEXT NOT NULL,
       image_path TEXT NOT NULL,
+      type TEXT DEFAULT 'first',
       is_selected INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE
@@ -201,6 +203,21 @@ export function initDatabase(): Database.Database {
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (shot_id) REFERENCES shots(id) ON DELETE CASCADE
     );
+  `)
+
+  // ===== 索引优化（CREATE INDEX IF NOT EXISTS — 幂等） =====
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_characters_project_id ON characters(project_id);
+    CREATE INDEX IF NOT EXISTS idx_scenes_project_id ON scenes(project_id);
+    CREATE INDEX IF NOT EXISTS idx_props_project_id ON props(project_id);
+    CREATE INDEX IF NOT EXISTS idx_chapters_project_id ON chapters(project_id);
+    CREATE INDEX IF NOT EXISTS idx_shots_chapter_id ON shots(chapter_id);
+    CREATE INDEX IF NOT EXISTS idx_generation_tasks_project_id ON generation_tasks(project_id);
+    CREATE INDEX IF NOT EXISTS idx_generation_tasks_status ON generation_tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_shot_characters_shot_id ON shot_characters(shot_id);
+    CREATE INDEX IF NOT EXISTS idx_shot_scenes_shot_id ON shot_scenes(shot_id);
+    CREATE INDEX IF NOT EXISTS idx_shot_images_shot_id ON shot_images(shot_id);
+    CREATE INDEX IF NOT EXISTS idx_shot_videos_shot_id ON shot_videos(shot_id);
   `)
 
   // 插入默认设置
@@ -252,12 +269,10 @@ export function initDatabase(): Database.Database {
 
   // 插入官方预设模板（从 src/main/data/prompt-templates/ 读取，INSERT OR REPLACE）
   try {
-    const fs = require('fs') as typeof import('fs')
-    const path = require('path') as typeof import('path')
     // 优先 dev 路径（src/main/data/），回退到编译输出路径（out/main/data/）
-    let templatesDir = path.join(app.getAppPath(), 'src', 'main', 'data', 'prompt-templates')
-    if (!fs.existsSync(templatesDir)) {
-      templatesDir = path.join(__dirname, '..', 'data', 'prompt-templates')
+    let templatesDir = join(app.getAppPath(), 'src', 'main', 'data', 'prompt-templates')
+    if (!existsSync(templatesDir)) {
+      templatesDir = join(__dirname, '..', 'data', 'prompt-templates')
     }
 
     // 18 条官方模板注册表
@@ -282,18 +297,18 @@ export function initDatabase(): Database.Database {
       { file: 'v2-09-last-frame-polish.md', id: 'official-v2-last-frame-polish', usage: 'last_frame_polish', name: '尾帧润色', version: 'v2' },
     ]
 
-    const insertOrReplace = db.prepare(`
-      INSERT OR REPLACE INTO prompt_templates (id, project_id, "usage", name, content, template_version, is_default, created_at, updated_at)
+    const insertOrIgnore = db.prepare(`
+      INSERT OR IGNORE INTO prompt_templates (id, project_id, "usage", name, content, template_version, is_default, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now', 'localtime'), datetime('now', 'localtime'))
     `)
 
     let loaded = 0
     for (const item of registry) {
-      const filePath = path.join(templatesDir, item.file)
+      const filePath = join(templatesDir, item.file)
       try {
-        const content = fs.readFileSync(filePath, 'utf8')
+        const content = readFileSync(filePath, 'utf8')
         if (content.trim()) {
-          insertOrReplace.run(item.id, null, item.usage, item.name, content, item.version)
+          insertOrIgnore.run(item.id, null, item.usage, item.name, content, item.version)
           loaded++
         }
       } catch {
@@ -301,6 +316,24 @@ export function initDatabase(): Database.Database {
       }
     }
     console.log(`[db] loaded ${loaded}/${registry.length} official prompt templates`)
+
+    // 模板版本升级：仅当官方模板版本号升级时才覆盖
+    const tplVersionRow = db.prepare("SELECT value FROM settings WHERE key = 'template_data_version'").get() as { value: string } | undefined
+    const currentTplVersion = parseInt(tplVersionRow?.value || '0', 10)
+    const TPL_DATA_VERSION = 11 // v11: 场景图改为单张全景大图（非四象限）
+    if (currentTplVersion < TPL_DATA_VERSION) {
+      console.log(`[db] Template data upgrade: v${currentTplVersion} → v${TPL_DATA_VERSION}`)
+      for (const item of registry) {
+        const filePath = join(templatesDir, item.file)
+        try {
+          const content = readFileSync(filePath, 'utf8')
+          if (content.trim()) {
+            db.prepare(`UPDATE prompt_templates SET content = ?, template_version = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`).run(content, item.version, item.id)
+          }
+        } catch { /* skip */ }
+      }
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('template_data_version', ?)").run(String(TPL_DATA_VERSION))
+    }
   } catch (e) {
     console.error('[db] 加载官方模板失败:', e)
   }
@@ -329,7 +362,13 @@ export function initDatabase(): Database.Database {
     { table: 'shots', column: 'grid_image_path', type: 'TEXT' },
     { table: 'shots', column: 'first_frame_prompt_zh', type: 'TEXT' },
     { table: 'shots', column: 'last_frame_prompt_zh', type: 'TEXT' },
-    { table: 'shots', column: 'video_prompt_zh', type: 'TEXT' }
+    { table: 'shots', column: 'video_prompt_zh', type: 'TEXT' },
+    { table: 'shots', column: 'narration', type: 'TEXT' },
+    { table: 'shots', column: 'description_zh', type: 'TEXT' },
+    { table: 'characters', column: 'description_zh', type: 'TEXT' },
+    { table: 'scenes', column: 'description_zh', type: 'TEXT' },
+    { table: 'props', column: 'description_zh', type: 'TEXT' },
+    { table: 'characters', column: 'voice_preset', type: 'TEXT' }
   ]
 
   for (const m of migrations) {
@@ -424,6 +463,28 @@ export function initDatabase(): Database.Database {
     }
   } catch (e) {
     console.error('迁移 scenes.prompt 失败:', e)
+  }
+
+  // M1-04: 从 description 中提取对话到 dialogue 列（历史数据修复）
+  try {
+    const countRow = db
+      .prepare("SELECT COUNT(*) as c FROM shots WHERE description LIKE '%\n对白: %' AND (dialogue IS NULL OR dialogue = '')")
+      .get() as { c: number }
+    if (countRow.c > 0) {
+      console.log(`[db] Extracting dialogue from ${countRow.c} shots...`)
+      db.prepare(`
+        UPDATE shots SET
+          dialogue = TRIM(SUBSTR(description, INSTR(description, '\n对白: ') + 5)),
+          description = TRIM(SUBSTR(description, 1, INSTR(description, '\n对白: ') - 1))
+        WHERE description LIKE '%\n对白: %' AND (dialogue IS NULL OR dialogue = '')
+      `).run()
+      const remaining = db
+        .prepare("SELECT COUNT(*) as c FROM shots WHERE description LIKE '%\n对白: %'")
+        .get() as { c: number }
+      console.log(`[db] Dialogue extracted, ${remaining.c} shots still have dialogue in description`)
+    }
+  } catch (e) {
+    console.error('[db] Dialogue migration failed:', e)
   }
 
   // ===== 种子数据：13种风格模板 =====

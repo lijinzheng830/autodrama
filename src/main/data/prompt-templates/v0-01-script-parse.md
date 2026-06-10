@@ -25,21 +25,44 @@
 
 ## 拆解规则
 
-1. **画面描述**（shot_description）：只写纯视觉内容，不含镜头语言、不含对白。要具体到人/物/位置/姿态，让人读后脑中出画面
-2. **对白**（dialogue）：格式"角色名：台词（语气）"，语气标注情绪如（急切）（冷淡）（哽咽），旁白用"旁白：内容"，无对白留空字符串
-3. **原文**（original_text）：截取该分镜对应的原文片段，禁止修改，用于核对改写是否合理
-4. **角色选择**（used_character_names）：从上方可用角色列表中选，一个角色只在列表中出现一次。画面中出现但无对白的角色也要列出
-5. **场景选择**（used_scene_name）：从上方可用场景列表中选一个主场景
-6. **道具选择**（used_prop_names）：从上方可用道具列表中选择画面中出现的道具
-7. **景别**（shot_type）：7选1——大远景/远景/全景/中景/近景/特写/大特写。对话场景偏好中近景，环境交代用远景，情绪强调用特写
-8. **镜头运动**（camera_movement）：8选1——固定/缓慢推进/缓慢拉远/左摇/右摇/跟随/环绕/升降。静态对话用"固定"，运动场景用"跟随"，揭露用"缓慢推进"
-9. **各角色动作**（character_actions）：每个出场角色一条动作描述，必须具体动词+程度副词。如"缓缓转身""猛地站起""低声耳语"，禁止模糊词如"有动作""互动"。即使角色没有明显动作也要写（如"静立不语""呆坐"），不能遗漏任何出场角色
-10. **光线氛围**（lighting_mood）：描述当前分镜的光线感觉，结合场景和时间推断
-11. **音频提示词**（audio_prompt）：英文，描述环境音+角色声音特征+情绪基调。如"A woman whispers softly in a dimly lit room, rain pattering on window, melancholic tone"
-12. **时长**（duration_seconds）：3-8秒。对白长的5-8秒，纯动作3-5秒，复杂运动6-8秒
-13. **分镜节奏**：重要的情感转折/动作高潮拆细（短时分镜），过渡/行走可合并（长时分镜）。每章5-15个分镜
-14. **内容安全**：画面描述中涉及色情、血腥、暴力、种族歧视等负面内容时，需换一种隐晦或侧面的描述方式，不直接描写
+1. **画面描述**（shot_description）：中文。只写纯视觉内容，不含镜头语言、不含对白。具体到人/物/位置/姿态。
+2. **对白**（dialogue）：格式"角色名：台词（语气）"。旁白用"旁白：内容"。无则留空字符串。
+3. **旁白/独白**（narration）：内心独白或画外音原文。无则留空字符串。
+4. **原文**（original_text）：截取该分镜对应的原文片段，用于核对。
+5. **角色**（used_character_names）：从可用角色列表选，画面中出现的角色都列出。
+6. **场景**（used_scene_name）：从可用场景列表选一个主场景。
+7. **道具**（used_prop_names）：从可用道具列表选画面中出现的道具。
+8. **景别**（shot_type）：7选1——大远景/远景/全景/中景/近景/特写/大特写。环境交代用远景，对话用中近景，情绪强调用特写。
+9. **运镜**（camera_movement）：8选1——固定/缓慢推进/缓慢拉远/左摇/右摇/跟随/环绕/升降。静态对话用固定，运动用跟随，揭露用缓慢推进。
+10. **角色动作**（character_actions）：JSON数组 [{"character_name":"角色名","action":"具体动作"}]。必须用具体动词+程度副词如"缓缓转身"。无动作写"静立"。
+11. **光影氛围**（lighting_mood）：光线条件+情绪氛围。如"暖金色聚光灯，柔和明亮"。
+12. **首帧提示词**（first_frame_prompt / first_frame_prompt_zh）：英文+中文。这是发给AI生图API的指令。包含景别、角色站位、表情、场景、光影、构图。示例："Medium shot of Lin Xiaowei center stage, gentle expression, warm spotlight, LED wall behind, soft bokeh, rule of thirds"
+13. **尾帧提示词**（last_frame_prompt / last_frame_prompt_zh）：英文+中文。分镜结束时的画面，同上格式。
+14. **视频提示词**（video_prompt / video_prompt_zh）：英文+中文。描述镜头运动和转场。
+15. **音频提示词**（audio_prompt）：英文。环境音+角色声音+情绪基调。
+16. **时长**（duration_seconds）：3-8秒。对白长5-8秒，纯动作3-5秒。
+17. **分镜节奏**：情感转折/高潮拆细，过渡可合并。每章5-15分镜。
 
 ## 输出格式
-
-严格输出JSON数组，不要输出其他内容：
+严格输出JSON数组：
+[{
+  "shot_description": "中文画面描述",
+  "dialogue": "角色名：台词（语气）",
+  "narration": "旁白内容",
+  "original_text": "原文片段",
+  "used_character_names": ["角色名"],
+  "used_scene_name": "场景名",
+  "used_prop_names": ["道具名"],
+  "shot_type": "中景",
+  "camera_movement": "固定",
+  "lighting_mood": "暖金色聚光灯，柔和明亮",
+  "character_actions": [{"character_name":"林小薇","action":"静立"}],
+  "first_frame_prompt": "English image generation prompt with framing, lighting, mood",
+  "first_frame_prompt_zh": "中文首帧提示词",
+  "last_frame_prompt": "English last frame prompt",
+  "last_frame_prompt_zh": "中文尾帧提示词",
+  "video_prompt": "English video prompt with camera movement",
+  "video_prompt_zh": "中文视频提示词",
+  "audio_prompt": "English audio description",
+  "duration_seconds": 5
+}]

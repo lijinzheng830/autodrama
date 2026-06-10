@@ -8,117 +8,43 @@
  * - 2026年5月 抖音AI短剧审片标准
  */
 
-import { getAIConfig } from './ai'
-import { getProviders } from './settings'
-import { request as httpsRequest } from 'https'
-import { URL } from 'url'
+import { callAI } from './ai'
 import { app } from 'electron'
 import { join } from 'path'
+import { appendFileSync } from 'fs'
 
-// ============ 专用 AI 调用（使用 https 模块，避免 fetch 兼容问题） ============
+// ============ AI 调用（委托给公共 callAI，保留审查日志） ============
 
-function getEffectiveApiConfig(): { apiKey: string; model: string; baseURL: string } {
-  // 先检查用户配置的供应商
-  const userProviders = getProviders()
-  const aiConfig = getAIConfig()
-  const provider = aiConfig.provider || 'qwen'
-
-  const userProvider = userProviders.find((p: any) => p.key === provider || p.id === provider)
-  let apiKey = (userProvider as any)?.apiKey || aiConfig.apiKey
-  let baseURL = (userProvider as any)?.baseURL || 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-  const model = aiConfig.model || 'qwen-plus'
-
-  // fallback: 单独读 settings 里的 api_key
-  if (!apiKey) {
-    try {
-      const db = require('./db').getDb()
-      const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(`api_key_${provider}`) as { value: string } | undefined
-      apiKey = row?.value || ''
-    } catch {}
+let _reviewerLogPath: string | null = null
+function getReviewerLogPath(): string {
+  if (!_reviewerLogPath) {
+    _reviewerLogPath = join(app.getPath('userData'), 'autodrama_ai_review.log')
   }
-
-  return { apiKey, model, baseURL }
+  return _reviewerLogPath
 }
-
-const REVIEWER_LOG = join(app.getPath('userData'), 'autodrama_ai_review.log')
 
 function reviewerLog(msg: string): void {
   try {
-    const fs = require('fs') as typeof import('fs')
-    fs.appendFileSync(REVIEWER_LOG, `[${new Date().toISOString()}] ${msg}\n`)
+    appendFileSync(getReviewerLogPath(), `[${new Date().toISOString()}] ${msg}\n`)
   } catch {}
 }
 
-function callAIForReview(messages: Array<{ role: string; content: string }>, timeoutMs = 30000): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const effective = getEffectiveApiConfig()
-    if (!effective.apiKey) return reject(new Error('未配置AI API Key，请前往设置页面配置'))
+async function callAIForReview(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): Promise<string> {
+  const systemLen = messages[0]?.content?.length || 0
+  const userLen = messages[1]?.content?.length || 0
+  reviewerLog(`=== 发送请求 ===`)
+  reviewerLog(`System Prompt: ${systemLen}字`)
+  reviewerLog(`User Prompt: ${userLen}字 (剧本+审查指令)`)
+  reviewerLog(`完整User Prompt前200字: ${messages[1]?.content?.slice(0, 200)}`)
 
-    const urlObj = new URL(effective.baseURL.replace(/\/$/, '') + '/chat/completions')
-    const body = JSON.stringify({
-      model: effective.model,
-      messages,
-      temperature: 0,
-      response_format: { type: 'json_object' }
-    })
-
-    // 记录请求
-    const systemLen = messages[0]?.content?.length || 0
-    const userLen = messages[1]?.content?.length || 0
-    reviewerLog(`=== 发送请求 ===`)
-    reviewerLog(`模型: ${effective.model}`)
-    reviewerLog(`System Prompt: ${systemLen}字`)
-    reviewerLog(`User Prompt: ${userLen}字 (剧本+审查指令)`)
-    reviewerLog(`完整User Prompt前200字: ${messages[1]?.content?.slice(0, 200)}`)
-
-    const req = httpsRequest({
-      hostname: urlObj.hostname,
-      port: urlObj.port || 443,
-      path: urlObj.pathname + urlObj.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${effective.apiKey}`,
-        'Content-Length': Buffer.byteLength(body)
-      },
-      timeout: timeoutMs
-    }, (res) => {
-      let data = ''
-      res.on('data', (chunk: Buffer) => { data += chunk.toString() })
-      res.on('end', () => {
-        reviewerLog(`=== 收到响应 ===`)
-        reviewerLog(`HTTP状态: ${res.statusCode}`)
-        reviewerLog(`原始响应: ${data.slice(0, 3000)}${data.length > 3000 ? `\n...（共${data.length}字，已截断）` : ''}`)
-        try {
-          const json = JSON.parse(data)
-          const content = json.choices?.[0]?.message?.content
-          if (content) {
-            reviewerLog(`AI审查结果内容: ${content.slice(0, 2000)}${content.length > 2000 ? `\n...（共${content.length}字）` : ''}`)
-            resolve(content)
-          }
-          else {
-            reviewerLog(`AI返回错误: ${JSON.stringify(json.error)}`)
-            reject(new Error(json.error?.message || 'AI返回内容为空'))
-          }
-        } catch {
-          reviewerLog(`JSON解析失败`)
-          reject(new Error(`AI返回解析失败: ${data.slice(0, 200)}`))
-        }
-      })
-    })
-
-    req.on('error', (err: Error) => {
-      reviewerLog(`请求失败: ${err.message}`)
-      reject(new Error(`API请求失败: ${err.message}`))
-    })
-    req.on('timeout', () => {
-      reviewerLog('请求超时')
-      req.destroy()
-      reject(new Error('API请求超时'))
-    })
-    req.write(body)
-    req.end()
-  })
+  try {
+    const result = await callAI(messages)
+    reviewerLog(`AI审查结果内容: ${result.slice(0, 2000)}${result.length > 2000 ? `\n...（共${result.length}字）` : ''}`)
+    return result
+  } catch (err) {
+    reviewerLog(`请求失败: ${err instanceof Error ? err.message : String(err)}`)
+    throw err
+  }
 }
 
 // ============ 审查规则定义 ============
@@ -523,7 +449,7 @@ const ALL_RULES: ReviewRule[] = [...REDLINE_RULES, ...QUALITY_RULES, ...TECHNICA
 /**
  * 快速关键词/模式匹配审查
  */
-function quickCheck(script: string): ReviewFinding[] {
+export function quickCheck(script: string): ReviewFinding[] {
       const qlog = (_msg: string) => {} // no-op
       // qlog removed
   const findings: ReviewFinding[] = []
@@ -722,13 +648,10 @@ ${script.length > 8000 ? '\n\n[剧本较长，已截取前8000字进行审查]' 
 }`
 
   try {
-    const aiResult = await callAIForReview(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      30000
-    )
+    const aiResult = await callAIForReview([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ])
 
     // 解析AI返回
     let aiData: {
@@ -1034,13 +957,10 @@ ${issuesText}
 }`
 
   try {
-    const aiResult = await callAIForReview(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      60000
-    )
+    const aiResult = await callAIForReview([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ])
 
     // 解析 AI 返回
     const jsonMatch = aiResult.match(/\{[\s\S]*\}/)
@@ -1080,13 +1000,10 @@ ${finding.matchedContent.join('\n\n---\n\n') || script.slice(0, 3000)}
 请针对以上问题，生成一段修改后的文本。只修改有问题的地方，保持原有风格。`
 
   try {
-    const aiResult = await callAIForReview(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      30000
-    )
+    const aiResult = await callAIForReview([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ])
 
     const jsonMatch = aiResult.match(/\{[\s\S]*\}/)
     if (jsonMatch) {

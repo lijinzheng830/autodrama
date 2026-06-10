@@ -201,18 +201,18 @@ export function updateProjectScript(projectId: string, script: string): void {
   )
 }
 
-export function getChaptersByProject(projectId: string): unknown[] {
+export function getChaptersByProject(projectId: string): Chapter[] {
   const db = getDb()
   return db
     .prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY chapter_index')
-    .all(projectId) as unknown[]
+    .all(projectId) as unknown as Chapter[]
 }
 
-export function getShotsByChapter(chapterId: string): unknown[] {
+export function getShotsByChapter(chapterId: string): Shot[] {
   const db = getDb()
   return db
     .prepare('SELECT * FROM shots WHERE chapter_id = ? ORDER BY shot_index')
-    .all(chapterId) as unknown[]
+    .all(chapterId) as unknown as Shot[]
 }
 
 export function getCharactersByProject(projectId: string): Character[] {
@@ -225,7 +225,7 @@ export function getScenesByProject(projectId: string): Scene[] {
   return db.prepare('SELECT * FROM scenes WHERE project_id = ?').all(projectId) as Scene[]
 }
 
-export function getShotCharacters(shotId: string): unknown[] {
+export function getShotCharacters(shotId: string): Character[] {
   const db = getDb()
   return db
     .prepare(
@@ -235,10 +235,10 @@ export function getShotCharacters(shotId: string): unknown[] {
       WHERE sc.shot_id = ?
     `
     )
-    .all(shotId) as unknown[]
+    .all(shotId) as unknown as Character[]
 }
 
-export function getShotScenes(shotId: string): unknown[] {
+export function getShotScenes(shotId: string): Scene[] {
   const db = getDb()
   return db
     .prepare(
@@ -248,10 +248,10 @@ export function getShotScenes(shotId: string): unknown[] {
       WHERE ss.shot_id = ?
     `
     )
-    .all(shotId) as unknown[]
+    .all(shotId) as unknown as Scene[]
 }
 
-export function getShotCharactersByProject(projectId: string): unknown[] {
+export function getShotCharactersByProject(projectId: string): (Character & { shot_id: string })[] {
   const db = getDb()
   return db
     .prepare(
@@ -264,10 +264,10 @@ export function getShotCharactersByProject(projectId: string): unknown[] {
       WHERE ch.project_id = ?
     `
     )
-    .all(projectId) as unknown[]
+    .all(projectId) as (Character & { shot_id: string })[]
 }
 
-export function getShotScenesByProject(projectId: string): unknown[] {
+export function getShotScenesByProject(projectId: string): (Scene & { shot_id: string })[] {
   const db = getDb()
   return db
     .prepare(
@@ -280,7 +280,7 @@ export function getShotScenesByProject(projectId: string): unknown[] {
       WHERE ch.project_id = ?
     `
     )
-    .all(projectId) as unknown[]
+    .all(projectId) as (Scene & { shot_id: string })[]
 }
 
 export function deleteProject(projectId: string): void {
@@ -295,6 +295,7 @@ export interface Character {
   description?: string
   reference_image?: string
   skin_images?: string
+  voice_preset?: string
 }
 
 export interface Scene {
@@ -327,7 +328,12 @@ export interface Shot {
   chapter_id: string
   shot_index: number
   description?: string
+  description_zh?: string
   dialogue?: string
+  narration?: string
+  shot_type?: string
+  camera_movement?: string
+  lighting_mood?: string
   first_frame_prompt?: string
   last_frame_prompt?: string
   video_prompt?: string
@@ -358,9 +364,13 @@ export interface GenerationTask {
 export interface UpdateShotInput {
   description?: string
   first_frame_prompt?: string
+  first_frame_prompt_zh?: string
   last_frame_prompt?: string
+  last_frame_prompt_zh?: string
   video_prompt?: string
+  video_prompt_zh?: string
   dialogue?: string
+  narration?: string
 }
 
 export function updateShot(shotId: string, input: UpdateShotInput): void {
@@ -376,17 +386,33 @@ export function updateShot(shotId: string, input: UpdateShotInput): void {
     fields.push('first_frame_prompt = ?')
     values.push(input.first_frame_prompt)
   }
+  if (input.first_frame_prompt_zh !== undefined) {
+    fields.push('first_frame_prompt_zh = ?')
+    values.push(input.first_frame_prompt_zh)
+  }
   if (input.last_frame_prompt !== undefined) {
     fields.push('last_frame_prompt = ?')
     values.push(input.last_frame_prompt)
+  }
+  if (input.last_frame_prompt_zh !== undefined) {
+    fields.push('last_frame_prompt_zh = ?')
+    values.push(input.last_frame_prompt_zh)
   }
   if (input.video_prompt !== undefined) {
     fields.push('video_prompt = ?')
     values.push(input.video_prompt)
   }
+  if (input.video_prompt_zh !== undefined) {
+    fields.push('video_prompt_zh = ?')
+    values.push(input.video_prompt_zh)
+  }
   if (input.dialogue !== undefined) {
     fields.push('dialogue = ?')
     values.push(input.dialogue)
+  }
+  if (input.narration !== undefined) {
+    fields.push('narration = ?')
+    values.push(input.narration)
   }
 
   if (fields.length === 0) return
@@ -431,6 +457,13 @@ export function addShotAssociation(
       )
     }
   }
+}
+
+export function removeShotAssociation(shotId: string, type: 'character' | 'scene' | 'prop', assetId: string): void {
+  const db = getDb()
+  if (type === 'character') db.prepare('DELETE FROM shot_characters WHERE shot_id = ? AND character_id = ?').run(shotId, assetId)
+  else if (type === 'scene') db.prepare('DELETE FROM shot_scenes WHERE shot_id = ? AND scene_id = ?').run(shotId, assetId)
+  else db.prepare('DELETE FROM shot_props WHERE shot_id = ? AND prop_id = ?').run(shotId, assetId)
 }
 
 export function createGenerationTask(input: {
@@ -580,7 +613,7 @@ function buildShotAssocMaps(
   const shotChars = db
     .prepare(
       `
-      SELECT sc.shot_id, c.id, c.name, c.description, c.reference_image, c.skin_images
+      SELECT sc.shot_id, c.id, c.name, c.description, c.description_zh, c.reference_image, c.skin_images
       FROM shot_characters sc
       JOIN characters c ON sc.character_id = c.id
       WHERE sc.shot_id IN (${placeholders})
@@ -591,7 +624,7 @@ function buildShotAssocMaps(
   const shotScenes = db
     .prepare(
       `
-      SELECT ss.shot_id, s.id, s.name, s.description, s.reference_image
+      SELECT ss.shot_id, s.id, s.name, s.description, s.description_zh, s.reference_image
       FROM shot_scenes ss
       JOIN scenes s ON ss.scene_id = s.id
       WHERE ss.shot_id IN (${placeholders})
@@ -602,7 +635,7 @@ function buildShotAssocMaps(
   const shotProps = db
     .prepare(
       `
-      SELECT sp.shot_id, p.id, p.name, p.description, p.reference_image
+      SELECT sp.shot_id, p.id, p.name, p.description, p.description_zh, p.reference_image
       FROM shot_props sp
       JOIN props p ON sp.prop_id = p.id
       WHERE sp.shot_id IN (${placeholders})
@@ -653,33 +686,44 @@ function buildShotAssocMaps(
   return { charMap, sceneMap, propMap }
 }
 
-export function getShotsWithAssociations(chapterId: string): unknown[] {
+export interface ShotWithAssoc extends Shot {
+  characters: Character[]
+  scenes: Scene[]
+  props: Prop[]
+}
+
+export interface ProjectData {
+  chapters: Chapter[]
+  characters: Character[]
+  scenes: Scene[]
+  props: Prop[]
+  shots: ShotWithAssoc[]
+}
+
+export function getShotsWithAssociations(chapterId: string): ShotWithAssoc[] {
   const db = getDb()
 
   const shots = db
     .prepare('SELECT * FROM shots WHERE chapter_id = ? ORDER BY shot_index')
-    .all(chapterId) as Record<string, unknown>[]
+    .all(chapterId) as Shot[]
 
-  const shotIds = shots.map((s) => (s as Record<string, unknown>).id as string)
+  const shotIds = shots.map((s) => s.id)
   const { charMap, sceneMap, propMap } = buildShotAssocMaps(db, shotIds)
 
-  return shots.map((s) => {
-    const row = s as Record<string, unknown>
-    return {
-      ...row,
-      characters: charMap.get(row.id as string) || [],
-      scenes: sceneMap.get(row.id as string) || [],
-      props: propMap.get(row.id as string) || []
-    }
-  })
+  return shots.map((s) => ({
+    ...s,
+    characters: charMap.get(s.id) || [],
+    scenes: sceneMap.get(s.id) || [],
+    props: propMap.get(s.id) || []
+  }))
 }
 
-export function getProjectData(projectId: string): Record<string, unknown> {
+export function getProjectData(projectId: string): ProjectData {
   const db = getDb()
 
   const chapters = db
     .prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY chapter_index')
-    .all(projectId) as Record<string, unknown>[]
+    .all(projectId) as Chapter[]
 
   const characters = db
     .prepare('SELECT * FROM characters WHERE project_id = ?')

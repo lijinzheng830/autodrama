@@ -3,8 +3,12 @@ import { getProviders } from './settings'
 import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 import { updateProjectScript, Character, Scene, Prop } from './project'
 import { checkLicense } from '../utils/license'
+import { randomUUID } from 'crypto'
 import { app } from 'electron'
 import { join } from 'path'
+
+// 文本 AI 超时（剧本解析/角色提取/关联/翻译）
+const TEXT_AI_TIMEOUT = 30_000
 
 export interface AutoProcessOptions {
   promptTemplate?: string
@@ -30,7 +34,12 @@ export interface ShotDataChapter {
   shots: {
     shot_index?: number
     description?: string
+    description_zh?: string
     dialogue?: string
+    narration?: string
+    shot_type?: string
+    camera_movement?: string
+    lighting_mood?: string
     first_frame_prompt?: string
     first_frame_prompt_zh?: string
     last_frame_prompt?: string
@@ -126,7 +135,7 @@ export async function callAI(
   const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 500000)
+  const timeout = setTimeout(() => controller.abort(), TEXT_AI_TIMEOUT)
 
   try {
     const response = await fetch(url, {
@@ -298,17 +307,44 @@ function normalizeShotData(raw: any): ShotData {
     return {
       chapters: [{
         title: '第1章',
-        shots: raw.map((s: any, i: number) => ({
-          shot_index: s.shot_index ?? s.shot_id ?? i + 1,
-          description: s.shot_description || s.description || '',
-          dialogue: s.dialogue || '',
-          first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
-          first_frame_prompt_zh: s.first_frame_prompt_zh || '',
-          last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
-          last_frame_prompt_zh: s.last_frame_prompt_zh || '',
-          video_prompt: s.video_prompt || s.videoPrompt || '',
-          video_prompt_zh: s.video_prompt_zh || ''
-        }))
+        shots: raw.map((s: any, i: number) => {
+          const desc = s.shot_description || s.description || ''
+          const descZh = s.description_zh || s.shot_description || ''
+          const st = s.shot_type || ''
+          const cm = s.camera_movement || ''
+          const lm = s.lighting_mood || ''
+          // character_actions 从对象格式转为数组
+          let charActions = s.character_actions
+          if (charActions && typeof charActions === 'object' && !Array.isArray(charActions)) {
+            charActions = Object.entries(charActions).map(([name, action]) => ({ character_name: name, action }))
+          }
+          const charActionsStr = Array.isArray(charActions) ? JSON.stringify(charActions) : ''
+          // 自动生成 first_frame_prompt（如果 AI 没提供）
+          const ffPrompt = s.first_frame_prompt || s.firstFramePrompt || `${st} shot: ${desc}${lm ? ', ' + lm : ''}`
+          const ffPromptZh = s.first_frame_prompt_zh || descZh
+          const lfPrompt = s.last_frame_prompt || s.lastFramePrompt || `${st} shot, closing composition: ${desc}`
+          const lfPromptZh = s.last_frame_prompt_zh || descZh
+          const vPrompt = s.video_prompt || s.videoPrompt || `${cm || 'static'} camera, ${desc}. Smooth cinematic motion.`
+          const vPromptZh = s.video_prompt_zh || descZh
+
+          return {
+            shot_index: s.shot_index ?? s.shot_id ?? i + 1,
+            description: desc,
+            description_zh: descZh,
+            dialogue: s.dialogue || '',
+            narration: s.narration || '',
+            shot_type: st,
+            camera_movement: cm,
+            lighting_mood: lm,
+            character_actions: charActionsStr,
+            first_frame_prompt: ffPrompt,
+            first_frame_prompt_zh: ffPromptZh,
+            last_frame_prompt: lfPrompt,
+            last_frame_prompt_zh: lfPromptZh,
+            video_prompt: vPrompt,
+            video_prompt_zh: vPromptZh
+          }
+        })
       }]
     }
   }
@@ -322,6 +358,10 @@ function normalizeShotData(raw: any): ShotData {
           shot_index: s.shot_index ?? s.shot_id ?? i + 1,
           description: s.description || '',
           dialogue: s.dialogue || '',
+          narration: s.narration || '',
+          shot_type: s.shot_type || '',
+          camera_movement: s.camera_movement || '',
+          lighting_mood: s.lighting_mood || '',
           first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
           first_frame_prompt_zh: s.first_frame_prompt_zh || '',
           last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
@@ -344,6 +384,9 @@ function normalizeShotData(raw: any): ShotData {
             shot_index: s.shot_index ?? s.shot_id ?? i + 1,
             description: s.description || '',
             dialogue: s.dialogue || '',
+            shot_type: s.shot_type || '',
+            camera_movement: s.camera_movement || '',
+            lighting_mood: s.lighting_mood || '',
             first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
             first_frame_prompt_zh: s.first_frame_prompt_zh || '',
             last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
@@ -361,6 +404,9 @@ function normalizeShotData(raw: any): ShotData {
           shot_index: sc.shot_index ?? sc.id ?? sc.shot_id ?? i + 1,
           description: sc.description || '',
           dialogue: sc.dialogue || '',
+          shot_type: sc.shot_type || '',
+          camera_movement: sc.camera_movement || '',
+          lighting_mood: sc.lighting_mood || '',
           first_frame_prompt: sc.first_frame_prompt || sc.firstFramePrompt || '',
           first_frame_prompt_zh: sc.first_frame_prompt_zh || '',
           last_frame_prompt: sc.last_frame_prompt || sc.lastFramePrompt || '',
@@ -436,6 +482,10 @@ export async function autoProcess(
   let shotsData: ShotData
   try {
     const extracted = extractJSON(shotsResult)
+    // 始终保存 AI 原始响应用于调试
+    const fs = await import('fs')
+    const logPath = join(app.getPath('userData'), 'ai_shot_response.json')
+    fs.writeFileSync(logPath, extracted, 'utf8')
     shotsData = JSON.parse(extracted)
     // Normalize: AI may return different structures depending on the template
     shotsData = normalizeShotData(shotsData)
@@ -465,6 +515,9 @@ export async function autoProcess(
   )
   let extractData: ExtractData
   try {
+    const fs = await import('fs')
+    const logPath = join(app.getPath('userData'), 'ai_extract_response.json')
+    fs.writeFileSync(logPath, extractJSON(extractResult), 'utf8')
     extractData = JSON.parse(extractJSON(extractResult))
   } catch (e) {
     console.error('[autoProcess] 提取步骤 JSON 提取失败. AI返回前1000字符:', extractResult.substring(0, 1000))
@@ -524,7 +577,7 @@ function isValidPrompt(prompt?: string): boolean {
   if (!prompt || !prompt.trim()) return false
   const p = prompt.trim()
   if (p.includes('占位')) return false
-  if (p.length > 500) return false  // 过长的是模板指令文本
+  if (p.length > 1500) return false  // 过长的是模板指令文本
   // 如果以markdown标题或指令开头，视为无效
   if (/^(#{1,3}\s|##\s|你是一名|你是|核心|任务)/.test(p)) return false
   return true
@@ -557,7 +610,6 @@ async function saveToDatabase(
   mode: 'full' | 'append' = 'full'
 ): Promise<void> {
   const db = getDb()
-  const crypto = await import('crypto')
 
   // 预先查询已有资产（名称 → ID 映射），用于「只创建、不覆盖」
   const existingChars = db
@@ -589,7 +641,7 @@ async function saveToDatabase(
   }
 
   db.transaction(() => {
-    // 1. full 模式：删除所有分镜数据；append 模式：保留已有
+    // 1. full 模式：清空分镜+角色+场景+道具数据；append 模式：保留已有
     if (mode === 'full') {
       const oldShots = db
         .prepare(
@@ -605,12 +657,16 @@ async function saveToDatabase(
         'DELETE FROM shots WHERE chapter_id IN (SELECT id FROM chapters WHERE project_id = ?)'
       ).run(projectId)
       db.prepare('DELETE FROM chapters WHERE project_id = ?').run(projectId)
+      // full 模式同时清空角色/场景/道具，确保 description_zh 等字段全新
+      db.prepare('DELETE FROM characters WHERE project_id = ?').run(projectId)
+      db.prepare('DELETE FROM scenes WHERE project_id = ?').run(projectId)
+      db.prepare('DELETE FROM props WHERE project_id = ?').run(projectId)
     }
 
     // 2. 角色：已存在则复用 ID，不存在则新建
     const charIdMap = new Map<string, string>()
     const insertChar = db.prepare(
-      'INSERT INTO characters (id, project_id, name, description) VALUES (?, ?, ?, ?)'
+      'INSERT INTO characters (id, project_id, name, description, description_zh) VALUES (?, ?, ?, ?, ?)'
     )
     for (const c of extractData.characters || []) {
       const trimmedName = (c.name || '').trim()
@@ -618,17 +674,21 @@ async function saveToDatabase(
       const existingId = existingCharMap.get(trimmedName)
       if (existingId) {
         charIdMap.set(trimmedName, existingId)
+        // 更新已有角色的描述（含 description_zh）
+        const descZh = (c as any).description_zh || c.description || ''
+        db.prepare('UPDATE characters SET description = ?, description_zh = ? WHERE id = ?').run(c.description || '', descZh, existingId)
       } else {
-        const id = crypto.randomUUID()
+        const id = randomUUID()
         charIdMap.set(trimmedName, id)
-        insertChar.run(id, projectId, trimmedName, c.description || '')
+        const descZh = (c as any).description_zh || c.description || ''
+        insertChar.run(id, projectId, trimmedName, c.description || '', descZh)
       }
     }
 
     // 3. 场景：同上
     const sceneIdMap = new Map<string, string>()
     const insertScene = db.prepare(
-      'INSERT INTO scenes (id, project_id, name, description) VALUES (?, ?, ?, ?)'
+      'INSERT INTO scenes (id, project_id, name, description, description_zh) VALUES (?, ?, ?, ?, ?)'
     )
     for (const s of extractData.scenes || []) {
       const trimmedName = (s.name || '').trim()
@@ -636,17 +696,20 @@ async function saveToDatabase(
       const existingId = existingSceneMap.get(trimmedName)
       if (existingId) {
         sceneIdMap.set(trimmedName, existingId)
+        const descZh = (s as any).description_zh || s.description || ''
+        db.prepare('UPDATE scenes SET description = ?, description_zh = ? WHERE id = ?').run(s.description || '', descZh, existingId)
       } else {
-        const id = crypto.randomUUID()
+        const id = randomUUID()
         sceneIdMap.set(trimmedName, id)
-        insertScene.run(id, projectId, trimmedName, s.description || '')
+        const descZh = (s as any).description_zh || s.description || ''
+        insertScene.run(id, projectId, trimmedName, s.description || '', descZh)
       }
     }
 
     // 4. 道具：同上
     const propIdMap = new Map<string, string>()
     const insertProp = db.prepare(
-      'INSERT INTO props (id, project_id, name, description) VALUES (?, ?, ?, ?)'
+      'INSERT INTO props (id, project_id, name, description, description_zh) VALUES (?, ?, ?, ?, ?)'
     )
     for (const p of extractData.props || []) {
       const trimmedName = (p.name || '').trim()
@@ -654,10 +717,13 @@ async function saveToDatabase(
       const existingId = existingPropMap.get(trimmedName)
       if (existingId) {
         propIdMap.set(trimmedName, existingId)
+        const pDescZh = (p as any).description_zh || p.description || ''
+        db.prepare('UPDATE props SET description = ?, description_zh = ? WHERE id = ?').run(p.description || '', pDescZh, existingId)
       } else {
-        const id = crypto.randomUUID()
+        const id = randomUUID()
         propIdMap.set(trimmedName, id)
-        insertProp.run(id, projectId, trimmedName, p.description || '')
+        const pDescZh = (p as any).description_zh || p.description || ''
+        insertProp.run(id, projectId, trimmedName, p.description || '', pDescZh)
       }
     }
 
@@ -666,7 +732,7 @@ async function saveToDatabase(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
     )
     const insertShot = db.prepare(
-      'INSERT INTO shots (id, chapter_id, shot_index, description, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO shots (id, chapter_id, shot_index, description, description_zh, dialogue, narration, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     const insertShotChar = db.prepare(
       'INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)'
@@ -679,7 +745,7 @@ async function saveToDatabase(
     const chapters: ShotDataChapter[] = shotsData.chapters || []
     for (let ci = 0; ci < chapters.length; ci++) {
       const chapter = chapters[ci]
-      const chapterId = crypto.randomUUID()
+      const chapterId = randomUUID()
       const actualChapterIndex = mode === 'append' ? existingMaxChapterIndex + 1 + ci : ci
       insertChapter.run(
         chapterId,
@@ -690,7 +756,7 @@ async function saveToDatabase(
 
       const shots = chapter.shots || []
       for (const shot of shots) {
-        const shotId = crypto.randomUUID()
+        const shotId = randomUUID()
         // 收集此分镜关联的角色和场景名（用于自动生成提示词）
         const shotAssoc = (assocData.associations || []).find(
           (a: AssocItem) => a.chapter_index === ci && a.shot_index === shot.shot_index
@@ -706,11 +772,18 @@ async function saveToDatabase(
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
         const vPromptZh = shot.video_prompt_zh || shot.description || ''
+        const dialogueText = shot.dialogue || ''
         insertShot.run(
           shotId,
           chapterId,
           shot.shot_index || 0,
-          (shot.description || '') + (shot.dialogue ? `\n对白: ${shot.dialogue}` : ''),
+          shot.description || '',
+          shot.description_zh || shot.description || '',
+          dialogueText,
+          shot.narration || '',
+          shot.shot_type || '',
+          shot.camera_movement || '',
+          shot.lighting_mood || '',
           ffPrompt,
           ffPromptZh,
           lfPrompt,
@@ -734,7 +807,7 @@ async function saveToDatabase(
           for (const propName of shotAssoc.prop_names || []) {
             const propId = propIdMap.get((propName || '').trim())
             if (propId) {
-              insertShotProp.run(crypto.randomUUID(), shotId, propId)
+              insertShotProp.run(randomUUID(), shotId, propId)
             }
           }
         }
@@ -744,4 +817,39 @@ async function saveToDatabase(
     // 更新项目时间
     db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(Date.now(), projectId)
   })()
+}
+
+// ===== 翻译服务 =====
+
+/** 检测文本是否包含中文 */
+function hasChinese(text: string): boolean {
+  return /[一-鿿]/.test(text)
+}
+
+/**
+ * 将中文提示词翻译为英文（调用 AI 文本模型）
+ * 仅当文本包含中文时才翻译，否则直接返回原文
+ */
+export async function translateToEnglish(text: string): Promise<string> {
+  if (!text || !hasChinese(text)) return text
+
+  try {
+    const result = await callAI([
+      {
+        role: 'system',
+        content: 'You are a translator for AI image/video generation prompts. Translate the given Chinese prompt into English. Keep all technical terms in their standard English form. You MUST respond with a JSON object: {"translated": "the English translation here"}. Do NOT include any other text outside the JSON.'
+      },
+      { role: 'user', content: `Translate this Chinese text to English for AI image generation. Respond in JSON format.\n\n${text}` }
+    ])
+    // 解析 JSON 响应
+    try {
+      const parsed = JSON.parse(extractJSON(result))
+      return (parsed.translated || result).trim()
+    } catch {
+      return result.trim()
+    }
+  } catch (e) {
+    console.error('[translateToEnglish] Translation failed, returning original:', e)
+    return text // 翻译失败时返回原文，不阻塞保存
+  }
 }

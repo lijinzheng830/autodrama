@@ -13,7 +13,19 @@ export interface Provider {
   implemented: boolean
 }
 
-export const PROVIDERS: Provider[] = []
+export const PROVIDERS: Provider[] = [
+  {
+    key: 'dashscope',
+    name: '阿里云 DashScope',
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: [
+      { key: 'qwen3.6-flash', name: 'Qwen 3.6 Flash', type: 'text', free: false },
+      { key: 'qwen-plus', name: 'Qwen Plus', type: 'text', free: false },
+      { key: 'qwen-image-plus', name: 'Qwen Image Plus', type: 'image', free: false }
+    ],
+    implemented: true
+  }
+]
 
 export function getProvider(key: string): Provider | undefined {
   return PROVIDERS.find((p) => p.key === key)

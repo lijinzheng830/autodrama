@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, resolve, normalize } from 'path'
+import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './services/db'
 import {
@@ -24,6 +24,7 @@ import {
   deleteShot,
   updateShot,
   addShotAssociation,
+  removeShotAssociation,
   createGenerationTask,
   getGenerationTasks,
   batchCreateGenerationTasks,
@@ -56,7 +57,7 @@ import {
   deletePromptTemplate,
   updatePromptTemplate
 } from './services/template'
-import { autoProcess, AutoProcessOptions, ProgressData } from './services/ai'
+import { autoProcess, AutoProcessOptions, ProgressData, translateToEnglish } from './services/ai'
 import {
   getSetting,
   setSetting,
@@ -71,17 +72,15 @@ import {
 import { PROVIDERS } from './services/providers'
 import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
-import { generateImage, getAssetImages, selectAssetImage, deleteAssetImage, deleteShotImage, deleteShotVideo, generateShotImage, getShotImages, selectShotImage, generateShotVideo, getShotVideos, selectShotVideo } from './services/imageGenerator'
+import { generateImage, generateShotImage, generateAngle } from './services/imageGenerator'
+import { getAssetImages, selectAssetImage, deleteAssetImage, getShotImages, selectShotImage, deleteShotImage, deleteShotVideo, getShotVideos, selectShotVideo, createMultiAngle, getMultiAngle } from './services/characterAnchorService'
+import { generateShotVideo, concatShots } from './services/videoGenerator'
+import { generateVoice, batchGenerateVoices, listVoicePresets } from './services/voiceService'
+import { exportStoryboardPDF } from './services/pdfExport'
 import type { GenerateImageInput } from './types'
 import { reviewScript, getReviewRules, getRuleStats, autoFixScript, generateFixSuggestion } from './services/scriptReviewer'
 import { getStyleTemplates, getStyleByKey } from './services/styleTemplate'
-
-/** 路径校验：仅允许在 userData 目录内读写 */
-function isPathAllowed(filePath: string): boolean {
-  const resolvedPath = normalize(resolve(filePath))
-  const allowedBase = normalize(resolve(app.getPath('userData')))
-  return resolvedPath.startsWith(allowedBase + '\\') || resolvedPath.startsWith(allowedBase + '/')
-}
+import { isPathAllowed } from './utils/pathValidator'
 
 function watchWindowShortcuts(window: BrowserWindow): void {
   const { webContents } = window
@@ -315,6 +314,12 @@ app.whenReady().then(() => {
       addShotAssociation(shotId, type as 'character' | 'scene' | 'prop', assetId)
     }
   )
+  ipcMain.handle(
+    'shot:removeAssociation',
+    async (_, { shotId, type, assetId }: { shotId: string; type: string; assetId: string }) => {
+      removeShotAssociation(shotId, type as 'character' | 'scene' | 'prop', assetId)
+    }
+  )
 
   ipcMain.handle(
     'generationTask:create',
@@ -396,6 +401,22 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('asset:prop:list', async (_, projectId: string) => {
     return getPropsByProject(projectId)
+  })
+
+  // ===== Multi-Angle Character Anchors =====
+  ipcMain.handle('anchor:createMultiAngle', async (_, { characterId, anchors }: { characterId: string; anchors: import('./services/characterAnchorService').MultiAngleAnchors }) => {
+    return createMultiAngle(characterId, anchors)
+  })
+  ipcMain.handle('anchor:getMultiAngle', async (_, characterId: string) => {
+    return getMultiAngle(characterId)
+  })
+  ipcMain.handle('anchor:generateAngle', async (_, { characterId, angle }: { characterId: string; angle: import('./services/styleMapper').AnchorAngle }) => {
+    return generateAngle(characterId, angle)
+  })
+
+  // ===== AI 翻译 =====
+  ipcMain.handle('ai:translate', async (_, text: string) => {
+    return translateToEnglish(text)
   })
 
   // Template handlers
@@ -571,6 +592,8 @@ app.whenReady().then(() => {
 
   // ===== Image Generation =====
   ipcMain.handle('image:generate', async (_, input: GenerateImageInput) => {
+    const proj = getProject(input.projectId)
+    if (!proj) throw new Error('项目不存在')
     return generateImage(input)
   })
 
@@ -603,6 +626,8 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('video:generate', async (_, input) => {
+    const proj = getProject(input.projectId)
+    if (!proj) throw new Error('项目不存在')
     return generateShotVideo(input)
   })
 
@@ -616,6 +641,29 @@ app.whenReady().then(() => {
 
   ipcMain.handle('video:deleteShotVideo', async (_, { shotId, videoId }: { shotId: string; videoId: string }) => {
     deleteShotVideo(shotId, videoId)
+  })
+
+  ipcMain.handle('video:concat', async (event, { projectId, shotIds, outputName }: { projectId: string; shotIds: string[]; outputName?: string }) => {
+    const sendProgress = (p: any) => {
+      try { event.sender.send('video:concatProgress', p) } catch {}
+    }
+    return concatShots(projectId, shotIds, outputName, sendProgress)
+  })
+
+  // ===== Voice (TTS) =====
+  ipcMain.handle('voice:generate', async (_, input: { projectId: string; shotId: string; text: string; voicePreset: string }) => {
+    return generateVoice(input)
+  })
+  ipcMain.handle('voice:batchGenerate', async (_, inputs: Array<{ projectId: string; shotId: string; text: string; voicePreset: string }>) => {
+    return batchGenerateVoices(inputs)
+  })
+  ipcMain.handle('voice:listPresets', async () => {
+    return listVoicePresets()
+  })
+
+  // ===== PDF Export =====
+  ipcMain.handle('export:pdfStoryboard', async (_, config: { projectId: string; shotIds?: string[]; includeImages?: boolean }) => {
+    return exportStoryboardPDF(config)
   })
 
   // ===== Script Reviewer =====

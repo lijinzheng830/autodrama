@@ -4,28 +4,22 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft,
-  ArrowRight,
-  Close,
   Setting,
   Plus,
   VideoPlay,
   DocumentAdd,
-  ArrowUp,
-  ArrowDown,
-  Delete,
-  Search,
-  Back,
   Tools,
   Minus,
   Upload,
   Grid,
   Document,
   RefreshLeft,
-  RefreshRight,
-  Download
+  RefreshRight
 } from '@element-plus/icons-vue'
 import { useEditorStore } from '../stores/editor'
 import CanvasView from './CanvasView.vue'
+import ShotFlowEditor from '../components/ShotFlowEditor.vue'
+import AssetPanel from '../components/AssetPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -64,14 +58,6 @@ const projectStats = ref({ characters: 0, scenes: 0, props: 0, chapters: 0, shot
 
 // 全选
 const selectedShots = ref<Set<string>>(new Set())
-const allShotIds = computed(() => {
-  const ids: string[] = []
-  for (const shot of projectData.value?.shots || []) ids.push(shot.id)
-  return ids
-})
-const isAllSelected = computed(
-  () => allShotIds.value.length > 0 && allShotIds.value.every((id) => selectedShots.value.has(id))
-)
 
 // 右侧面板
 const panelMode = ref<'resident' | 'detail'>('resident')
@@ -175,38 +161,56 @@ function setModelConfigTab(idx: number): void {
   loadModelConfigTemplates()
 }
 
-// 生图控制（详情面板）
-const genCount = ref(1)
+// 生图控制 & 批量生成
+const pickerVisible = ref(false)
+const pickerType = ref<'character' | 'scene' | 'prop'>('character')
+const pickerShotId = ref('')
 
-// 批量操作弹窗
 const batchDialogVisible = ref(false)
 const batchType = ref('')
-const batchMode = ref<'asset' | 'shot'>('shot')
+const batchMode = ref<'asset' | 'shot'>('asset')
 const batchCount = ref(1)
-const batchMissingCount = ref(0)
 const batchTotalAssets = ref(0)
+const batchMissingCount = ref(0)
+const batchCancelled = ref(false)
 const batchProgress = ref<Record<string, { current: number; total: number }>>({})
 const currentBatchProgress = computed(() => batchProgress.value[batchType.value] || { current: 0, total: 0 })
-const batchCancelled = ref(false)
 
-// 导出功能
+const genCount = ref(1)
+const sessionOverrides = ref<Record<string, { model: string; channel: string }>>({})
+const editAssetDesc = ref('')
+const editAssetName = ref('')
+const editFirstFramePrompt = ref('')
+const editLastFramePrompt = ref('')
+const editVideoPrompt = ref('')
+const assetImages = ref<any[]>([])
+const assetVideos = ref<any[]>([])
+
 const exportAssetMode = ref(false)
-const exportAssetType = ref<'characters' | 'scenes' | 'props'>('characters')
+const exportAssetType = ref('')
 const exportAssetIds = ref<Set<string>>(new Set())
+const lastExportDir = ref('')
 const exportProgressVisible = ref(false)
 const exportProgressCurrent = ref(0)
 const exportProgressTotal = ref(0)
 const exportProgressMsg = ref('')
-const lastExportDir = ref('')
+
+let _videoGenerating = false
+async function handleGenerateVideo(): Promise<void> {
+  if (!detailData.value?.id || _videoGenerating) return
+  _videoGenerating = true
+  try {
+    await window.api.generateVideo({ projectId, shotId: detailData.value.id })
+    ElMessage.success('视频生成任务已提交')
+    startBroadcastPolling()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '视频生成失败')
+  } finally { _videoGenerating = false }
+}
 
 const batchTypeLabels: Record<string, string> = {
-  人物: '批量生成角色定妆照',
-  场景: '批量生成场景定妆照',
-  道具: '批量生成道具定妆照',
-  首帧: '批量生成首帧图',
-  尾帧: '批量生成尾帧图',
-  视频: '批量生成视频',
-  批量: '批量生成'
+  人物: '角色', 场景: '场景', 道具: '道具',
+  首帧: '首帧', 尾帧: '尾帧', 视频: '视频'
 }
 
 // AI解析弹窗（保留）
@@ -380,10 +384,24 @@ async function loadProject(): Promise<void> {
 }
 
 async function loadEpisodesData(): Promise<void> {
+  // 在所有可能的滚动容器上保存位置
+  const containers = ['.shot-table', '.shot-table-wrapper', '.episodes-body']
+  const saved: number[] = containers.map(sel => {
+    const el = document.querySelector(sel) as HTMLElement | null
+    return el?.scrollTop || 0
+  })
   episodesLoading.value = true
   try {
     const data = await window.api.getProjectData(projectId)
     projectData.value = data
+    await nextTick()
+    // 恢复所有滚动容器位置
+    requestAnimationFrame(() => {
+      containers.forEach((sel, i) => {
+        const el = document.querySelector(sel) as HTMLElement | null
+        if (el && saved[i] > 0) el.scrollTop = saved[i]
+      })
+    })
   } catch (err) {
     ElMessage.error('加载剧集数据失败')
     console.error(err)
@@ -574,28 +592,6 @@ function handleSkipParse(): void {
 
 // ===== 分镜列表 =====
 
-const groupedShots = computed(() => {
-  if (!projectData.value) return []
-  const result: any[] = []
-  for (const chapter of projectData.value.chapters || []) {
-    const shots = (projectData.value.shots || []).filter((s: any) => s.chapter_id === chapter.id)
-    result.push({ chapter, shots })
-  }
-  return result
-})
-
-function toggleSelectAll(): void {
-  if (isAllSelected.value) {
-    selectedShots.value.clear()
-  } else {
-    for (const id of allShotIds.value) selectedShots.value.add(id)
-  }
-}
-
-function toggleShotSelect(shotId: string): void {
-  if (selectedShots.value.has(shotId)) selectedShots.value.delete(shotId)
-  else selectedShots.value.add(shotId)
-}
 
 let docMouseDownHandler: ((e: MouseEvent) => void) | null = null
 let currentEditTextarea: HTMLTextAreaElement | null = null
@@ -649,9 +645,21 @@ async function saveEdit(shotId: string, field: string): Promise<void> {
   if (!editingCell.value) return
   try {
     const update: any = {}
-    if (field === 'description') update.description = editText.value
-    else if (field === 'first_frame_prompt') update.first_frame_prompt = editText.value
-    else if (field === 'last_frame_prompt') update.last_frame_prompt = editText.value
+    if (field === 'description') { update.description_zh = editText.value; update.description = editText.value }
+    else if (field === 'first_frame_prompt') {
+      const v = editText.value; update.first_frame_prompt_zh = v
+      update.first_frame_prompt = /[一-鿿]/.test(v) ? await window.api.translateToEnglish(v) : v
+    }
+    else if (field === 'last_frame_prompt') {
+      const v = editText.value; update.last_frame_prompt_zh = v
+      update.last_frame_prompt = /[一-鿿]/.test(v) ? await window.api.translateToEnglish(v) : v
+    }
+    else if (field === 'video_prompt') {
+      const v = editText.value; update.video_prompt_zh = v
+      update.video_prompt = /[一-鿿]/.test(v) ? await window.api.translateToEnglish(v) : v
+    }
+    else if (field === 'dialogue') { update.dialogue = editText.value }
+    else if (field === 'narration') { update.narration = editText.value }
     await window.api.updateShot(shotId, update)
     // 前端直接更新当前 shot，避免全量刷新导致闪烁
     const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
@@ -710,18 +718,6 @@ async function checkAndCreateAssociations(shotId: string, text: string): Promise
   return created
 }
 
-function getHighlightText(text: string, shot: any): any {
-  if (!text) return ''
-  const names = new Set<string>()
-  for (const c of shot.characters || []) names.add(c.name)
-  for (const s of shot.scenes || []) names.add(s.name)
-  for (const p of shot.props || []) names.add(p.name)
-  let html = text
-  for (const name of names) {
-    html = html.replaceAll(name, `<mark class="hl-asset">${name}</mark>`)
-  }
-  return html
-}
 
 async function handleMoveUp(shotId: string): Promise<void> {
   try {
@@ -759,6 +755,46 @@ async function handleDeleteShot(shotId: string): Promise<void> {
       console.error(err)
     }
   }
+}
+
+async function removeAssociation(shotId: string, type: string, assetId: string): Promise<void> {
+  try {
+    await window.api.removeShotAssociation(shotId, type, assetId)
+    // 直接更新本地数据，不重新加载
+    if (projectData.value?.shots) {
+      const shot = projectData.value.shots.find((s: any) => s.id === shotId)
+      if (shot) {
+        if (type === 'character') shot.characters = (shot.characters || []).filter((c: any) => c.id !== assetId)
+        else if (type === 'scene') shot.scenes = (shot.scenes || []).filter((s: any) => s.id !== assetId)
+        else if (type === 'prop') shot.props = (shot.props || []).filter((p: any) => p.id !== assetId)
+      }
+    }
+  } catch { ElMessage.error('移除失败') }
+}
+function addAssociationFromTable(shotId: string, type: string): void {
+  const list = type === 'character' ? projectData.value?.characters : type === 'scene' ? projectData.value?.scenes : projectData.value?.props
+  if (!list?.length) { ElMessage.warning('没有可用选项'); return }
+  pickerType.value = type as 'character' | 'scene' | 'prop'
+  pickerShotId.value = shotId
+  pickerVisible.value = true
+}
+const pickerAssets = computed(() => {
+  const t = pickerType.value
+  return (projectData.value?.[t === 'character' ? 'characters' : t === 'scene' ? 'scenes' : 'props'] || []) as any[]
+})
+async function pickerSelect(asset: any): Promise<void> {
+  pickerVisible.value = false
+  try {
+    await window.api.addShotAssociation(pickerShotId.value, pickerType.value, asset.id)
+    ElMessage.success(`已添加`)
+    const shot = projectData.value?.shots?.find((s: any) => s.id === pickerShotId.value)
+    if (shot) {
+      const t = pickerType.value
+      if (t === 'character' && !shot.characters?.find((c: any) => c.id === asset.id)) shot.characters = [...(shot.characters || []), asset]
+      else if (t === 'scene' && !shot.scenes?.find((s: any) => s.id === asset.id)) shot.scenes = [...(shot.scenes || []), asset]
+      else if (t === 'prop' && !shot.props?.find((p: any) => p.id === asset.id)) shot.props = [...(shot.props || []), asset]
+    }
+  } catch { ElMessage.error('添加失败') }
 }
 
 function handleBatchGenerate(type: string): void {
@@ -999,12 +1035,10 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
             taskId
           })
         } else {
-          await window.api.createGenerationTask({
+          await window.api.generateVideo({
             projectId,
-            shotId: item.shotId,
-            type: 'video',
-            purpose: 'video',
-            inputParams: JSON.stringify({ count: batchCount.value })
+            shotId: item.shotId!,
+            taskId
           })
         }
       })
@@ -1054,608 +1088,10 @@ async function showDetail(type: string, data: any): Promise<void> {
   editVideoPrompt.value = data?.video_prompt_zh || data?.video_prompt || ''
   editAssetName.value = data?.name || ''
   editAssetDesc.value = data?.description || ''
-  if (type === 'video' && data?.id) {
-    await loadShotVideos(data.id)
-  }
-  if (['character', 'scene', 'prop'].includes(type) && data?.id) {
-    await loadAssetImages(type, data.id)
-  }
-  if ((type === 'firstFrame' || type === 'lastFrame') && data?.id) {
-    await loadShotImages(data.id, type === 'firstFrame' ? 'first' : 'last')
-    // 如果提示词为空，从模型配置中读取模板自动填充
-    const promptField = type === 'firstFrame' ? 'first_frame_prompt' : 'last_frame_prompt'
-    if (!data[promptField]) {
-      try {
-        const proj = await window.api.getProject(projectId)
-        const raw = (proj as Record<string, any>)?.model_config_json
-        if (raw) {
-          const cfg = JSON.parse(raw)
-          const purposeKey = type === 'firstFrame' ? 'first_frame' : 'last_frame'
-          const purposeConfig = cfg[purposeKey] || {}
-          if (purposeConfig.templateId) {
-            // 获取模板内容（不传usage，避免过滤掉不同分类的模板）
-            const templates = await window.api.getPromptTemplates(projectId, '')
-            const t = (templates as any[]).find((t: any) => t.id === purposeConfig.templateId)
-            if (t?.content) {
-              detailData.value = { ...data, [promptField]: t.content }
-            }
-          }
-        }
-      } catch { /* ignore */ }
-    }
-  }
-}
-
-function backToResident(): void {
-  panelMode.value = 'resident'
-  detailData.value = null
-}
-
-const filteredAssets = computed(() => {
-  const list = projectData.value?.[residentTab.value] || []
-  if (!searchKeyword.value) return list
-  return list.filter((a: any) => a.name?.includes(searchKeyword.value))
-})
-
-const usedCharacterIds = computed(() => {
-  const ids = new Set<string>()
-  for (const shot of projectData.value?.shots || []) {
-    for (const c of shot.characters || []) ids.add(c.id)
-  }
-  return ids
-})
-const usedSceneIds = computed(() => {
-  const ids = new Set<string>()
-  for (const shot of projectData.value?.shots || []) {
-    for (const s of shot.scenes || []) ids.add(s.id)
-  }
-  return ids
-})
-const usedPropIds = computed(() => {
-  const ids = new Set<string>()
-  for (const shot of projectData.value?.shots || []) {
-    for (const p of shot.props || []) ids.add(p.id)
-  }
-  return ids
-})
-
-function isAssetUsed(assetId: string): any {
-  if (residentTab.value === 'characters') return usedCharacterIds.value.has(assetId)
-  if (residentTab.value === 'scenes') return usedSceneIds.value.has(assetId)
-  return usedPropIds.value.has(assetId)
-}
-
-async function handleAssetNameChange(type: string, asset: any, newName: string): Promise<void> {
-  if (!newName.trim() || newName === asset.name) return
-  try {
-    if (type === 'character') await window.api.updateCharacter(asset.id, { name: newName.trim() })
-    else if (type === 'scene') await window.api.updateScene(asset.id, { name: newName.trim() })
-    else if (type === 'prop') await window.api.updateProp(asset.id, { name: newName.trim() })
-    editAssetName.value = newName.trim()
-    await loadEpisodesData()
-  } catch (err) {
-    ElMessage.error('改名失败')
-    console.error(err)
-  }
-}
-
-async function handleAssetDescChange(type: string, asset: any, newDesc: string): Promise<void> {
-  try {
-    if (type === 'character') await window.api.updateCharacter(asset.id, { description: newDesc })
-    else if (type === 'scene') await window.api.updateScene(asset.id, { description: newDesc })
-    else if (type === 'prop') await window.api.updateProp(asset.id, { description: newDesc })
-    editAssetDesc.value = newDesc
-    await loadEpisodesData()
-  } catch (err) {
-    ElMessage.error('保存描述失败')
-    console.error(err)
-  }
-}
-
-async function handleSelectImage(type: string, asset: any): Promise<void> {
-  if (!project.value?.path) return
-  try {
-    const imagePath = await window.api.selectImage(project.value.path)
-    if (!imagePath) return
-    if (type === 'character')
-      await window.api.updateCharacter(asset.id, { referenceImage: imagePath })
-    else if (type === 'scene') await window.api.updateScene(asset.id, { referenceImage: imagePath })
-    else if (type === 'prop') await window.api.updateProp(asset.id, { referenceImage: imagePath })
-    await loadEpisodesData()
-    // 如果当前在详情面板，刷新详情数据
-    if (detailData.value?.id === asset.id) {
-      detailData.value = { ...detailData.value, reference_image: imagePath }
-    }
-  } catch (err) {
-    ElMessage.error('上传图片失败')
-    console.error(err)
-  }
-}
-
-async function handleDeleteAsset(type: string, assetId: string): Promise<void> {
-  try {
-    await ElMessageBox.confirm('确定删除吗？', '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    if (type === 'character') await window.api.deleteCharacter(assetId)
-    else if (type === 'scene') await window.api.deleteScene(assetId)
-    else if (type === 'prop') await window.api.deleteProp(assetId)
-    await loadEpisodesData()
-  } catch (err: any) {
-    if (err !== 'cancel' && err?.message !== 'cancel') {
-      ElMessage.error('删除失败')
-      console.error(err)
-    }
-  }
-}
-
-async function handleCreateAsset(): Promise<void> {
-  const tab = residentTab.value
-  const label = tab === 'characters' ? '角色' : tab === 'scenes' ? '场景' : '道具'
-  try {
-    const { value } = await ElMessageBox.prompt(`请输入${label}名称`, `创建${label}`, {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
-      inputPattern: /\S/,
-      inputErrorMessage: '名称不能为空'
-    })
-    const name = value.trim()
-    if (tab === 'characters') await window.api.createCharacter(projectId, { name })
-    else if (tab === 'scenes') await window.api.createScene(projectId, { name })
-    else if (tab === 'props') await window.api.createProp(projectId, { name })
-    await loadEpisodesData()
-  } catch (err: any) {
-    if (err !== 'cancel' && err?.message !== 'cancel') {
-      console.error(err)
-    }
-  }
-}
-
-function handleImportAsset(): void {
-  ElMessage.info('从其他项目导入功能后续版本开放')
-}
-
-// 生图loading状态
-const genLoading = ref<Set<string>>(new Set())
-
-// 历史图片记录
-const assetImages = ref<any[]>([])
-const assetVideos = ref<any[]>([])
-
-// 详情面板编辑缓冲（v-model 绑本地 ref，blur 时提交）
-const editFirstFramePrompt = ref('')
-const editLastFramePrompt = ref('')
-const editVideoPrompt = ref('')
-const editAssetName = ref('')
-const editAssetDesc = ref('')
-
-// ===== 全屏大图预览 =====
-const fullscreenImageVisible = ref(false)
-const fullscreenImageSrc = ref('')
-const fullscreenImageList = ref<string[]>([])
-const fullscreenImageIndex = ref(0)
-const fullscreenIsVideo = ref(false)
-
-function openFullscreenImage(src: string, list?: string[], isVideo?: boolean): void {
-  if (!src) return
-  fullscreenImageSrc.value = src
-  fullscreenIsVideo.value = !!isVideo
-  fullscreenImageVisible.value = true
-  if (list && list.length > 0) {
-    fullscreenImageList.value = list
-    fullscreenImageIndex.value = list.indexOf(src)
-    if (fullscreenImageIndex.value < 0) fullscreenImageIndex.value = 0
-  } else {
-    fullscreenImageList.value = [src]
-    fullscreenImageIndex.value = 0
-  }
-}
-
-function closeFullscreenImage(): void {
-  fullscreenImageVisible.value = false
-  fullscreenImageSrc.value = ''
-  fullscreenImageList.value = []
-}
-
-function fullscreenPrev(): void {
-  if (fullscreenImageList.value.length < 2) return
-  const idx = fullscreenImageIndex.value - 1
-  fullscreenImageIndex.value = idx < 0 ? fullscreenImageList.value.length - 1 : idx
-  fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value]
-}
-
-function fullscreenNext(): void {
-  if (fullscreenImageList.value.length < 2) return
-  const idx = fullscreenImageIndex.value + 1
-  fullscreenImageIndex.value = idx >= fullscreenImageList.value.length ? 0 : idx
-  fullscreenImageSrc.value = fullscreenImageList.value[fullscreenImageIndex.value]
-}
-
-function handleFullscreenKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    closeFullscreenImage()
-  } else if (e.key === 'ArrowLeft') {
-    fullscreenPrev()
-  } else if (e.key === 'ArrowRight') {
-    fullscreenNext()
-  }
-}
-
-function handleDownloadFullscreenImage(): void {
-  const src = fullscreenImageSrc.value
-  if (!src) return
-  // Convert file:// to actual path for Electron
-  let filePath = src
-  if (filePath.startsWith('file://')) {
-    filePath = filePath.replace('file://', '')
-  }
-  // Use a hidden link to trigger download
-  const link = document.createElement('a')
-  link.href = src
-  link.download = filePath.split(/[/\\]/).pop() || 'image.png'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
-
-async function handleDeleteFullscreenImage(): Promise<void> {
-  const src = fullscreenImageSrc.value
-  if (!src) return
-  let filePath = src
-  if (filePath.startsWith('file://')) {
-    filePath = filePath.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '')
-    if (filePath.match(/^[A-Za-z]:/)) {
-      filePath = filePath.replace(/\//g, '\\')
-    }
-  }
-  const img = assetImages.value.find((ai: any) => {
-    const p = (ai.image_path || '').replace(/\//g, '\\')
-    return p === filePath
-  })
-  if (!img) {
-    ElMessage.warning('未找到对应记录')
-    return
-  }
-  // 先关闭大图，再弹确认框（避免弹窗被大图遮挡）
-  closeFullscreenImage()
-  await nextTick()
-  try {
-    await ElMessageBox.confirm('确定要删除这张图片吗？此操作不可恢复。', '确认删除', { type: 'warning' })
-  } catch {
-    // 用户取消，重新打开大图
-    openFullscreenImage(src, fullscreenImageList.value.length > 0 ? fullscreenImageList.value : undefined)
-    return
-  }
-  // Remove from fullscreen list
-  const idx = fullscreenImageList.value.indexOf(src)
-  if (idx >= 0) {
-    fullscreenImageList.value.splice(idx, 1)
-  }
-  // Determine asset type and ID
-  let assetType: 'character' | 'scene' | 'prop' = 'character'
-  let assetId = ''
-  if (detailType.value === 'character' || detailType.value === 'scene' || detailType.value === 'prop') {
-    assetType = detailType.value as 'character' | 'scene' | 'prop'
-    assetId = detailData.value?.id || ''
-  }
-  if (assetId && img.id) {
-    try {
-      await window.api.deleteAssetImage(assetType, assetId, img.id)
-    } catch (_err) {
-      console.error('Delete image failed:', _err)
-    }
-  }
-  // Reload images
-  if (detailType.value && detailData.value?.id) {
-    const type = ['character', 'scene', 'prop'].includes(detailType.value) ? detailType.value : ''
-    if (type) await loadAssetImages(type, detailData.value.id)
-    else if (detailType.value === 'firstFrame' || detailType.value === 'lastFrame') {
-      await loadShotImages(detailData.value.id, detailType.value === 'firstFrame' ? 'first' : 'last')
-    }
-  }
-  await loadEpisodesData()
-  ElMessage.success('图片已删除')
-}
-
-// ===== 会话级覆盖 =====
-const sessionOverrides = ref<Record<string, { model: string; channel: string }>>({})
-
-function setSessionOverride(key: string, model: string, channel: string): void {
-  sessionOverrides.value[key] = { model, channel }
-}
-
-function clearSessionOverride(key: string): void {
-  delete sessionOverrides.value[key]
-}
-
-// ===== 齿轮弹窗（临时生图/视频配置） =====
-const gearVisible = ref(false)
-const gearModel = ref('')
-const gearChannel = ref('')
-const gearCount = ref(1)
-const gearType = ref<'image' | 'video'>('image')
-const gearEffectiveInfo = ref<{ model: string; channel: string; source: string }>({ model: '', channel: '', source: '' })
-
-async function initGearDefaults(type?: string): Promise<void> {
-  if (type) gearType.value = type as 'image' | 'video'
-  else gearType.value = 'image'
-  if (localStorage.getItem('providers_dirty') === '1') {
-    providerModels.value = []
-    localStorage.removeItem('providers_dirty')
-  }
-  if (providerModels.value.length === 0) {
-    await loadProviderModels()
-  }
-
-  const purposeMap: Record<string, string> = {
-    character: 'character_image',
-    scene: 'scene_image',
-    prop: 'prop_image',
-    firstFrame: 'first_frame',
-    lastFrame: 'last_frame',
-    video: 'video'
-  }
-  const purposeKey = purposeMap[detailType.value] || (type === 'video' ? 'video' : '')
-  if (!purposeKey) return
-
-  // 1. 优先读会话级覆盖
-  const override = sessionOverrides.value[purposeKey]
-  if (override?.model) {
-    gearModel.value = override.model
-    gearChannel.value = override.channel || ''
-    gearEffectiveInfo.value = { ...override, source: '会话覆盖' }
-    return
-  }
-
-  // 2. 再读模型配置（直接读数据库，保证最新）
-  try {
-    const proj = await window.api.getProject(projectId)
-    const raw = (proj as Record<string, any>)?.model_config_json
-    if (raw) {
-      const cfg = JSON.parse(raw)
-      const pc = cfg[purposeKey]
-      if (pc?.model) {
-        gearModel.value = pc.model
-        gearChannel.value = pc.channel || ''
-        gearEffectiveInfo.value = { model: pc.model, channel: pc.channel || '', source: '模型配置' }
-        return
-      }
-    }
-  } catch { /* ignore */ }
-
-  // 3. 再读模型路由
-  try {
-    const routesRaw = await window.api.getSetting('model_routes')
-    if (routesRaw) {
-      const routes = JSON.parse(routesRaw as string)
-      const rc = routes[purposeKey]
-      if (rc?.model) {
-        gearModel.value = rc.model
-        gearChannel.value = rc.channel || ''
-        gearEffectiveInfo.value = { model: rc.model, channel: rc.channel || '', source: '模型路由' }
-        return
-      }
-    }
-  } catch { /* ignore */ }
-
-  gearModel.value = ''
-  gearChannel.value = ''
-  gearEffectiveInfo.value = { model: '', channel: '', source: '' }
-}
-
-function handleGearModelChange(val: string): void {
-  gearModel.value = val
-  const matched = providerModels.value.find((m) => m.value === val)
-  if (matched?.provider) {
-    gearChannel.value = matched.provider
-  }
-}
-
-async function handleGearRestoreDefault(): Promise<void> {
-  const purposeMap: Record<string, string> = {
-    character: 'character_image',
-    scene: 'scene_image',
-    prop: 'prop_image',
-    firstFrame: 'first_frame',
-    lastFrame: 'last_frame'
-  }
-  const purposeKey = purposeMap[detailType.value]
-  if (purposeKey) {
-    clearSessionOverride(purposeKey)
-  }
-  gearModel.value = ''
-  gearChannel.value = ''
-  await initGearDefaults()
-}
-
-const filteredGearModels = computed(() => {
-  const typeMap: Record<string, string> = {
-    character: 'image',
-    scene: 'image',
-    prop: 'image',
-    firstFrame: 'image',
-    lastFrame: 'image'
-  }
-  if (gearType.value === 'video') {
-    return providerModels.value.filter((m) => m.modelType === 'video')
-  }
-  const neededType = typeMap[detailType.value]
-  if (!neededType) return providerModels.value
-  return providerModels.value.filter((m) => m.modelType === neededType)
-})
-
-const gearEffectiveDisplay = computed(() => {
-  const eff = gearEffectiveInfo.value
-  if (!eff.model) return '未设置'
-  const modelLabel = providerModels.value.find((m) => m.value === eff.model)?.label || eff.model
-  return `${modelLabel}（${eff.source}）`
-})
-
-function handleGearConfirm(): void {
-  const type = detailType.value
-  const purposeMap: Record<string, string> = {
-    character: 'character_image',
-    scene: 'scene_image',
-    prop: 'prop_image',
-    firstFrame: 'first_frame',
-    lastFrame: 'last_frame',
-    video: 'video'
-  }
-  const purposeKey = purposeMap[type]
-  if (gearModel.value && purposeKey) {
-    setSessionOverride(purposeKey, gearModel.value, gearChannel.value)
-    ElMessage.success('已确认选择')
-  }
-  gearVisible.value = false
+  // AssetPanel 通过 watch(detailData) 自动加载历史图片/视频
 }
 
 
-
-async function loadAssetImages(type: string, assetId: string): Promise<void> {
-  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
-  try {
-    const images = await window.api.getAssetImages(assetType, assetId)
-    assetImages.value = images || []
-  } catch (err) {
-    console.error('加载历史图片失败', err)
-    assetImages.value = []
-  }
-}
-
-async function loadShotVideos(shotId: string): Promise<void> {
-  try {
-    const videos = await window.api.getShotVideos(shotId)
-    assetVideos.value = videos || []
-  } catch (err) {
-    console.error('加载视频历史失败', err)
-    assetVideos.value = []
-  }
-}
-
-async function handleSelectHistoryVideo(shotId: string, videoId: string): Promise<void> {
-  try {
-    await window.api.selectShotVideo(shotId, videoId)
-    if (shotId) await loadShotVideos(shotId)
-    await loadEpisodesData()
-    // Update detail data
-    const updatedShot = projectData.value?.shots?.find((s: any) => s.id === shotId)
-    if (updatedShot) {
-      detailData.value = { ...detailData.value, video_path: updatedShot.video_path }
-    }
-  } catch (err: any) {
-    ElMessage.error(err?.message || '选择视频失败')
-  }
-}
-
-async function handleDeleteHistoryVideo(shotId: string, videoId: string): Promise<void> {
-  try { await ElMessageBox.confirm('确定删除该视频？', '确认', { type: 'warning' }) } catch { return }
-  try {
-    await window.api.deleteShotVideo(shotId, videoId)
-    if (shotId) await loadShotVideos(shotId)
-    await loadEpisodesData()
-    ElMessage.success('视频已删除')
-  } catch (err: any) {
-    ElMessage.error(err?.message || '删除失败')
-  }
-}
-
-async function loadShotImages(shotId: string, frameType: 'first' | 'last'): Promise<void> {
-  try {
-    const images = await window.api.getShotImages(shotId, frameType)
-    assetImages.value = images || []
-  } catch (err) {
-    console.error('加载分镜历史图片失败', err)
-    assetImages.value = []
-  }
-}
-
-async function handleDeleteHistoryImage(type: string, assetId: string, imageId: string): Promise<void> {
-  try {
-    await ElMessageBox.confirm('确定要删除这张图片吗？', '确认删除', { type: 'warning' })
-  } catch {
-    return
-  }
-  try {
-    if (type === 'firstFrame' || type === 'lastFrame') {
-      await window.api.deleteShotImage(assetId, imageId)
-      const frameType = type === 'firstFrame' ? 'first' : 'last'
-      await loadEpisodesData()
-      await loadShotImages(assetId, frameType)
-    } else {
-      const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
-      await window.api.deleteAssetImage(assetType, assetId, imageId)
-      await loadEpisodesData()
-      await loadAssetImages(type, assetId)
-    }
-    ElMessage.success('图片已删除')
-  } catch (err: any) {
-    ElMessage.error(err?.message || '删除失败')
-  }
-}
-
-async function handleSelectHistoryImage(type: string, assetId: string, imageId: string): Promise<void> {
-  const assetType = type === 'character' ? 'character' : type === 'scene' ? 'scene' : 'prop'
-  try {
-    await window.api.selectAssetImage(assetType, assetId, imageId)
-    // 先读取新数据，一次性更新本地状态，避免中间空白闪烁
-    const images = (await window.api.getAssetImages(assetType, assetId)) as Array<{ id: string; image_path: string; is_selected: number }>
-    assetImages.value = images || []
-    const selectedImg = images?.find((img) => img.is_selected)
-    if (selectedImg) {
-      detailData.value = { ...detailData.value, reference_image: selectedImg.image_path }
-    }
-    // 异步更新项目数据，不阻塞当前 UI 刷新
-    loadEpisodesData()
-  } catch (err) {
-    ElMessage.error('切换图片失败')
-    console.error(err)
-  }
-}
-
-async function handleSelectShotImage(shotId: string, frameType: 'first' | 'last', imageId: string): Promise<void> {
-  try {
-    await window.api.selectShotImage(shotId, frameType, imageId)
-    await loadShotImages(shotId, frameType)
-    await loadEpisodesData()
-    // 刷新详情数据
-    const updatedShot = projectData.value?.shots?.find((s: any) => s.id === shotId)
-    if (updatedShot) {
-      const key = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
-      detailData.value = { ...detailData.value, [key]: updatedShot[key] }
-    }
-  } catch (err) {
-    ElMessage.error('切换图片失败')
-    console.error(err)
-  }
-}
-
-// 生视频按钮
-async function handleGenerateVideo(): Promise<void> {
-  if (!detailData.value?.id) return
-  const override = sessionOverrides.value['video']
-  const glKey = 'video_' + (detailData.value?.id || '')
-  genLoading.value.add(glKey)
-  try {
-    await window.api.generateVideo({
-      projectId,
-      shotId: detailData.value.id,
-      model: override?.model || undefined,
-      channel: override?.channel || undefined
-    })
-    ElMessage.success('视频生成任务已提交，请稍后在生成记录中查看')
-    await loadEpisodesData()
-    if (detailData.value?.id) await loadShotVideos(detailData.value.id)
-    genRecordTab.value = 'video'
-    genRecordVisible.value = true
-    await loadGenerationRecords()
-  } catch (err: any) {
-    ElMessage.error(err?.message || '视频生成失败')
-  } finally {
-    genLoading.value.delete(glKey)
-  }
-}
 
 // 生图按钮（MVP2真实服务）
 async function handleGenerateImage(type: string, assetId?: string): Promise<void> {
@@ -1680,8 +1116,6 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     const model = override?.model || undefined
     const channel = override?.channel || undefined
 
-    const glKey2 = type + '_' + assetId
-    genLoading.value.add(glKey2)
     try {
       await window.api.generateShotImage({
         projectId,
@@ -1694,22 +1128,22 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
         refImage: purposeConfig.refImage || ''
       })
       ElMessage.success('图片生成成功')
-      await loadShotImages(assetId, frameType)
-      await loadEpisodesData()
-      // 刷新详情数据
-      const updatedShot = projectData.value?.shots?.find((s: any) => s.id === assetId)
-      if (updatedShot) {
-        const key = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
-        detailData.value = { ...detailData.value, [key]: updatedShot[key] }
-      }
-      genRecordTab.value = 'image'
-      genRecordVisible.value = true
+      // 直接更新本地数据，避免全量刷新导致滚动重置
+      try {
+        const fresh = await window.api.getProjectData(projectId)
+        const freshShot = (fresh as any).shots?.find((s: any) => s.id === assetId)
+        if (freshShot && projectData.value) {
+          const key = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
+          const localShot = projectData.value.shots?.find((s: any) => s.id === assetId)
+          if (localShot) { localShot[key] = freshShot[key]; localShot.first_frame_prompt = freshShot.first_frame_prompt; localShot.first_frame_prompt_zh = freshShot.first_frame_prompt_zh }
+          if (detailData.value?.id === assetId) detailData.value = { ...detailData.value, [key]: freshShot[key] }
+        }
+      } catch { /* silent */ }
       await loadGenerationRecords()
     } catch (err: any) {
       ElMessage.error(err?.message || '图片生成失败')
       console.error(err)
     } finally {
-      genLoading.value.delete(glKey2)
     }
     return
   }
@@ -1751,8 +1185,6 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
     if (!channel) channel = purposeConfig.channel || ''
   }
 
-  const glKey3 = type + '_' + assetId
-  genLoading.value.add(glKey3)
   try {
     // 读取该用途的模板和参考图
     const purposeConfig = modelConfig[purposeKey] || {}
@@ -1771,46 +1203,26 @@ async function handleGenerateImage(type: string, assetId?: string): Promise<void
       refImage
     })
     ElMessage.success('图片生成成功')
-    // 刷新历史记录和资产数据
-    await loadAssetImages(type, assetId)
-    await loadEpisodesData()
-    // 更新详情数据
-    const updatedAsset = projectData.value?.[
-      assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
-    ]?.find((a: any) => a.id === assetId)
-    if (updatedAsset) {
-      detailData.value = { ...detailData.value, reference_image: updatedAsset.reference_image }
-    }
-    // 自动弹出生成记录弹窗
-    genRecordTab.value = 'image'
-    genRecordVisible.value = true
+    // 直接更新本地数据，避免全量刷新闪跳
+    try {
+      const fresh = await window.api.getProjectData(projectId)
+      const key = assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
+      const freshAsset = (fresh as any)[key]?.find((a: any) => a.id === assetId)
+      if (freshAsset && projectData.value?.[key]) {
+        const localAsset = projectData.value[key].find((a: any) => a.id === assetId)
+        if (localAsset) localAsset.reference_image = freshAsset.reference_image
+      }
+      if (detailData.value?.id === assetId) detailData.value = { ...detailData.value, reference_image: freshAsset?.reference_image || '' }
+    } catch { /* silent */ }
     await loadGenerationRecords()
   } catch (err: any) {
     ElMessage.error(err?.message || '图片生成失败')
     console.error(err)
   } finally {
-    genLoading.value.delete(glKey3)
   }
 }
 
 // 提示词编辑（首帧/尾帧详情）
-async function handleShotPromptChange(shotId: string, field: string, value: string): Promise<void> {
-  try {
-    const update: any = {}
-    update[field] = value
-    await window.api.updateShot(shotId, update)
-    // 本地同步 detailData 和编辑缓冲
-    if (detailData.value) (detailData.value as any)[field] = value
-    if (field === 'first_frame_prompt') editFirstFramePrompt.value = value
-    else if (field === 'last_frame_prompt') editLastFramePrompt.value = value
-    else if (field === 'video_prompt') editVideoPrompt.value = value
-    await checkAndCreateAssociations(shotId, value)
-    await loadEpisodesData()
-  } catch (err) {
-    ElMessage.error('保存失败')
-    console.error(err)
-  }
-}
 
 function goHome(): void {
   router.push('/')
@@ -2038,75 +1450,8 @@ function startAssetExport(type: 'characters' | 'scenes' | 'props'): void {
   panelMode.value = 'resident'
 }
 
-function cancelAssetExport(): void {
-  exportAssetMode.value = false
-  exportAssetIds.value = new Set()
-}
 
-function toggleExportAsset(assetId: string): void {
-  if (exportAssetIds.value.has(assetId)) {
-    exportAssetIds.value.delete(assetId)
-  } else {
-    exportAssetIds.value.add(assetId)
-  }
-}
 
-async function handleAssetExportConfirm(): Promise<void> {
-  if (exportAssetIds.value.size === 0) {
-    ElMessage.warning('请先选择要导出的项目')
-    return
-  }
-
-  const assetType =
-    exportAssetType.value === 'characters'
-      ? 'characters'
-      : exportAssetType.value === 'scenes'
-        ? 'scenes'
-        : 'props'
-  const assets =
-    projectData.value?.[assetType]?.filter(
-      (a: any) => exportAssetIds.value.has(a.id) && a.reference_image
-    ) || []
-  const skipped = exportAssetIds.value.size - assets.length
-
-  if (assets.length === 0) {
-    ElMessage.warning('选中的资产均未生成图片，无需导出')
-    return
-  }
-
-  const dir = await window.api.selectExportDirectory(lastExportDir.value || undefined)
-  if (!dir) return
-  lastExportDir.value = dir
-  await window.api.setSetting('last_export_dir', dir)
-
-  exportProgressVisible.value = true
-  exportProgressTotal.value = assets.length
-  exportProgressCurrent.value = 0
-  exportProgressMsg.value = '正在导出...'
-
-  const projectName = project.value?.name || 'project'
-  const timestamp = Date.now()
-  let successCount = 0
-
-  for (let i = 0; i < assets.length; i++) {
-    const asset = assets[i]
-    const ext = asset.reference_image.split('.').pop() || 'png'
-    const destName = `${i + 1}_${projectName}_${timestamp}.${ext}`
-    const destPath = `${dir}/${destName}`
-    const ok = await window.api.copyExportFile(asset.reference_image, destPath)
-    if (ok) successCount++
-    exportProgressCurrent.value = i + 1
-  }
-
-  exportProgressVisible.value = false
-  exportAssetMode.value = false
-  exportAssetIds.value = new Set()
-
-  let msg = `成功导出 ${successCount} 个文件到 ${dir}`
-  if (skipped > 0) msg += `，${skipped} 个文件因未生成已跳过`
-  if (successCount < assets.length) msg += `，${assets.length - successCount} 个复制失败`
-  ElMessage.success(msg)
-}
 
 async function handleVideoExport(): Promise<void> {
   if (selectedShots.value.size === 0) {
@@ -2154,6 +1499,127 @@ async function handleVideoExport(): Promise<void> {
   if (skipped > 0) msg += `，${skipped} 个分镜因未生成视频已跳过`
   if (successCount < shots.length) msg += `，${shots.length - successCount} 个复制失败`
   ElMessage.success(msg)
+}
+
+async function handleVideoConcat(): Promise<void> {
+  if (selectedShots.value.size === 0) {
+    ElMessage.warning('请先勾选要合成的分镜')
+    return
+  }
+
+  const shots = projectData.value?.shots || []
+  // 按分镜顺序排列
+  const orderedShots = shots
+    .filter((s: any) => selectedShots.value.has(s.id) && s.video_path)
+    .sort((a: any, b: any) => {
+      const ai = (a.chapter_id || '') + '_' + String(a.shot_index).padStart(5, '0')
+      const bi = (b.chapter_id || '') + '_' + String(b.shot_index).padStart(5, '0')
+      return ai.localeCompare(bi)
+    })
+
+  const shotIds = orderedShots.map((s: any) => s.id)
+  const skipped = selectedShots.value.size - shotIds.length
+
+  if (shotIds.length < 2) {
+    ElMessage.warning('至少需要 2 个分镜才能合成导出')
+    return
+  }
+
+  try {
+    exportProgressVisible.value = true
+    exportProgressMsg.value = `正在合成 ${shotIds.length} 个分镜视频...`
+
+    const projectName = project.value?.name || 'project'
+    const outputName = `${projectName}_合成_${Date.now()}.mp4`
+    const result = await window.api.concatVideos(projectId, shotIds, outputName)
+
+    exportProgressVisible.value = false
+
+    let msg = `视频合成完成！已导出到 ${result.outputPath}（${result.shotCount} 个分镜）`
+    if (skipped > 0) msg += `，${skipped} 个分镜因未生成视频已跳过`
+    ElMessage.success(msg)
+  } catch (err: any) {
+    exportProgressVisible.value = false
+    ElMessage.error(err?.message || '视频合成失败')
+  }
+}
+
+async function handleGenerateVoice(shotId: string): Promise<void> {
+  const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
+  if (!shot?.dialogue) {
+    ElMessage.warning('该分镜没有对白')
+    return
+  }
+
+  // 从分镜关联的角色中找第一个有 voice_preset 的角色
+  const charWithVoice = shot.characters?.find((c: any) => c.voice_preset)
+  if (!charWithVoice) {
+    ElMessage.warning('请先在角色详情中为该分镜的出场角色设置发音人')
+    return
+  }
+
+  try {
+    const audioPath = await window.api.generateVoice({
+      projectId,
+      shotId,
+      text: shot.dialogue.trim(),
+      voicePreset: charWithVoice.voice_preset
+    })
+    shot.voice_path = audioPath
+    ElMessage.success('配音已生成')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '配音生成失败')
+  }
+}
+
+async function handleBatchGenerateVoices(): Promise<void> {
+  if (selectedShots.value.size === 0) {
+    ElMessage.warning('请先勾选分镜')
+    return
+  }
+
+  const shots = projectData.value?.shots || []
+  const inputs: Array<{ projectId: string; shotId: string; text: string; voicePreset: string }> = []
+
+  for (const shot of shots) {
+    if (!selectedShots.value.has(shot.id)) continue
+    if (!shot.dialogue?.trim()) continue
+    const charWithVoice = shot.characters?.find((c: any) => c.voice_preset)
+    if (!charWithVoice) continue
+    inputs.push({ projectId, shotId: shot.id, text: shot.dialogue.trim(), voicePreset: charWithVoice.voice_preset })
+  }
+
+  if (inputs.length === 0) {
+    ElMessage.warning('勾选的分镜中没有可配音的（需要有关联角色且角色已设发音人）')
+    return
+  }
+
+  try {
+    const result = await window.api.batchGenerateVoices(inputs)
+    const count = Object.keys(result).length
+    for (const [sid, audioPath] of Object.entries(result)) {
+      const shot = shots.find((s: any) => s.id === sid)
+      if (shot) shot.voice_path = audioPath
+    }
+    ElMessage.success(`成功生成 ${count}/${inputs.length} 个配音`)
+  } catch (err: any) {
+    ElMessage.error(err?.message || '批量配音失败')
+  }
+}
+
+async function handlePDFExport(): Promise<void> {
+  try {
+    const shotIds = selectedShots.value.size > 0 ? Array.from(selectedShots.value) : undefined
+    ElMessage.info('正在生成分镜表 PDF...')
+    const outputPath = await window.api.exportStoryboardPDF({
+      projectId,
+      shotIds,
+      includeImages: true
+    })
+    ElMessage.success(`分镜表已导出到: ${outputPath}`)
+  } catch (err: any) {
+    ElMessage.error(err?.message || 'PDF 导出失败')
+  }
 }
 
 // ===== 工具栏左侧交互 =====
@@ -2220,17 +1686,6 @@ function handleCustomEraSubmit(): void {
     })
 }
 
-function toFileUrl(path: string): string {
-  if (!path) return ''
-  if (path.startsWith('file://')) return path
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) return path
-  // Windows 路径 C:\Users\... → file:///C:/Users/...
-  const normalized = path.replace(/\\/g, '/')
-  if (/^[A-Za-z]:/.test(normalized)) {
-    return `file:///${normalized}`
-  }
-  return `file://${normalized}`
-}
 
 async function loadProviderModels(): Promise<void> {
   try {
@@ -2432,12 +1887,10 @@ onMounted(() => {
   store.scriptText = ''
   loadProject().then(() => loadEpisodesData())
   loadModelName()
-  window.addEventListener('keydown', handleFullscreenKeydown)
 })
 
 onUnmounted(() => {
   if (removeAIProgress) removeAIProgress()
-  window.removeEventListener('keydown', handleFullscreenKeydown)
   stopBroadcastPolling()
   if (broadcastAllDoneTimer.value) clearTimeout(broadcastAllDoneTimer.value)
 })
@@ -2445,63 +1898,6 @@ onUnmounted(() => {
 
 <template>
   <div class="editor-layout">
-    <!-- 全屏图片预览 -->
-    <div
-      v-if="fullscreenImageVisible"
-      class="fullscreen-image-overlay"
-      @keydown="handleFullscreenKeydown"
-      tabindex="0"
-    >
-      <!-- 关闭按钮 -->
-      <el-button
-        class="fullscreen-close-btn"
-        :icon="Close"
-        circle
-        size="large"
-        @click="closeFullscreenImage"
-      />
-      <!-- 上一张 -->
-      <el-button
-        v-if="fullscreenImageList.length > 1"
-        class="fullscreen-nav-btn fullscreen-prev"
-        :icon="ArrowLeft"
-        circle
-        size="large"
-        @click.stop="fullscreenPrev"
-      />
-      <!-- 下一张 -->
-      <el-button
-        v-if="fullscreenImageList.length > 1"
-        class="fullscreen-nav-btn fullscreen-next"
-        :icon="ArrowRight"
-        circle
-        size="large"
-        @click.stop="fullscreenNext"
-      />
-      <!-- 计数器 -->
-      <div v-if="fullscreenImageList.length > 1" class="fullscreen-counter">
-        {{ fullscreenImageIndex + 1 }} / {{ fullscreenImageList.length }}
-      </div>
-      <!-- 下载和删除 -->
-      <div class="fullscreen-actions">
-        <el-button
-          class="fullscreen-action-btn"
-          :icon="Download"
-          circle
-          size="large"
-          @click.stop="handleDownloadFullscreenImage"
-        />
-        <el-button
-          class="fullscreen-action-btn"
-          :icon="Delete"
-          circle
-          size="large"
-          @click.stop="handleDeleteFullscreenImage"
-        />
-      </div>
-      <img v-if="!fullscreenIsVideo" :src="fullscreenImageSrc" class="fullscreen-image" @click.stop />
-      <video v-else :src="fullscreenImageSrc" class="fullscreen-image" controls autoplay @click.stop />
-    </div>
     <!-- 顶部栏 -->
     <header class="editor-header">
       <div class="header-left">
@@ -2811,10 +2207,13 @@ onUnmounted(() => {
                 <el-button text size="small" :icon="Upload" title="导出" class="toolbar-icon-btn" />
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="handleExport('视频')">视频导出</el-dropdown-item>
+                    <el-dropdown-item @click="handleExport('视频')">视频导出（独立文件）</el-dropdown-item>
+                    <el-dropdown-item @click="handleVideoConcat">视频合成导出（单文件）</el-dropdown-item>
                     <el-dropdown-item @click="handleExport('场景')">场景导出</el-dropdown-item>
                     <el-dropdown-item @click="handleExport('角色')">角色导出</el-dropdown-item>
                     <el-dropdown-item @click="handleExport('道具')">道具导出</el-dropdown-item>
+                    <el-dropdown-item divided @click="handleBatchGenerateVoices">🎙️ 批量配音</el-dropdown-item>
+                    <el-dropdown-item @click="handlePDFExport">📄 分镜表 PDF</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -2831,997 +2230,47 @@ onUnmounted(() => {
 
           <!-- 表格视图 -->
           <div v-if="viewMode === 'table'" class="episodes-body">
-            <!-- 横向分镜列表 -->
-            <div class="shot-table-wrapper">
-              <div v-if="episodesLoading" class="loading-mask">加载中...</div>
+            <div v-if="episodesLoading" class="loading-mask">加载中...</div>
+            <ShotFlowEditor
+              v-else
+              :project-data="projectData"
+              :selected-shots="selectedShots"
+              :editing-cell="editingCell"
+              :edit-text="editText"
+              view-mode="table"
+              @update:selected-shots="(v: any) => selectedShots = v"
+              @update:edit-text="(v: string) => editText = v"
+              @start-edit="(shotId: string, field: string, currentValue: string) => startEdit(shotId, field, currentValue)"
+              @save-edit="(shotId: string, field: string) => saveEdit(shotId, field)"
+              @cancel-edit="cancelEdit"
+              @move-up="handleMoveUp"
+              @move-down="handleMoveDown"
+              @delete-shot="handleDeleteShot"
+              @show-detail="(type: string, data: any) => showDetail(type, data)"
+              @batch-generate="(type: string) => handleBatchGenerate(type)"
+              @remove-association="(shotId: string, type: string, assetId: string) => removeAssociation(shotId, type, assetId)"
+              @add-association="(shotId: string, type: string) => addAssociationFromTable(shotId, type)"
+              @generate-voice="(shotId: string) => handleGenerateVoice(shotId)"
+            />
 
-              <div v-else class="shot-table">
-                <!-- 表头 -->
-                <div class="shot-table-header">
-                  <div class="th col-num">
-                    <el-checkbox :model-value="isAllSelected" @change="toggleSelectAll" />
-                    <span>序号</span>
-                  </div>
-                  <div class="th col-script">剧本</div>
-                  <div class="th col-chars">
-                    出场人物
-                    <el-button
-                      text
-                      size="small"
-                      class="batch-btn"
-                      @click="handleBatchGenerate('人物')"
-                      >[批量生成]</el-button
-                    >
-                  </div>
-                  <div class="th col-scenes">
-                    场景
-                    <el-button
-                      text
-                      size="small"
-                      class="batch-btn"
-                      @click="handleBatchGenerate('场景')"
-                      >[批量生成]</el-button
-                    >
-                  </div>
-                  <div class="th col-props">
-                    道具
-                    <el-button
-                      text
-                      size="small"
-                      class="batch-btn"
-                      @click="handleBatchGenerate('道具')"
-                      >[批量生成]</el-button
-                    >
-                  </div>
-                  <div class="th col-voice">配音</div>
-                  <div class="th col-first">
-                    首帧
-                    <el-button
-                      text
-                      size="small"
-                      class="batch-btn"
-                      @click="handleBatchGenerate('首帧')"
-                      >[批量生成]</el-button
-                    >
-                  </div>
-                  <div class="th col-first-prompt">首帧提示词</div>
-                  <div class="th col-last">
-                    尾帧
-                    <el-button
-                      text
-                      size="small"
-                      class="batch-btn"
-                      @click="handleBatchGenerate('尾帧')"
-                      >[批量生成]</el-button
-                    >
-                  </div>
-                  <div class="th col-last-prompt">尾帧提示词</div>
-                  <div class="th col-video">
-                    视频
-                    <el-button
-                      text
-                      size="small"
-                      class="batch-btn"
-                      @click="handleBatchGenerate('视频')"
-                      >[批量生成]</el-button
-                    >
-                  </div>
-                  <div class="th col-video-prompt">视频提示词</div>
-                  <div class="th col-op">操作</div>
-                </div>
-
-                <!-- 数据行 -->
-                <div v-for="group in groupedShots" :key="group.chapter.id" class="chapter-group">
-                  <!-- 章节标题行 -->
-                  <div class="chapter-row">
-                    {{ group.chapter.title || `第${group.chapter.chapter_index + 1}章` }}
-                  </div>
-
-                  <!-- 分镜行 -->
-                  <div
-                    v-for="(shot, idx) in group.shots"
-                    :key="shot.id"
-                    class="shot-row"
-                    :data-shot-id="shot.id"
-                    :class="{ selected: selectedShots.has(shot.id) }"
-                  >
-                    <!-- 序号 -->
-                    <div class="td col-num">
-                      <el-checkbox
-                        :model-value="selectedShots.has(shot.id)"
-                        @change="toggleShotSelect(shot.id)"
-                      />
-                      <span class="shot-index">{{ Number(idx) + 1 }}</span>
-                    </div>
-
-                    <!-- 剧本 -->
-                    <div class="td col-script">
-                      <div
-                        v-if="
-                          editingCell?.shotId === shot.id && editingCell?.field === 'description'
-                        "
-                        class="edit-cell"
-                      >
-                        <el-input
-                          v-model="editText"
-                          type="textarea"
-                          :autosize="{ minRows: 3, maxRows: 12 }"
-                          @blur="saveEdit(shot.id, 'description')"
-                          @keydown.enter.prevent="saveEdit(shot.id, 'description')"
-                          @keydown.esc.prevent="cancelEdit"
-                        />
-                      </div>
-                      <div
-                        v-else
-                        class="cell-text"
-                        @dblclick="startEdit(shot.id, 'description', shot.description || '')"
-                        v-html="getHighlightText(shot.description, shot)"
-                      />
-                      <div class="tag-bar">
-                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
-                          c.name
-                        }}</span>
-                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{
-                          s.name
-                        }}</span>
-                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{
-                          p.name
-                        }}</span>
-                      </div>
-                    </div>
-
-                    <!-- 出场人物 -->
-                    <div class="td col-chars">
-                      <div class="thumb-grid">
-                        <div
-                          v-for="c in shot.characters"
-                          :key="c.id"
-                          class="thumb-cell"
-                          @click="showDetail('character', c)"
-                        >
-                          <img
-                            v-if="c.reference_image"
-                            :src="toFileUrl(c.reference_image)"
-                            class="thumb-img"
-                          />
-                          <div v-else class="thumb-placeholder">{{ c.name }}</div>
-                        </div>
-                        <div v-if="!shot.characters?.length" class="thumb-empty">-</div>
-                      </div>
-                    </div>
-
-                    <!-- 场景 -->
-                    <div class="td col-scenes">
-                      <div class="thumb-grid">
-                        <div
-                          v-for="s in shot.scenes"
-                          :key="s.id"
-                          class="thumb-cell"
-                          @click="showDetail('scene', s)"
-                        >
-                          <img
-                            v-if="s.reference_image"
-                            :src="toFileUrl(s.reference_image)"
-                            class="thumb-img"
-                          />
-                          <div v-else class="thumb-placeholder">{{ s.name }}</div>
-                        </div>
-                        <div v-if="!shot.scenes?.length" class="thumb-empty">-</div>
-                      </div>
-                    </div>
-
-                    <!-- 道具 -->
-                    <div class="td col-props">
-                      <div class="thumb-grid">
-                        <div
-                          v-for="p in shot.props"
-                          :key="p.id"
-                          class="thumb-cell"
-                          @click="showDetail('prop', p)"
-                        >
-                          <img
-                            v-if="p.reference_image"
-                            :src="toFileUrl(p.reference_image)"
-                            class="thumb-img"
-                          />
-                          <div v-else class="thumb-placeholder">{{ p.name }}</div>
-                        </div>
-                        <div v-if="!shot.props?.length" class="thumb-empty">-</div>
-                      </div>
-                    </div>
-
-                    <!-- 配音 -->
-                    <div class="td col-voice">
-                      <el-button text size="small" @click="showDetail('voice', shot)"
-                        >配音</el-button
-                      >
-                    </div>
-
-                    <!-- 首帧 -->
-                    <div class="td col-first">
-                      <div class="media-cell" @click="showDetail('firstFrame', shot)">
-                        <div v-if="shot.first_frame_image_path" class="media-preview">
-                          <img :src="toFileUrl(shot.first_frame_image_path)" />
-                        </div>
-                        <div v-else class="media-placeholder">首帧</div>
-                      </div>
-                    </div>
-
-                    <!-- 首帧提示词 -->
-                    <div class="td col-first-prompt">
-                      <div
-                        v-if="
-                          editingCell?.shotId === shot.id &&
-                          editingCell?.field === 'first_frame_prompt'
-                        "
-                        class="edit-cell"
-                      >
-                        <el-input
-                          v-model="editText"
-                          type="textarea"
-                          :autosize="{ minRows: 3, maxRows: 12 }"
-                          @blur="saveEdit(shot.id, 'first_frame_prompt')"
-                          @keydown.enter.prevent="saveEdit(shot.id, 'first_frame_prompt')"
-                          @keydown.esc.prevent="cancelEdit"
-                        />
-                      </div>
-                      <div
-                        v-else
-                        class="cell-text"
-                        @dblclick="
-                          startEdit(shot.id, 'first_frame_prompt', shot.first_frame_prompt || '')"
-                        v-html="getHighlightText(shot.first_frame_prompt_zh || shot.first_frame_prompt || '', shot)"
-                      />
-                      <div class="tag-bar">
-                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
-                          c.name
-                        }}</span>
-                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{
-                          s.name
-                        }}</span>
-                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{
-                          p.name
-                        }}</span>
-                      </div>
-                    </div>
-
-                    <!-- 尾帧 -->
-                    <div class="td col-last">
-                      <div class="media-cell" @click="showDetail('lastFrame', shot)">
-                        <div v-if="shot.last_frame_image_path" class="media-preview">
-                          <img :src="toFileUrl(shot.last_frame_image_path)" />
-                        </div>
-                        <div v-else class="media-placeholder">尾帧</div>
-                      </div>
-                    </div>
-
-                    <!-- 尾帧提示词 -->
-                    <div class="td col-last-prompt">
-                      <div
-                        v-if="
-                          editingCell?.shotId === shot.id &&
-                          editingCell?.field === 'last_frame_prompt'
-                        "
-                        class="edit-cell"
-                      >
-                        <el-input
-                          v-model="editText"
-                          type="textarea"
-                          :autosize="{ minRows: 3, maxRows: 12 }"
-                          @blur="saveEdit(shot.id, 'last_frame_prompt')"
-                          @keydown.enter.prevent="saveEdit(shot.id, 'last_frame_prompt')"
-                          @keydown.esc.prevent="cancelEdit"
-                        />
-                      </div>
-                      <div
-                        v-else
-                        class="cell-text"
-                        @dblclick="
-                          startEdit(shot.id, 'last_frame_prompt', shot.last_frame_prompt || '')
-                        "
-                        v-html="getHighlightText(shot.last_frame_prompt_zh || shot.last_frame_prompt || '', shot)"
-                      />
-                      <div class="tag-bar">
-                        <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{
-                          c.name
-                        }}</span>
-                        <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{
-                          s.name
-                        }}</span>
-                        <span v-for="p in shot.props" :key="p.id" class="tag tag-prop">{{
-                          p.name
-                        }}</span>
-                      </div>
-                    </div>
-
-                    <!-- 视频 -->
-                    <div class="td col-video">
-                      <div class="media-cell" @click="showDetail('video', shot)">
-                        <div v-if="shot.video_path" class="media-preview">
-                          <video :src="toFileUrl(shot.video_path)" class="media-video" />
-                        </div>
-                        <div v-else class="media-placeholder">视频</div>
-                      </div>
-                    </div>
-
-                    <!-- 视频提示词 -->
-                    <div class="td col-video-prompt">
-                      <div
-                        v-if="editingCell?.shotId === shot.id && editingCell?.field === 'video_prompt'"
-                        class="edit-cell"
-                      >
-                        <el-input
-                          v-model="editText"
-                          type="textarea"
-                          :autosize="{ minRows: 3, maxRows: 12 }"
-                          @blur="saveEdit(shot.id, 'video_prompt')"
-                          @keydown.enter.prevent="saveEdit(shot.id, 'video_prompt')"
-                          @keydown.esc.prevent="cancelEdit"
-                        />
-                      </div>
-                      <div
-                        v-else
-                        class="cell-text"
-                        @dblclick="startEdit(shot.id, 'video_prompt', shot.video_prompt || '')"
-                      >{{ shot.video_prompt_zh || shot.video_prompt || '-' }}</div>
-                    </div>
-
-                    <!-- 操作 -->
-                    <div class="td col-op">
-                      <el-button text size="small" :icon="ArrowUp" @click="handleMoveUp(shot.id)" />
-                      <el-button
-                        text
-                        size="small"
-                        :icon="ArrowDown"
-                        @click="handleMoveDown(shot.id)"
-                      />
-                      <el-button
-                        text
-                        size="small"
-                        :icon="Delete"
-                        class="delete-btn"
-                        @click="handleDeleteShot(shot.id)"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 右侧面板 -->
-            <aside class="right-panel">
-              <!-- 常驻状态 -->
-              <div v-if="panelMode === 'resident'" class="panel-resident">
-                <div class="panel-toolbar">
-                  <el-button text :icon="Back" title="返回" disabled />
-                  <el-button text :icon="Grid" title="前进" disabled />
-                  <div class="panel-tabs">
-                    <div
-                      v-for="tab in [
-                        { k: 'characters', l: '角色' },
-                        { k: 'scenes', l: '场景' },
-                        { k: 'props', l: '道具' }
-                      ]"
-                      :key="tab.k"
-                      class="panel-tab"
-                      :class="{ active: residentTab === tab.k }"
-                      @click="residentTab = tab.k as any"
-                    >
-                      {{ tab.l }}
-                    </div>
-                  </div>
-                </div>
-
-                <div class="panel-search">
-                  <template v-if="exportAssetMode">
-                    <span class="export-mode-label">导出模式</span>
-                    <el-button
-                      type="primary"
-                      size="small"
-                      :disabled="exportAssetIds.size === 0"
-                      @click="handleAssetExportConfirm"
-                      >导出选中 ({{ exportAssetIds.size }})</el-button
-                    >
-                    <el-button text size="small" @click="cancelAssetExport">取消</el-button>
-                  </template>
-                  <template v-else>
-                    <el-input
-                      v-model="searchKeyword"
-                      placeholder="搜索..."
-                      :prefix-icon="Search"
-                      size="small"
-                    />
-                    <el-button text size="small" @click="handleBatchGenerate('批量')"
-                      >批量生成</el-button
-                    >
-                  </template>
-                </div>
-
-                <!-- 作品中 -->
-                <div class="panel-section">
-                  <div class="panel-section-title">
-                    作品中 ({{ filteredAssets.length }}/{{
-                      projectData?.[residentTab]?.length || 0
-                    }})
-                  </div>
-                  <div class="asset-grid">
-                    <div
-                      v-for="asset in filteredAssets"
-                      :key="asset.id"
-                      class="asset-card"
-                      :class="{
-                        unused: !isAssetUsed(asset.id),
-                        'export-selected': exportAssetMode && exportAssetIds.has(asset.id)
-                      }"
-                      @click="
-                        exportAssetMode
-                          ? toggleExportAsset(asset.id)
-                          : showDetail(
-                              residentTab === 'characters'
-                                ? 'character'
-                                : residentTab === 'scenes'
-                                  ? 'scene'
-                                  : 'prop',
-                              asset
-                            )
-                      "
-                    >
-                      <img
-                        v-if="asset.reference_image"
-                        :src="toFileUrl(asset.reference_image)"
-                        class="asset-img"
-                      />
-                      <div v-else class="asset-placeholder">{{ asset.name }}</div>
-                      <div
-                        v-if="exportAssetMode"
-                        class="asset-checkbox"
-                        @click.stop="toggleExportAsset(asset.id)"
-                      >
-                        <div
-                          class="asset-check-indicator"
-                          :class="{ checked: exportAssetIds.has(asset.id) }"
-                        >
-                          <span v-if="exportAssetIds.has(asset.id)">✓</span>
-                        </div>
-                      </div>
-                      <el-button
-                        v-else
-                        text
-                        circle
-                        size="small"
-                        class="asset-delete"
-                        :icon="Delete"
-                        @click.stop="
-                          handleDeleteAsset(
-                            residentTab === 'characters'
-                              ? 'character'
-                              : residentTab === 'scenes'
-                                ? 'scene'
-                                : 'prop',
-                            asset.id
-                          )
-                        "
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 全部可用 -->
-                <div v-if="!exportAssetMode" class="panel-section">
-                  <div class="panel-section-title">
-                    全部可用 ({{ filteredAssets.filter((a: any) => isAssetUsed(a.id)).length }}/{{
-                      filteredAssets.length
-                    }})
-                  </div>
-                  <div class="asset-grid">
-                    <div
-                      v-for="asset in filteredAssets.filter((a: any) => isAssetUsed(a.id))"
-                      :key="asset.id"
-                      class="asset-card"
-                      @click="
-                        showDetail(
-                          residentTab === 'characters'
-                            ? 'character'
-                            : residentTab === 'scenes'
-                              ? 'scene'
-                              : 'prop',
-                          asset
-                        )
-                      "
-                    >
-                      <img
-                        v-if="asset.reference_image"
-                        :src="toFileUrl(asset.reference_image)"
-                        class="asset-img"
-                      />
-                      <div v-else class="asset-placeholder">{{ asset.name }}</div>
-                    </div>
-                    <div
-                      v-if="!filteredAssets.filter((a: any) => isAssetUsed(a.id)).length"
-                      class="panel-empty"
-                    >
-                      暂无可用资产
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="!exportAssetMode" class="panel-footer">
-                  <el-button :icon="Plus" @click="handleCreateAsset">创建</el-button>
-                  <el-button text @click="handleImportAsset">从其他项目导入</el-button>
-                </div>
-              </div>
-
-              <!-- 详情状态 -->
-              <div v-else class="panel-detail">
-                <div class="detail-toolbar">
-                  <el-button text :icon="Back" @click="backToResident">返回</el-button>
-                </div>
-
-                <!-- 角色/场景/道具详情 -->
-                <div v-if="['character', 'scene', 'prop'].includes(detailType)" class="detail-body">
-                  <div class="detail-media">
-                    <img
-                      v-if="detailData?.reference_image"
-                      :src="toFileUrl(detailData.reference_image)"
-                      class="detail-img"
-                      @click="openFullscreenImage(toFileUrl(detailData.reference_image), assetImages.map((ai: any) => toFileUrl(ai.image_path)))"
-                    />
-                    <div v-else class="detail-placeholder">{{ detailData?.name }}</div>
-                    <div class="detail-upload">
-                      <el-button
-                        :icon="Upload"
-                        size="small"
-                        @click="handleSelectImage(detailType, detailData)"
-                        >上传本地</el-button
-                      >
-                      <el-button text size="small" @click="ElMessage.info('资产库导入后续版本开放')"
-                        >资产库导入</el-button
-                      >
-                    </div>
-                  </div>
-                  <div class="detail-fields">
-                    <div class="detail-field">
-                      <label>名称</label>
-                      <el-input
-                        v-model="editAssetName"
-                        @blur="handleAssetNameChange(detailType, detailData, editAssetName)"
-                      />
-                    </div>
-                    <div class="detail-field">
-                      <label>描述</label>
-                      <el-input
-                        v-model="editAssetDesc"
-                        type="textarea"
-                        :rows="4"
-                        @blur="handleAssetDescChange(detailType, detailData, editAssetDesc)"
-                      />
-                    </div>
-                  </div>
-                  <!-- 生图控制栏 -->
-                  <div class="gen-control">
-                    <div class="gen-control-row">
-                      <el-popover
-                        v-model:visible="gearVisible"
-                        placement="bottom-start"
-                        :width="200"
-                        trigger="click"
-                        @show="initGearDefaults"
-                      >
-                        <template #reference>
-                          <el-button text :icon="Tools" size="small" />
-                        </template>
-                        <div class="gear-panel">
-                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
-                          <div class="gear-inline-row">
-                            <el-select
-                              :model-value="gearModel"
-                              size="small"
-                              style="width: 135px"
-                              :teleported="false"
-                              placeholder="模型"
-                              @change="handleGearModelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="m in filteredGearModels"
-                                :key="m.value"
-                                :label="m.label"
-                                :value="m.value"
-                              />
-                            </el-select>
-                            <div class="gear-count-row">
-                              <el-button text :icon="Minus" size="small" @click="gearCount = Math.max(1, gearCount - 1)" style="padding:2px" />
-                              <span class="gear-count-num">{{ gearCount }}</span>
-                              <el-button text :icon="Plus" size="small" @click="gearCount = Math.min(10, gearCount + 1)" style="padding:2px" />
-                            </div>
-                          </div>
-                          <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
-                            <el-button
-                              type="primary"
-                              size="small"
-                              @click="handleGearConfirm"
-                            >
-                              确认
-                            </el-button>
-                          </div>
-                        </div>
-                      </el-popover>
-                      <span class="gen-label">生成张数</span>
-                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
-                      <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount = Math.min(4, genCount + 1)" />
-                    </div>
-                    <el-button
-                      type="primary"
-                      class="gen-btn"
-                      :loading="genLoading.has(detailType + '_' + detailData?.id)"
-                      @click="handleGenerateImage(detailType, detailData?.id)"
-                    >
-                      AI生图
-                    </el-button>
-                  </div>
-                  <div class="history-section">
-                    <div class="history-title">历史记录</div>
-                    <div v-if="assetImages.length === 0" class="history-empty">暂无生成记录</div>
-                    <div v-else class="history-grid">
-                      <div
-                        v-for="img in assetImages"
-                        :key="img.id"
-                        class="history-item"
-                        :class="{ selected: img.is_selected }"
-                        @click="handleSelectHistoryImage(detailType, detailData?.id, img.id)"
-                      >
-                        <img :src="toFileUrl(img.image_path)" class="history-img" />
-                        <div v-show="img.is_selected" class="history-selected-badge">✓</div>
-                        <el-button
-                          class="history-delete-btn"
-                          :icon="Delete"
-                          circle
-                          size="small"
-                          @click.stop="handleDeleteHistoryImage(detailType, detailData?.id, img.id)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 首帧详情 -->
-                <div v-else-if="detailType === 'firstFrame'" class="detail-body">
-                  <div class="detail-media">
-                    <div v-if="detailData?.first_frame_image_path" class="detail-placeholder">
-                      <img :src="toFileUrl(detailData.first_frame_image_path)" class="detail-img"
-                        @click="openFullscreenImage(toFileUrl(detailData.first_frame_image_path), assetImages.map((ai: any) => toFileUrl(ai.image_path)))" />
-                    </div>
-                    <div v-else class="detail-placeholder">首帧占位</div>
-                  </div>
-                  <div class="detail-fields">
-                    <div class="detail-field">
-                      <label>首帧提示词</label>
-                      <el-input
-                        v-model="editFirstFramePrompt"
-                        type="textarea"
-                        :rows="8"
-                        resize="vertical"
-                        style="min-height:120px"
-                        @blur="handleShotPromptChange(detailData.id, 'first_frame_prompt', editFirstFramePrompt)"
-                      />
-                    </div>
-                  </div>
-                  <div class="gen-control">
-                    <div class="gen-control-row">
-                      <el-popover
-                        v-model:visible="gearVisible"
-                        placement="bottom-start"
-                        :width="200"
-                        trigger="click"
-                        @show="initGearDefaults"
-                      >
-                        <template #reference>
-                          <el-button text :icon="Tools" size="small" />
-                        </template>
-                        <div class="gear-panel">
-                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
-                          <div class="gear-inline-row">
-                            <el-select
-                              :model-value="gearModel"
-                              size="small"
-                              style="width: 135px"
-                              :teleported="false"
-                              placeholder="模型"
-                              @change="handleGearModelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="m in filteredGearModels"
-                                :key="m.value"
-                                :label="m.label"
-                                :value="m.value"
-                              />
-                            </el-select>
-                            <div class="gear-count-row">
-                              <el-button text :icon="Minus" size="small" @click="gearCount = Math.max(1, gearCount - 1)" style="padding:2px" />
-                              <span class="gear-count-num">{{ gearCount }}</span>
-                              <el-button text :icon="Plus" size="small" @click="gearCount = Math.min(10, gearCount + 1)" style="padding:2px" />
-                            </div>
-                          </div>
-                          <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
-                            <el-button
-                              type="primary"
-                              size="small"
-                              @click="handleGearConfirm"
-                            >
-                              确认
-                            </el-button>
-                          </div>
-                        </div>
-                      </el-popover>
-                      <span class="gen-label">生成张数</span>
-                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
-                      <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount = Math.min(4, genCount + 1)" />
-                    </div>
-                    <el-button
-                      type="primary"
-                      class="gen-btn"
-                      :loading="genLoading.has('firstFrame_' + detailData?.id)"
-                      @click="handleGenerateImage('firstFrame', detailData?.id)"
-                    >
-                      AI生图
-                    </el-button>
-                  </div>
-                  <div class="history-section">
-                    <div class="history-title">历史记录</div>
-                    <div v-if="assetImages.length === 0" class="history-empty">暂无生成记录</div>
-                    <div v-else class="history-grid">
-                      <div
-                        v-for="img in assetImages"
-                        :key="img.id"
-                        class="history-item"
-                        :class="{ selected: img.is_selected }"
-                        @click="handleSelectShotImage(detailData?.id, 'first', img.id)"
-                      >
-                        <img :src="toFileUrl(img.image_path)" class="history-img" />
-                        <div v-show="img.is_selected" class="history-selected-badge">✓</div>
-                        <el-button
-                          class="history-delete-btn"
-                          :icon="Delete"
-                          circle
-                          size="small"
-                          @click.stop="handleDeleteHistoryImage('firstFrame', detailData?.id, img.id)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 尾帧详情 -->
-                <div v-else-if="detailType === 'lastFrame'" class="detail-body">
-                  <div class="detail-media">
-                    <div v-if="detailData?.last_frame_image_path" class="detail-placeholder">
-                      <img :src="toFileUrl(detailData.last_frame_image_path)" class="detail-img"
-                        @click="openFullscreenImage(toFileUrl(detailData.last_frame_image_path), assetImages.map((ai: any) => toFileUrl(ai.image_path)))" />
-                    </div>
-                    <div v-else class="detail-placeholder">尾帧占位</div>
-                  </div>
-                  <div class="detail-fields">
-                    <div class="detail-field">
-                      <label>尾帧提示词</label>
-                      <el-input
-                        v-model="editLastFramePrompt"
-                        type="textarea"
-                        :rows="4"
-                        @blur="handleShotPromptChange(detailData.id, 'last_frame_prompt', editLastFramePrompt)"
-                      />
-                    </div>
-                  </div>
-                  <div class="gen-control">
-                    <div class="gen-control-row">
-                      <el-popover
-                        v-model:visible="gearVisible"
-                        placement="bottom-start"
-                        :width="200"
-                        trigger="click"
-                        @show="initGearDefaults"
-                      >
-                        <template #reference>
-                          <el-button text :icon="Tools" size="small" />
-                        </template>
-                        <div class="gear-panel">
-                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
-                          <div class="gear-inline-row">
-                            <el-select
-                              :model-value="gearModel"
-                              size="small"
-                              style="width: 135px"
-                              :teleported="false"
-                              placeholder="模型"
-                              @change="handleGearModelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="m in filteredGearModels"
-                                :key="m.value"
-                                :label="m.label"
-                                :value="m.value"
-                              />
-                            </el-select>
-                            <div class="gear-count-row">
-                              <el-button text :icon="Minus" size="small" @click="gearCount = Math.max(1, gearCount - 1)" style="padding:2px" />
-                              <span class="gear-count-num">{{ gearCount }}</span>
-                              <el-button text :icon="Plus" size="small" @click="gearCount = Math.min(10, gearCount + 1)" style="padding:2px" />
-                            </div>
-                          </div>
-                          <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
-                            <el-button
-                              type="primary"
-                              size="small"
-                              @click="handleGearConfirm"
-                            >
-                              确认
-                            </el-button>
-                          </div>
-                        </div>
-                      </el-popover>
-                      <span class="gen-label">生成张数</span>
-                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
-                      <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount = Math.min(4, genCount + 1)" />
-                    </div>
-                    <el-button
-                      type="primary"
-                      class="gen-btn"
-                      :loading="genLoading.has('lastFrame_' + detailData?.id)"
-                      @click="handleGenerateImage('lastFrame', detailData?.id)"
-                    >
-                      AI生图
-                    </el-button>
-                  </div>
-                  <div class="history-section">
-                    <div class="history-title">历史记录</div>
-                    <div v-if="assetImages.length === 0" class="history-empty">暂无生成记录</div>
-                    <div v-else class="history-grid">
-                      <div
-                        v-for="img in assetImages"
-                        :key="img.id"
-                        class="history-item"
-                        :class="{ selected: img.is_selected }"
-                        @click="handleSelectShotImage(detailData?.id, 'last', img.id)"
-                      >
-                        <img :src="toFileUrl(img.image_path)" class="history-img" />
-                        <div v-show="img.is_selected" class="history-selected-badge">✓</div>
-                        <el-button
-                          class="history-delete-btn"
-                          :icon="Delete"
-                          circle
-                          size="small"
-                          @click.stop="handleDeleteHistoryImage('lastFrame', detailData?.id, img.id)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 视频详情 -->
-                <div v-else-if="detailType === 'video'" class="detail-body">
-                  <div class="detail-media">
-                    <div v-if="detailData?.video_path" class="detail-placeholder">
-                      <video :src="toFileUrl(detailData.video_path)" class="detail-video" controls />
-                    </div>
-                    <div v-else class="detail-placeholder">视频占位</div>
-                  </div>
-                  <div class="detail-fields">
-                    <div class="detail-field">
-                      <label>视频提示词</label>
-                      <el-input
-                        v-model="editVideoPrompt"
-                        type="textarea"
-                        :rows="6"
-                        resize="vertical"
-                        @blur="handleShotPromptChange(detailData.id, 'video_prompt', editVideoPrompt)"
-                      />
-                    </div>
-                  </div>
-                  <div class="gen-control">
-                    <div class="gen-control-row">
-                      <el-popover
-                        v-model:visible="gearVisible"
-                        placement="bottom-start"
-                        :width="200"
-                        trigger="click"
-                        @show="initGearDefaults('video')"
-                      >
-                        <template #reference>
-                          <el-button text :icon="Tools" size="small" />
-                        </template>
-                        <div class="gear-panel">
-                          <div class="gear-effective">{{ gearEffectiveDisplay }}</div>
-                          <div class="gear-inline-row">
-                            <el-select
-                              :model-value="gearModel"
-                              size="small"
-                              style="width: 135px"
-                              :teleported="false"
-                              placeholder="模型"
-                              @change="handleGearModelChange"
-                            >
-                              <el-option label="未设置" value="" />
-                              <el-option
-                                v-for="m in filteredGearModels"
-                                :key="m.value"
-                                :label="m.label"
-                                :value="m.value"
-                              />
-                            </el-select>
-                          </div>
-                          <div class="gear-actions">
-                            <el-button text size="small" @click="handleGearRestoreDefault">默认</el-button>
-                            <el-button type="primary" size="small" @click="handleGearConfirm">确认</el-button>
-                          </div>
-                        </div>
-                      </el-popover>
-                      <span class="gen-label">生成数量</span>
-                      <el-button text :icon="Minus" @click="genCount = Math.max(1, genCount - 1)" />
-                      <el-input v-model.number="genCount" class="gen-count-input" />
-                      <el-button text :icon="Plus" @click="genCount++" />
-                    </div>
-                    <el-button
-                      type="primary"
-                      class="gen-btn"
-                      :loading="genLoading.has('video_' + detailData?.id)"
-                      @click="handleGenerateVideo"
-                    >
-                      AI生视频
-                    </el-button>
-                  </div>
-                  <div class="history-section">
-                    <div class="history-title">备选素材</div>
-                    <div v-if="assetVideos.length === 0" class="history-empty">暂无备选素材</div>
-                    <div v-else class="history-grid">
-                      <div
-                        v-for="v in assetVideos"
-                        :key="v.id"
-                        class="history-item"
-                        :class="{ selected: v.is_selected }"
-                        @click="handleSelectHistoryVideo(detailData?.id, v.id)"
-                      >
-                        <video :src="toFileUrl(v.video_path)" class="history-img" />
-                        <div v-show="v.is_selected" class="history-selected-badge">✓</div>
-                        <el-button
-                          class="history-delete-btn"
-                          :icon="Delete"
-                          circle
-                          size="small"
-                          @click.stop="handleDeleteHistoryVideo(detailData?.id, v.id)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="history-section">
-                    <div class="history-title">历史记录</div>
-                    <div v-if="assetVideos.length === 0" class="history-empty">暂无生成记录</div>
-                    <div v-else class="history-grid">
-                      <div
-                        v-for="v in assetVideos"
-                        :key="v.id"
-                        class="history-item"
-                        :class="{ selected: v.is_selected }"
-                        @click="handleSelectHistoryVideo(detailData?.id, v.id)"
-                      >
-                        <video :src="toFileUrl(v.video_path)" class="history-img" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 配音详情 -->
-                <div v-else-if="detailType === 'voice'" class="detail-body">
-                  <div class="detail-placeholder">配音功能开发中</div>
-                </div>
-              </div>
-            </aside>
+            <!-- 右侧面板 (AssetPanel 组件) -->
+            <AssetPanel
+              :project-id="projectId"
+              :project-path="project?.path || ''"
+              :project-data="projectData"
+              :panel-mode="panelMode"
+              :resident-tab="residentTab"
+              :detail-type="detailType"
+              :detail-data="detailData"
+              :search-keyword="searchKeyword"
+              @update:panel-mode="(v: 'resident' | 'detail') => panelMode = v"
+              @update:resident-tab="(v: 'characters' | 'scenes' | 'props') => residentTab = v"
+              @update:search-keyword="(v: string) => searchKeyword = v"
+              @refresh-data="loadEpisodesData()"
+              @show-detail="(type: string, data: any) => showDetail(type, data)"
+              @generate-image="(payload: any) => handleGenerateImage(payload.type, payload.assetId || payload.shotId)"
+              @generate-video="(payload: any) => { if (payload.shotId) { showDetail('video', projectData?.shots?.find((s:any) => s.id === payload.shotId)); nextTick(() => handleGenerateVideo()); } }"
+            />
           </div>
 
           <!-- 画布视图 -->
@@ -3831,7 +2280,6 @@ onUnmounted(() => {
             :project-id="projectId"
             @back-to-editor="viewMode = 'table'"
             @refresh-data="loadEpisodesData()"
-            @preview-media="(src: string, isVideo: boolean) => openFullscreenImage(src, undefined, isVideo)"
             @generate-video="(shotId: string) => { const shot = projectData?.shots?.find((s:any) => s.id === shotId); if (shot) { showDetail('video', shot); nextTick(() => handleGenerateVideo()); } }"
           />
         </div>
@@ -4364,6 +2812,18 @@ onUnmounted(() => {
         </div>
 
         <div class="batch-hint">批量执行任务前，请先调试效果至符合预期后再执行</div>
+      </div>
+    </el-dialog>
+
+    <!-- 角色/场景/道具选择器 -->
+    <el-dialog v-model="pickerVisible" :title="'选择' + (pickerType === 'character' ? '角色' : pickerType === 'scene' ? '场景' : '道具')" width="500px">
+      <div class="picker-grid">
+        <div v-for="a in pickerAssets" :key="a.id" class="picker-card" @click="pickerSelect(a)">
+          <img v-if="a.reference_image" :src="'file://' + a.reference_image.replace(/\\/g, '/')" class="picker-thumb" />
+          <div v-else class="picker-placeholder">{{ a.name?.slice(0,2) }}</div>
+          <span class="picker-name">{{ a.name }}</span>
+        </div>
+        <div v-if="pickerAssets.length === 0" class="picker-empty">暂无可用</div>
       </div>
     </el-dialog>
   </div>
@@ -6696,4 +5156,11 @@ onUnmounted(() => {
   min-width: 48px;
   text-align: right;
 }
+.picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.picker-card { text-align: center; cursor: pointer; padding: 8px; border-radius: 8px; transition: background .2s; }
+.picker-card:hover { background: #2a2a4e; }
+.picker-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; }
+.picker-placeholder { width: 80px; height: 80px; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: #1a1a3e; border-radius: 8px; color: #666; font-size: 18px; font-weight: bold; }
+.picker-name { display: block; margin-top: 6px; font-size: 12px; color: #ccc; }
+.picker-empty { grid-column: 1/-1; text-align: center; color: #666; padding: 40px; }
 </style>

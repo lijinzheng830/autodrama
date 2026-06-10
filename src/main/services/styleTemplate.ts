@@ -5,6 +5,7 @@
 
 import { getDb } from './db'
 import { join } from 'path'
+import { existsSync } from 'fs'
 import { app } from 'electron'
 
 export interface StyleTemplate {
@@ -85,14 +86,12 @@ export function resolveStyleImagePath(relativePath: string | null): string | nul
   let fullPath = join(basePath, relativePath)
   // 检查文件是否存在
   try {
-    const fs = require('fs') as typeof import('fs')
-    if (fs.existsSync(fullPath)) return fullPath
+    if (existsSync(fullPath)) return fullPath
   } catch {}
   // fallback：尝试 process.cwd()
   try {
     const cwdPath = join(process.cwd(), relativePath)
-    const fs = require('fs') as typeof import('fs')
-    if (fs.existsSync(cwdPath)) return cwdPath
+    if (existsSync(cwdPath)) return cwdPath
   } catch {}
   // 都找不到返回 null
   return null

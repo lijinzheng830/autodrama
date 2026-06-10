@@ -20,9 +20,9 @@ export function getPromptTemplates(projectId: string, usage?: string): PromptTem
   let sql = 'SELECT * FROM prompt_templates WHERE (project_id IS NULL'
   const params: unknown[] = []
 
-  if (projectId) {
+  if (projectId && projectId.trim()) {
     sql += ' OR project_id = ?'
-    params.push(projectId)
+    params.push(projectId.trim())
   }
   sql += ')'
 

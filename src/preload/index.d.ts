@@ -69,7 +69,7 @@ export interface PromptTemplateInput {
   isOfficial?: boolean
 }
 
-export interface Provider {
+export interface UserProvider {
   id: string
   name: string
   key: string
@@ -165,6 +165,7 @@ export interface Api {
   deleteShot: (shotId: string) => Promise<void>
   updateShot: (shotId: string, input: ShotInput) => Promise<void>
   addShotAssociation: (shotId: string, type: string, assetId: string) => Promise<void>
+  removeShotAssociation: (shotId: string, type: string, assetId: string) => Promise<void>
   createGenerationTask: (input: GenerationTaskInput) => Promise<unknown>
   batchCreateGenerationTasks: (input: { projectId: string; tasks: Array<{ shotId?: string; type: string; purpose: string; channel?: string; model?: string; inputParams?: string }> }) => Promise<{ ids: string[] }>
   cancelGenerationTasks: (projectId: string) => Promise<{ count: number }>
@@ -172,9 +173,9 @@ export interface Api {
   selectImage: (projectPath: string) => Promise<string | null>
   selectExportDirectory: (defaultPath?: string) => Promise<string | null>
   copyExportFile: (src: string, dest: string) => Promise<boolean>
-  getProviders: () => Promise<Provider[]>
-  addProvider: (provider: ProviderInput) => Promise<Provider>
-  updateProvider: (id: string, data: ProviderInput) => Promise<Provider>
+  getProviders: () => Promise<UserProvider[]>
+  addProvider: (provider: ProviderInput) => Promise<UserProvider>
+  updateProvider: (id: string, data: ProviderInput) => Promise<UserProvider>
   deleteProvider: (id: string) => Promise<void>
   getSystemPrompt: () => Promise<string>
   setSystemPrompt: (prompt: string) => Promise<void>
@@ -196,6 +197,15 @@ export interface Api {
   getShotVideos: (shotId: string) => Promise<any[]>
   selectShotVideo: (shotId: string, videoId: string) => Promise<void>
   deleteShotVideo: (shotId: string, videoId: string) => Promise<void>
+  concatVideos: (projectId: string, shotIds: string[], outputName?: string) => Promise<{ outputPath: string; shotCount: number }>
+  generateVoice: (input: { projectId: string; shotId: string; text: string; voicePreset: string }) => Promise<string>
+  batchGenerateVoices: (inputs: Array<{ projectId: string; shotId: string; text: string; voicePreset: string }>) => Promise<Record<string, string>>
+  listVoicePresets: () => Promise<Array<{ key: string; name: string; label: string }>>
+  exportStoryboardPDF: (config: { projectId: string; shotIds?: string[]; includeImages?: boolean }) => Promise<string>
+  createMultiAngle: (characterId: string, anchors: Record<string, string>) => Promise<any>
+  getMultiAngle: (characterId: string) => Promise<Record<string, string> | null>
+  generateAngle: (characterId: string, angle: string) => Promise<any>
+  translateToEnglish: (text: string) => Promise<string>
   getAssetImages: (assetType: 'character' | 'scene' | 'prop', assetId: string) => Promise<unknown[]>
   selectAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) => Promise<void>
   deleteAssetImage: (assetType: 'character' | 'scene' | 'prop', assetId: string, imageId: string) => Promise<void>

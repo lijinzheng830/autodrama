@@ -1,80 +1,24 @@
+/**
+ * 统一生图服务（核心管线）
+ * 负责资产生图、分镜首尾帧生图、图片 API 调用
+ * 模型路由 → modelRouter.ts | 风格映射 → styleMapper.ts | 资产历史 CRUD → characterAnchorService.ts | 视频生成 → videoGenerator.ts
+ */
+
 import { getDb } from './db'
 import { getProject } from './project'
-import { getProviders, getSetting } from './settings'
 
 import { join } from 'path'
-import { mkdirSync, writeFileSync } from 'fs'
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
 import { randomUUID } from 'crypto'
 import axios from 'axios'
 
-/** 年代中文 → 英文映射（生图 API 需要英文年代描述） */
-const ERA_MAP: Record<string, string> = {
-  '古代': 'ancient China, traditional architecture, historical setting',
-  '近代': 'early modern China, 19th-20th century transition era',
-  '现代': 'modern China, contemporary urban setting',
-  '当代': 'present-day China, current era',
-  '未来': 'futuristic sci-fi China, advanced technology',
-  '末世': 'post-apocalyptic wasteland, ruined world',
-  '民国': 'Republican era China, 1912-1949, Shanghai Bund style',
-  '唐朝': 'Tang Dynasty China, golden age of imperial China',
-  '宋朝': 'Song Dynasty China, refined scholarly aesthetics',
-  '明朝': 'Ming Dynasty China, classical gardens and architecture',
-  '清朝': 'Qing Dynasty China, Manchu-influenced imperial style',
-  '汉朝': 'Han Dynasty China, ancient silk road era',
-  '上古': 'mythological ancient China, legendary era',
-  '仙侠': 'Chinese xianxia fantasy realm, immortal cultivation world',
-  '洪荒': 'primordial mythical era, creation myth times',
-  '武侠': 'martial arts world, jianghu wandering swordsmen era',
-  '赛博朋克': 'cyberpunk dystopian future, neon-lit megacity',
-  '蒸汽朋克': 'steampunk retro-futuristic, brass and gears aesthetic',
-}
+import { mapEra, getStylePromptZh, getAPISize, getAnglePrompt, getAngleSize, translateCnField, detectShotType, AnchorAngle } from './styleMapper'
+import { resolveModelConfig, resolveProviderConfig } from './modelRouter'
+import { assertValidAssetType, assertValidFrameType, assertValidTableName, assertValidColumnName, createMultiAngle } from './characterAnchorService'
+import { checkShotConsistency } from './consistencyChecker'
+import { IMAGE_API_RETRY_DELAY, AGNES_MAX_REF_IMAGES, IMAGE_API_MAX_RETRIES } from '../utils/constants'
 
-function mapEra(eraText: string): string {
-  if (!eraText || !eraText.trim()) return ''
-  // 精确匹配
-  if (ERA_MAP[eraText.trim()]) return ERA_MAP[eraText.trim()]
-  // 模糊匹配：包含关键词
-  for (const [key, value] of Object.entries(ERA_MAP)) {
-    if (eraText.includes(key) || key.includes(eraText)) return value
-  }
-  // 已经是英文或自定义，原样返回
-  return eraText.trim()
-}
-
-/** 画面比例 → API size 参数 */
-function getAPISize(aspectRatio: string): string | undefined {
-  const map: Record<string, string> = {
-    '16:9': '1792x1024',
-    '9:16': '1024x1792',
-    '1:1': '1024x1024'
-  }
-  return map[aspectRatio]
-}
-
-/**
- * 统一解析供应商配置：从用户配置 → 硬编码 fallback
- */
-function resolveProviderConfig(providerKey: string): { baseURL: string; apiKey: string } | null {
-  if (!providerKey) return null
-
-  // 1. 从用户配置的供应商中匹配（先按key/id）
-  const userProviders = getProviders()
-  let userProvider = userProviders.find((p: any) => p.key === providerKey || p.id === providerKey)
-
-  // 兜底：旧数据可能存的是name，按name再匹配一次
-  if (!userProvider) {
-    userProvider = userProviders.find((p: any) => p.name === providerKey)
-  }
-
-  if (userProvider) {
-    const apiKey = (userProvider as any)?.apiKey
-    if (apiKey && userProvider.baseURL) {
-      return { baseURL: userProvider.baseURL.trim(), apiKey }
-    }
-  }
-
-  return null
-}
+import type { GenerateShotImageInput } from '../types'
 
 export interface GenerateImageInput {
   projectId: string
@@ -101,6 +45,7 @@ export interface GenerateImageResult {
  * 统一生图入口：创建任务 → 调用API → 保存图片 → 更新数据库
  */
 export async function generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
+  assertValidAssetType(input.type)
   const db = getDb()
   const {
     projectId,
@@ -125,17 +70,8 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const finalEraPrompt = mapEra(eraPrompt || project.era || '')
   const aspectRatio = project.aspect_ratio || '16:9'
 
-  // 3.5 格式提示词：比例、布局、风格全部动态
-  const isVertical = aspectRatio === '9:16'
-  const isSquare = aspectRatio === '1:1'
-  const layoutDir = isVertical ? 'Vertical' : isSquare ? 'Square' : 'Horizontal'
   const aspectHint = aspectRatio || '16:9'
   const styleDesc = finalStylePrompt || 'high quality illustration'
-  const ratioDirective = isVertical
-    ? `IMPORTANT: This must be a vertical 9:16 portrait image (width:1024 height:1792). All panels stacked top-to-bottom.`
-    : isSquare
-      ? `IMPORTANT: This must be a square 1:1 image (width:1024 height:1024). All panels in a 2x2 grid.`
-      : `IMPORTANT: This must be a horizontal 16:9 landscape image (width:1792 height:1024). All panels arranged left-to-right.`
 
   // 获取资产名称（用于模板变量）
   let assetName = ''
@@ -147,14 +83,26 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 
   let finalPrompt = ''
   // 加载模板（如有配置），无模板回退硬编码
-  const tplId = input.templateId || ((project.model_config_json ? JSON.parse(project.model_config_json) : {})[type === 'character' ? 'character_image' : type === 'scene' ? 'scene_image' : 'prop_image'] as any)?.templateId
+  const purposeKey = type === 'character' ? 'character_image' : type === 'scene' ? 'scene_image' : 'prop_image'
+  const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
+  let tplId = input.templateId || (projectConfig[purposeKey] as any)?.templateId
+  // 未配置模板时，自动使用官方默认模板
+  if (!tplId) {
+    const defaultTplMap: Record<string, string> = {
+      character_image: 'official-v1-character-image',
+      scene_image: 'official-v1-scene-image',
+      prop_image: 'official-v1-prop-image'
+    }
+    tplId = defaultTplMap[purposeKey]
+  }
   let tplUsed = false
   if (tplId) {
     try {
       const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(tplId) as any
       if (tpl?.content) {
-        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
         if (tp) {
+          const stylePromptZh = getStylePromptZh(project.style_name, finalStylePrompt)
           tp = tp.replace(/\{\{character_name\}\}/g, assetName || description)
             .replace(/\{\{character_description\}\}/g, description)
             .replace(/\{\{character_appearance_prompt\}\}/g, description)
@@ -165,6 +113,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
             .replace(/\{\{prop_description\}\}/g, description)
             .replace(/\{\{prop_prompt\}\}/g, description)
             .replace(/\{\{style_prompt\}\}/g, finalStylePrompt)
+            .replace(/\{\{style_prompt_zh\}\}/g, stylePromptZh)
             .replace(/\{\{style_name\}\}/g, project.style_name || '')
             .replace(/\{\{era\}\}/g, finalEraPrompt)
             .replace(/\{\{era_zh\}\}/g, project.era || '')
@@ -176,17 +125,22 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   }
   if (!tplUsed) {
     if (type === 'character') {
-      finalPrompt = `${ratioDirective}
-Scene: A character reference sheet on pure white background
-Subject: ${description}
-Details: ${layoutDir} four-panel layout in ${styleDesc} - Panel 1: Close-up portrait showing facial features, expression, hair and accessories; Panel 2: Full body front view, standing pose, displaying outfit and overall silhouette; Panel 3: Full body 45-degree angle view, showing profile and garment depth; Panel 4: Full body back view, showing outfit back details and hair from behind. Professional lighting, pure white background
-Constraints: Pure white background, ${aspectHint} aspect ratio, uniform spacing, consistent proportions across all panels, professional character design reference quality`
+      finalPrompt = [
+        `[Image-to-Image] Preserve the reference image's four-panel layout and white background, but REPLACE the character. Do NOT copy the reference character.`,
+        `[Subject] ${description}`,
+        `[Background] Pure white seamless background, thin gray lines separating four panels, uniform white gaps, panels equal size, NO overlap`,
+        `[Style] ${styleDesc}${finalEraPrompt ? ', ' + finalEraPrompt : ''}`,
+        `[Lighting] Professional studio lighting, soft key light, even illumination, no harsh shadows`,
+        `[Composition] Four panels arranged horizontally left to right in a single row, thin gray vertical dividers, equal width, no overlap — Panel 1 (Far Left, Close-up): head and shoulders, facial features, expression, hair, accessories; Panel 2 (Mid-Left, Full Body Front): standing straight, full outfit and silhouette; Panel 3 (Mid-Right, 45-Degree): side profile, garment draping and depth; Panel 4 (Far Right, Full Body Back): back view, hair and clothing from behind`,
+        `[Quality] ${aspectHint} aspect ratio, consistent proportions across panels, uniform lighting, equal spacing`
+      ].join('\n')
     } else if (type === 'scene') {
-      finalPrompt = `${ratioDirective}
-Scene: Modular visual analysis board on pure white background
-Subject: ${description}
-Details: Four-quadrant grid layout in ${styleDesc} - Top-left quadrant: panoramic establishing shot of the scene; Top-right quadrant: line art structural diagram with composition overlay and color palette strip; Bottom-left quadrant: close-up detail shot showing textures and surfaces; Bottom-right quadrant: visual element breakdown modules with labels. Professional lighting, pure white background
-Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid layout with thin gray dividing lines, absolutely NO people — no human figures, no silhouettes, no body parts, no shadows of people, professional visual reference board aesthetic`
+      finalPrompt = [
+        `[Subject] ${description}`,
+        `[Composition] Single wide panoramic establishing shot — NOT a multi-panel layout. Show the complete spatial layout and lighting of the scene. Sharp foreground, softened background, spatial depth`,
+        `[Style] ${styleDesc}${finalEraPrompt ? ', ' + finalEraPrompt : ''}`,
+        `[Quality] ${aspectHint} aspect ratio, absolutely NO people, NO text, NO labels, NO split panels, photorealistic, 8K, high detail, no blur/cartoon/anime/illustration/flat lighting`
+      ].join('\n')
     } else {
     // props 道具：模板替换变量
     let basePrompt = description
@@ -194,7 +148,7 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
       try {
         const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(templateId) as any
         if (tpl?.content) {
-          let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+          let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
           if (tp) {
             tp = tp.replace(/\{\{prop_name\}\}/g, description)
               .replace(/\{\{prop_description\}\}/g, description)
@@ -212,114 +166,31 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
     }
   }
 
-  // 3. 解析模型配置（四级降级）
-  const purposeMap: Record<string, string> = {
-    character: 'character_image',
-    scene: 'scene_image',
-    prop: 'prop_image'
-  }
-  const purposeKey = purposeMap[type]
-  const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
-
-  let model = inputModel
-  let channel = inputChannel
-  let apiKey = inputApiKey
-
-  // 第1级：input 参数（前端传入）
-  // 第2级：项目配置
-  if (!model || !channel) {
-    const purposeConfig = projectConfig[purposeKey] || {}
-    if (!model) model = purposeConfig.model
-    if (!channel) channel = purposeConfig.channel
+  // 场景：强制禁止人物——放在 prompt 最前面以提升模型遵循度
+  if (type === 'scene') {
+    finalPrompt = 'CRITICAL: This is a PURE ENVIRONMENT image. ABSOLUTELY NO people, characters, humans, figures, silhouettes, animals, or any living creatures anywhere. Empty architecture/interior/landscape only.\n\n' + finalPrompt
   }
 
-  // 第3级：全局模型路由（settings 中的 model_routes）
-  if (!model || !channel) {
-    const modelRoutesRaw = getSetting('model_routes')
-    if (modelRoutesRaw) {
-      try {
-        const modelRoutes = JSON.parse(modelRoutesRaw as string)
-        const routeConfig = modelRoutes[purposeKey]
-        if (routeConfig) {
-          if (!model && routeConfig.model) model = routeConfig.model
-          if (!channel && routeConfig.channel) channel = routeConfig.channel
-        }
-      } catch (e) {
-        // ignore parse error
-      }
-    }
-  }
+  // 日志：确认使用的提示词来源和内容
+  console.log(`[generateImage] type=${type} tplUsed=${tplUsed} tplId=${tplId || 'none'}`)
+  console.log(`[generateImage] FINAL PROMPT:\n${finalPrompt.slice(0, 600)}${finalPrompt.length > 600 ? '...' : ''}`)
 
-  // 第4级：全局默认（settings 中的 provider/model）
-  if (!model || !channel) {
-    const globalProvider = getSetting('provider')
-    const globalModel = getSetting('model')
-    if (globalProvider && globalModel) {
-      if (!model) model = `${globalProvider}:${globalModel}`
-      if (!channel) channel = globalProvider
-    }
-  }
+  // 3. 解析模型配置（四级降级）— 复用上方 purposeKey 和 projectConfig
+  const { model, channel, apiKey } = resolveModelConfig(purposeKey, projectConfig, inputModel, inputChannel, inputApiKey)
 
-  // 第4级：自动从供应商列表匹配第一个有 apiKey 的供应商
-  if (!model || !channel) {
-    const providers = getProviders()
-    for (const p of providers) {
-      const pApiKey = (p as any).apiKey
-      if (pApiKey && p.baseURL) {
-        const firstModel = p.models?.[0]
-        if (firstModel) {
-          const modelKey = typeof firstModel === 'string' ? firstModel : firstModel.key
-          const pKey = p.key || p.id
-          if (!channel) channel = pKey
-          if (!model) model = `${pKey}:${modelKey}`
-          break
-        }
-      }
-    }
-  }
-
-  // 4. 统一解析 providerKey，从供应商配置读取 apiKey 和 baseURL
-  let providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
-  if (!apiKey && providerKey) {
-    const resolved = resolveProviderConfig(providerKey)
-    if (resolved?.apiKey) {
-      apiKey = resolved.apiKey
-    }
-  }
-
-  // 修复：如果四级降级后仍拿不到 apiKey，强制清空 model/channel 执行第4级自动匹配
+  // 5. 提前校验 API Key 和模型（避免无效任务记录）
   if (!apiKey) {
-    model = undefined
-    channel = undefined
-    const providers = getProviders()
-    for (const p of providers) {
-      const pApiKey = (p as any).apiKey
-      if (pApiKey && p.baseURL) {
-        const firstModel = p.models?.[0]
-        if (firstModel) {
-          const modelKey = typeof firstModel === 'string' ? firstModel : firstModel.key
-          const pKey = p.key || p.id
-          channel = pKey
-          model = `${pKey}:${modelKey}`
-          break
-        }
-      }
-    }
-    providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
-    if (!apiKey && providerKey) {
-      const resolved = resolveProviderConfig(providerKey)
-      if (resolved?.apiKey) {
-        apiKey = resolved.apiKey
-      }
-    }
+    throw new Error('未配置 API Key，请在设置页配置供应商')
+  }
+  if (!model) {
+    throw new Error('未配置生图模型，请在模型配置中选择')
   }
 
-  // 5. 创建或复用 generation_tasks 记录
+  // 6. 创建或复用 generation_tasks 记录
   const purpose = type === 'character' ? 'character_reference' : type === 'scene' ? 'scene_reference' : 'prop_reference'
   let taskId: string
   if (inputTaskId) {
     taskId = inputTaskId
-    // 更新 model/channel（执行时解析的可能比预创建时更精确）
     db.prepare(
       `UPDATE generation_tasks SET model = COALESCE(?, model), channel = COALESCE(?, channel), updated_at = datetime('now', 'localtime') WHERE id = ?`
     ).run(model || null, channel || null, taskId)
@@ -345,73 +216,35 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
     )
   }
 
-  // 6. 如果没有 API Key 或模型，标记失败并返回
-  if (!apiKey) {
-    db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
-    ).run('未配置 API Key', taskId)
-    throw new Error('未配置 API Key，请在设置页配置供应商')
-  }
-  if (!model) {
-    db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
-    ).run('未配置生图模型', taskId)
-    throw new Error('未配置生图模型，请在模型配置中选择')
-  }
-
   // 7. 更新状态为 running，设置 started_at
   db.prepare(
     `UPDATE generation_tasks SET status = 'running', started_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?`
   ).run(taskId)
 
   try {
-    // 8. 参考图：优先用户指定 → 该资产已生成的图（保持角色/场景一致性）
+    // 8. 参考图：仅角色使用旧图保持一致性；场景/道具每次全新生成
     let finalRefImage: string | undefined = input.refImage
-    if (!finalRefImage) {
+    if (!finalRefImage && type === 'character') {
       try {
-        const assetTable = type === 'character' ? 'characters' : type === 'scene' ? 'scenes' : 'props'
-        const row = db.prepare(`SELECT reference_image FROM ${assetTable} WHERE id = ?`).get(assetId) as { reference_image: string | null } | undefined
+        const row = db.prepare('SELECT reference_image FROM characters WHERE id = ?').get(assetId) as { reference_image: string | null } | undefined
         if (row?.reference_image) {
-          const fs = require('fs')
-          if (fs.existsSync(row.reference_image)) {
-            finalRefImage = row.reference_image
-          }
+          if (existsSync(row.reference_image)) finalRefImage = row.reference_image
         }
-      } catch { /* 无已有图片或文件不存在，跳过 */ }
+      } catch { /* 无已有图片，跳过 */ }
     }
 
     // 8.5 画面比例 → API size 参数
     const size = getAPISize(aspectRatio)
 
     // 9. 调用 OpenAI 兼容格式的生图 API
+    // 注意：不注入风格参考图（含具体人物，img2img 会锁定角色外观）
+    // 风格信息通过 prompt 中的 style_prompt 传递
     const refs: string[] = finalRefImage ? [finalRefImage] : []
     const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refs, size)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', `${type}s`)
-    mkdirSync(imageDir, { recursive: true })
-
-    const imagePaths: string[] = []
-    for (let i = 0; i < imageUrls.length; i++) {
-      const url = imageUrls[i]
-      const ext = url.startsWith('data:') ? 'png' : 'png'
-      const fileName = `${assetId}_${Date.now()}_${i}.${ext}`
-      const filePath = join(imageDir, fileName)
-
-      if (url.startsWith('data:')) {
-        const base64Data = url.split(',')[1]
-        writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
-      } else if (url.startsWith('http')) {
-        try {
-          const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 })
-          writeFileSync(filePath, Buffer.from(resp.data))
-        } catch {
-          imagePaths.push(url)
-          continue
-        }
-      }
-      imagePaths.push(filePath)
-    }
+    const imagePaths = await saveGeneratedImages(imageUrls, imageDir, assetId)
 
     // 10. 写入历史表，新图自动选中（is_selected=1），旧图取消选中
     const tableMap: Record<string, string> = {
@@ -421,33 +254,52 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
     }
     const historyTable = tableMap[type]
     const idColumn = type === 'character' ? 'character_id' : type === 'scene' ? 'scene_id' : 'prop_id'
+    assertValidTableName(historyTable)
+    assertValidColumnName(idColumn)
 
-    // 先取消该资产所有旧图的选中状态
-    db.prepare(
-      `UPDATE ${historyTable} SET is_selected = 0 WHERE ${idColumn} = ?`
-    ).run(assetId)
-
-    // 插入新图记录
-    for (const imgPath of imagePaths) {
+    // 事务包裹：历史表写入 + 资产引用更新 + 锚点创建 + 任务状态，确保原子性
+    const postTx = db.transaction(() => {
+      // 先取消该资产所有旧图的选中状态
       db.prepare(
-        `INSERT INTO ${historyTable} (id, ${idColumn}, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now', 'localtime'))`
-      ).run(randomUUID(), assetId, imgPath)
-    }
+        `UPDATE ${historyTable} SET is_selected = 0 WHERE ${idColumn} = ?`
+      ).run(assetId)
 
-    // 11. 更新资产的 reference_image 为第一张新图
-    const assetTableMap: Record<string, string> = {
-      character: 'characters',
-      scene: 'scenes',
-      prop: 'props'
-    }
-    db.prepare(
-      `UPDATE ${assetTableMap[type]} SET reference_image = ? WHERE id = ?`
-    ).run(imagePaths[0], assetId)
+      // 插入新图记录
+      for (const imgPath of imagePaths) {
+        db.prepare(
+          `INSERT INTO ${historyTable} (id, ${idColumn}, image_path, is_selected, created_at) VALUES (?, ?, ?, 1, datetime('now', 'localtime'))`
+        ).run(randomUUID(), assetId, imgPath)
+      }
 
-    // 12. 更新任务状态为 completed
-    db.prepare(
-      `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
-    ).run(imagePaths.join(','), taskId)
+      // 11. 更新资产的 reference_image 为第一张新图
+      const assetTableMap: Record<string, string> = {
+        character: 'characters',
+        scene: 'scenes',
+        prop: 'props'
+      }
+      assertValidTableName(assetTableMap[type])
+      db.prepare(
+        `UPDATE ${assetTableMap[type]} SET reference_image = ? WHERE id = ?`
+      ).run(imagePaths[0], assetId)
+
+      // 11.5 角色生图：自动存储多角度锚点（4宫格: Panel1正面特写/Panel2全身正面/Panel3半侧面/Panel4背面）
+      if (type === 'character' && imagePaths.length > 0) {
+        createMultiAngle(assetId, {
+          front: imagePaths[0],
+          three_quarter: imagePaths[0],
+          side: imagePaths[0],
+          back: imagePaths[0],
+          generatedAt: new Date().toISOString()
+        })
+      }
+
+      // 12. 更新任务状态为 completed
+      db.prepare(
+        `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
+      ).run(imagePaths.join(','), taskId)
+    })
+
+    postTx()
 
     return { taskId, imagePaths }
   } catch (err: any) {
@@ -458,6 +310,48 @@ Constraints: Pure white background, ${aspectHint} aspect ratio, modular grid lay
     throw err
   }
 }
+
+// ===== 图片保存工具 =====
+
+async function saveGeneratedImages(
+  imageUrls: string[],
+  imageDir: string,
+  filePrefix: string
+): Promise<string[]> {
+  mkdirSync(imageDir, { recursive: true })
+  const imagePaths: string[] = []
+
+  for (let i = 0; i < imageUrls.length; i++) {
+    const url = imageUrls[i]
+    const fileName = `${filePrefix}_${i}_${Date.now()}.png`
+    const filePath = join(imageDir, fileName)
+
+    if (url.startsWith('data:')) {
+      try {
+        const base64Data = url.split(',')[1]
+        if (!base64Data) { console.error('[saveImages] Empty base64 data'); continue }
+        writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
+        if (!existsSync(filePath)) { console.error('[saveImages] Failed to write:', filePath); continue }
+      } catch (e) { console.error('[saveImages] Save error:', e); continue }
+    } else if (url.startsWith('http')) {
+      try {
+        const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 })
+        writeFileSync(filePath, Buffer.from(resp.data))
+      } catch {
+        imagePaths.push(url) // 下载失败，保留原 URL 作为记录
+        continue
+      }
+    }
+    imagePaths.push(filePath)
+  }
+
+  return imagePaths
+}
+
+// ===== 图片 API 调用层 =====
+
+let lastImageError = ''
+let lastChatError = ''
 
 /**
  * 调用 OpenAI 兼容格式的 /v1/images/generations
@@ -505,9 +399,19 @@ async function callImageGenerationAPI(
   // 最多重试2次
   for (let attempt = 0; attempt < 2; attempt++) {
     if (isAgnes) {
-      // Agnes: images/generations 支持多图 (extra_body.image数组)
+      // Agnes: 先图生图（images/generations + extra_body.image）
+      console.log('[Agnes] Trying images/generations (img2img)...')
       resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
-      if (!resp) lastError = lastImageError
+      if (!resp) {
+        lastError = lastImageError
+        // 图生图挂了 → 回退到 chat/completions（不经过 ComfyUI）
+        console.log('[Agnes] images/generations failed, falling back to chat/completions...')
+        resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+        if (resp) console.log('[Agnes] chat/completions fallback OK')
+        else if (lastChatError) lastError = lastChatError
+      } else {
+        console.log('[Agnes] images/generations OK')
+      }
     } else if (hasMultipleRefs) {
       // 多参考图 → 直接走 chat/completions（images/generations 只支持单图）
       resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
@@ -524,7 +428,7 @@ async function callImageGenerationAPI(
 
     if (resp) break
     if (attempt < 1) {
-      await new Promise(r => setTimeout(r, 3000))
+      await new Promise(r => setTimeout(r, IMAGE_API_RETRY_DELAY))
     }
   }
 
@@ -555,58 +459,70 @@ async function callImageGenerationAPI(
   return urls
 }
 
-let lastImageError = ''
-let lastChatError = ''
-
 async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | string[] | null, size?: string | null): Promise<any> {
-  try {
-    const url = `${baseURL}/images/generations`
-    const isAgnes = baseURL.includes('agnes-ai.com')
-    const body: any = { prompt, model, n: 1 }
+  const url = `${baseURL}/images/generations`
+  const isAgnes = baseURL.includes('agnes-ai.com')
+  const body: any = { prompt, model, n: 1, seed: Math.floor(Math.random() * 2147483647) }
 
-    if (isAgnes) {
-      // Agnes 仅支持标准尺寸: 1024x1024 / 1024x768 / 768x1024
-      if (size) {
-        if (size === '1792x1024') body.size = '1024x768'
-        else if (size === '1024x1792') body.size = '768x1024'
-        else body.size = '1024x1024'
-      }
-      // 图生图：角色/场景参考图优先，构图锚点排后，最多2张
-      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      const charRefs = refs.filter(r => r.includes('characters') || r.includes('scenes'))
-      const frameRefs = refs.filter(r => !charRefs.includes(r))
-      const orderedRefs = [...charRefs, ...frameRefs].slice(0, 2)
-      const imgUrls: string[] = []
-      for (const r of orderedRefs) {
-        try {
-          const imgBuffer = require('fs').readFileSync(r)
-          imgUrls.push('data:image/png;base64,' + imgBuffer.toString('base64'))
-        } catch { /* skip */ }
-      }
-      if (imgUrls.length > 0) {
-        body.extra_body = { tags: ['img2img'], image: imgUrls }
-      }
-      // 文生图绝对不能传 extra_body
-    } else {
-      if (size) body.size = size
-      const singleRef = Array.isArray(refImage) ? refImage[0] : refImage
-      if (singleRef) {
-        try {
-          const imgBuffer = require('fs').readFileSync(singleRef)
-          body.image = imgBuffer.toString('base64')
-        } catch { /* skip */ }
-      }
+  if (isAgnes) {
+    // Agnes 仅支持标准尺寸: 1024x1024 / 1024x768 / 768x1024
+    if (size) {
+      if (size === '1792x1024') body.size = '1024x768'
+      else if (size === '1024x1792') body.size = '768x1024'
+      else body.size = '1024x1024'
     }
-    return await axios.post(url, body, {
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 300000
-    })
-  } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
-    lastImageError = typeof msg === 'string' ? msg : JSON.stringify(msg)
-    if (process.env.NODE_ENV === 'development') console.error('[tryImageAPI]', e?.response?.status, lastImageError)
-    return null
+    // 图生图：image 数组放 extra_body 内，不需要 tags
+    const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
+    const imgUrls: string[] = []
+    for (const r of refs.slice(0, AGNES_MAX_REF_IMAGES)) {
+      try {
+        const imgBuffer = readFileSync(r)
+        imgUrls.push('data:image/png;base64,' + imgBuffer.toString('base64'))
+      } catch { /* skip */ }
+    }
+    if (imgUrls.length > 0) {
+      body.extra_body = { image: imgUrls, response_format: 'b64_json' }
+    }
+  } else {
+    if (size) body.size = size
+    const singleRef = Array.isArray(refImage) ? refImage[0] : refImage
+    if (singleRef) {
+      try {
+        const imgBuffer = readFileSync(singleRef)
+        body.image = imgBuffer.toString('base64')
+      } catch { /* skip */ }
+    }
   }
+  // 重试3次，指数退避 1s → 2s → 4s
+  let lastErr: any
+  for (let attempt = 0; attempt < IMAGE_API_MAX_RETRIES; attempt++) {
+    try {
+      const resp = await axios.post(url, body, {
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        timeout: 300000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      })
+      return resp
+    } catch (e: any) {
+      lastErr = e
+      const code = e?.code || e?.response?.status
+      // ECONNRESET / 5xx → retry; 4xx (except 429) → don't retry
+      if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code >= 500 || code === 429) {
+        if (attempt < 2) {
+          const delay = 1000 * Math.pow(2, attempt)
+          console.warn(`[tryImageAPI] Retry ${attempt + 1}/3 after ${delay}ms (${code})`)
+          await new Promise(r => setTimeout(r, delay))
+          continue
+        }
+      }
+      break
+    }
+  }
+  const msg = lastErr?.response?.data?.message || lastErr?.response?.data || lastErr?.message || ''
+  lastImageError = typeof msg === 'string' ? msg : JSON.stringify(msg)
+  if (process.env.NODE_ENV === 'development') console.error('[tryImageAPI]', lastErr?.response?.status || lastErr?.code, lastImageError)
+  return null
 }
 
 async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImages?: string[], _size?: string | null): Promise<any> {
@@ -617,8 +533,7 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
     const imgs = refImages || []
     for (const imgPath of imgs) {
       try {
-        const fs = require('fs')
-        const imgBuffer = fs.readFileSync(imgPath)
+        const imgBuffer = readFileSync(imgPath)
         const ext = imgPath.split('.').pop()?.toLowerCase() || 'png'
         const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png'
         userContent.push({
@@ -634,7 +549,9 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
       max_tokens: 4096
     }, {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 300000
+      timeout: 300000,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity
     })
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.response?.data || e?.message || ''
@@ -644,71 +561,13 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
   }
 }
 
-/**
- * 查询资产的历史图片记录
- */
-export function getAssetImages(assetType: 'character' | 'scene' | 'prop', assetId: string): any[] {
-  const db = getDb()
-  const tableMap: Record<string, string> = {
-    character: 'character_images',
-    scene: 'scene_images',
-    prop: 'prop_images'
-  }
-  const table = tableMap[assetType]
-  const idColumn = assetType === 'character' ? 'character_id' : assetType === 'scene' ? 'scene_id' : 'prop_id'
-
-  return db
-    .prepare(`SELECT * FROM ${table} WHERE ${idColumn} = ? ORDER BY created_at DESC`)
-    .all(assetId)
-}
-
-/**
- * 切换选中历史图片
- */
-export function selectAssetImage(
-  assetType: 'character' | 'scene' | 'prop',
-  assetId: string,
-  imageId: string
-): void {
-  const db = getDb()
-  const tableMap: Record<string, string> = {
-    character: 'character_images',
-    scene: 'scene_images',
-    prop: 'prop_images'
-  }
-  const assetTableMap: Record<string, string> = {
-    character: 'characters',
-    scene: 'scenes',
-    prop: 'props'
-  }
-  const table = tableMap[assetType]
-  const idColumn = assetType === 'character' ? 'character_id' : assetType === 'scene' ? 'scene_id' : 'prop_id'
-
-  // 取消该资产所有选中
-  db.prepare(`UPDATE ${table} SET is_selected = 0 WHERE ${idColumn} = ?`).run(assetId)
-  // 选中指定图片
-  db.prepare(`UPDATE ${table} SET is_selected = 1 WHERE id = ?`).run(imageId)
-
-  // 更新资产 reference_image
-  const imgRow = db.prepare(`SELECT image_path FROM ${table} WHERE id = ?`).get(imageId) as
-    | { image_path: string }
-    | undefined
-  if (imgRow) {
-    db.prepare(`UPDATE ${assetTableMap[assetType]} SET reference_image = ? WHERE id = ?`).run(
-      imgRow.image_path,
-      assetId
-    )
-  }
-}
-
 // ===== 分镜首帧/尾帧生图 =====
-
-import type { GenerateShotImageInput } from '../types'
 
 /**
  * 生成分镜首帧/尾帧图片
  */
 export async function generateShotImage(input: GenerateShotImageInput): Promise<GenerateImageResult> {
+  assertValidFrameType(input.frameType)
   const db = getDb()
   const {
     projectId,
@@ -728,7 +587,9 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
         shot_index: number
         project_id: string
         first_frame_prompt: string | null
+        first_frame_prompt_zh: string | null
         last_frame_prompt: string | null
+        last_frame_prompt_zh: string | null
         first_frame_image_path: string | null
         last_frame_image_path: string | null
       }
@@ -754,92 +615,93 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
   const purposeConfig = projectConfig[purposeKey] || {}
   let refImage = input.refImage || purposeConfig.refImage || ''
-  if (!refImage) {
-    if (frameType === 'last') {
-      // 尾帧 → 用本分镜的首帧图当参考（保持同一分镜内构图一致）
-      const firstFramePath = shot.first_frame_image_path
-      if (firstFramePath) {
-        try { const fs = require('fs'); if (fs.existsSync(firstFramePath)) refImage = firstFramePath } catch {}
-      }
-    } else if (frameType === 'first' && shot.shot_index > 1) {
-      // 首帧 → 用上一个分镜的尾帧图当参考（跨分镜视觉连贯）
-      const prevShot = db.prepare(
-        'SELECT last_frame_image_path FROM shots WHERE chapter_id = ? AND shot_index = ?'
-      ).get(shot.chapter_id, shot.shot_index - 1) as { last_frame_image_path: string | null } | undefined
-      if (prevShot?.last_frame_image_path) {
-        try { const fs = require('fs'); if (fs.existsSync(prevShot.last_frame_image_path)) refImage = prevShot.last_frame_image_path } catch {}
-      }
-    }
-  }
 
-  // 3.5 收集关联角色和场景的参考图 + 描述（用于丰富 prompt）
+  // 3.5 收集参考图——角色在前做人脸锚点，场景在后做背景（模型优先看前面的图做人脸识别）
+  // 同时记录每个角色图在 refImages 数组中的绝对索引（1-based，供 prompt 引用）
   const refImages: string[] = []
-  if (refImage) refImages.push(refImage)
+  const charImageAnchors: { name: string; refNum: number; description: string | null }[] = []
   const contextChars: string[] = []
   let contextScene = ''
   try {
+    // ① 角色图排最前面——确保模型优先识别角色人脸
     const shotChars = db.prepare(
-      'SELECT c.name, c.description, c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
-    ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
+      'SELECT c.id, c.name, c.description, c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ? ORDER BY sc.rowid'
+    ).all(shotId) as { id: string; name: string; description: string | null; reference_image: string | null }[]
     for (const ch of shotChars) {
       if (ch.reference_image) {
-        try { const fs = require('fs'); if (fs.existsSync(ch.reference_image)) refImages.push(ch.reference_image) } catch {}
+        try {
+          if (existsSync(ch.reference_image)) {
+            refImages.push(ch.reference_image)
+            charImageAnchors.push({ name: ch.name, refNum: refImages.length, description: ch.description })
+          }
+        } catch {}
       }
       if (ch.description) contextChars.push(`${ch.name}: ${ch.description}`)
       else if (ch.name) contextChars.push(ch.name)
     }
+    // ② 场景图排在角色后面——做背景底板
     const shotScenes = db.prepare(
       'SELECT s.name, s.description, s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
     for (const sc of shotScenes) {
       if (sc.reference_image) {
-        try { const fs = require('fs'); if (fs.existsSync(sc.reference_image)) refImages.push(sc.reference_image) } catch {}
+        try { if (existsSync(sc.reference_image)) refImages.push(sc.reference_image) } catch {}
       }
       if (sc.description) contextScene = `${sc.name}: ${sc.description}`
       else if (sc.name && !contextScene) contextScene = sc.name
     }
+    // ③ 构图锚点（上一镜尾帧等）排最后——仅做构图参考，不影响人脸
+    if (refImage) refImages.push(refImage)
   } catch { /* 关联查询失败则跳过 */ }
 
-  // 4. 构建丰富提示词：frame_prompt + 参考图说明 + 分镜上下文 + 风格 + 年代
-  // 标注每张参考图的用途，引导模型区分构图锚点 vs 角色外观 vs 场景空间
+  // 4. 角色名列表（与 charImageAnchors 顺序一致）
+  const charNames = charImageAnchors.map(c => c.name)
+
+  // 4.1 构建参考图说明——用绝对编号，模型一目了然
   let refImagesNote = ''
   if (refImages.length > 1) {
     const labels: string[] = []
-    let charIdx = 0
-    let sceneIdx = 0
-    // refImages[0] 是构图参考（如有）
-    if (refImage && refImages[0] === refImage) {
-      labels.push('Reference image 1: COMPOSITION anchor — use for camera angle and framing only, NOT for character appearance')
-    }
-    for (const img of refImages.slice(refImage ? 1 : 0)) {
-      // 根据路径判断是角色图还是场景图
-      if (img.includes('characters')) {
-        charIdx++
-        labels.push(`Reference image ${labels.length + 1}: CHARACTER appearance anchor #${charIdx} — maintain THIS character\'s face, outfit, and proportions exactly`)
+    for (let i = 0; i < refImages.length; i++) {
+      const refNum = i + 1
+      const img = refImages[i]
+      // 精确匹配：用记录的 refNum 判断此位置是哪个角色
+      const anchor = charImageAnchors.find(c => c.refNum === refNum)
+      if (anchor) {
+        const descSnippet = anchor.description ? ` (${anchor.description.slice(0, 80)})` : ''
+        labels.push(`Image #${refNum}: = "${anchor.name}"${descSnippet} — THIS IS THE FACE ANCHOR for ${anchor.name}. Every instance of "${anchor.name}" in the generated image MUST have this exact face, hairstyle, hair color, eye color, and skin tone. Use this face. Do NOT swap it with another character.`)
       } else if (img.includes('scenes')) {
-        sceneIdx++
-        labels.push(`Reference image ${labels.length + 1}: SCENE space anchor #${sceneIdx} — maintain THIS environment, lighting, and spatial layout`)
+        labels.push(`Image #${refNum}: SCENE BACKGROUND — COPY this exact environment, architecture, lighting, colors. Characters are placed INTO this background.`)
+      } else if (img === refImage || (refImage && i === refImages.length - 1)) {
+        labels.push(`Image #${refNum}: COMPOSITION anchor — use ONLY for camera angle and framing. Do NOT copy character identity, position, or scale from this image.`)
       } else {
-        labels.push(`Reference image ${labels.length + 1}: visual reference`)
+        labels.push(`Image #${refNum}: visual context — reference only, do NOT copy position or identity.`)
       }
     }
     if (labels.length > 0) {
-      refImagesNote = labels.join('. ') + '. '
+      refImagesNote = labels.join('\n') + '\n\n'
     }
   }
 
   const shotContextParts: string[] = []
   // 角色外观描述
-  if (contextChars.length > 0) shotContextParts.push(`Characters: ${contextChars.join('; ')}`)
+  if (contextChars.length > 0) {
+    shotContextParts.push(`Characters: ${contextChars.join('; ')}`)
+    shotContextParts.push('CRITICAL: Exactly ONE instance of each named character. NO duplicates, NO clones, NO mirror reflections showing the same character twice. Single unique individual per character name.')
+  }
   // 场景描述
-  if (contextScene) shotContextParts.push(`Scene: ${contextScene}`)
+  if (contextScene) {
+    // 特写/近景时裁剪场景描述（避免房间家具和特写构图冲突）
+    const isCu = /特写|近景|close.?up|chest.?up/i.test(shotPrompt)
+    const sceneText = isCu ? `${contextScene.split(':')[0]}: Soft blurred background, intimate atmosphere.` : contextScene
+    shotContextParts.push(`Scene: ${sceneText}`)
+  }
   // 景别 + 运镜（shots 表的中文字段）
   const extraFields = db.prepare(
     'SELECT shot_type, camera_movement, lighting_mood, character_actions, dialogue FROM shots WHERE id = ?'
   ).get(shotId) as { shot_type: string | null; camera_movement: string | null; lighting_mood: string | null; character_actions: string | null; dialogue: string | null } | undefined
-  if (extraFields?.shot_type) shotContextParts.push(`Shot type: ${extraFields.shot_type}`)
-  if (extraFields?.camera_movement) shotContextParts.push(`Camera: ${extraFields.camera_movement}`)
-  if (extraFields?.lighting_mood) shotContextParts.push(`Lighting: ${extraFields.lighting_mood}`)
+  // shot_type 由 compositionGuide 统一控制，不重复注入
+  if (extraFields?.camera_movement) shotContextParts.push(`Camera: ${translateCnField(extraFields.camera_movement)}`)
+  if (extraFields?.lighting_mood) shotContextParts.push(`Lighting: ${translateCnField(extraFields.lighting_mood)}`)
   if (extraFields?.character_actions) {
     try {
       const actions = JSON.parse(extraFields.character_actions) as Array<{ character_name: string; action: string }>
@@ -848,6 +710,26 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   }
 
   const shotContext = shotContextParts.join('. ')
+
+  // 4.3 景别 → 构图位置指令（优先从 prompt 文本检测，其次取 DB 字段）
+  const compositionGuide = ((): string => {
+    const st = detectShotType(shotPrompt) || extraFields?.shot_type || ''
+    const cm = extraFields?.camera_movement || ''
+    if (st.includes('大特写')) return 'Extreme close-up composition: a SINGLE DETAIL fills the entire frame — one eye, lips, a hand, an object. No face, no body, no environment visible. Extreme shallow depth of field. Macro photography style. The subject detail occupies 90%+ of the image area'
+    if (st.includes('特写')) return 'Close-up composition: single character FILLS the frame, face and upper body CENTERED, shallow depth of field blurring the background, character occupies 70%+ of the image area. The scene environment serves only as a soft out-of-focus backdrop. DO NOT show the full room, furniture, or distant background elements'
+    if (st.includes('近景')) return 'Medium close-up composition: character from chest up, positioned CENTER-FRONT, occupying 50-60% of frame height. Background softly visible but secondary. Character is the dominant visual element. Keep background elements minimal and close to the character'
+    if (st.includes('中景')) return 'Medium shot composition: character full body CENTERED in the frame, standing in the MIDDLE GROUND, occupying 40-50% of frame height. IGNORE the reference image character position — place the character at the CENTER of the composition. Environment clearly visible behind and around the character. Clear spatial separation between foreground character and background environment'
+    if (st.includes('全景')) return 'Full shot composition: character full body, positioned in the LOWER-MIDDLE third of the frame, occupying 25-35% of frame height. Expansive environment dominates the upper portion. Character clearly placed within the spatial context of the scene'
+    if (st.includes('远景') || st.includes('大远景')) return 'Wide/long shot composition: character appears as a small figure within the vast environment, occupying 10-20% of frame height. Environment is the primary visual element. Character placed according to rule of thirds'
+    if (cm.includes('跟')) return 'Tracking shot composition: character in motion, positioned with lead room in the direction of movement. Dynamic framing with space ahead of the character'
+    return 'Balanced composition: character positioned naturally within the scene, proportionate to the environment. Rule of thirds applied'
+  })()
+
+  console.log(`[ShotImage] === ${frameType === 'first' ? 'FIRST' : 'LAST'} FRAME SUMMARY ===`)
+  console.log(`[ShotImage] Shot prompt:`, shotPrompt.slice(0, 150))
+  console.log(`[ShotImage] Ref images:`, refImages.length, '| context chars:', contextChars.length, '| scene:', contextScene ? 'YES' : 'NONE')
+  console.log(`[ShotImage] Shot type:`, extraFields?.shot_type || 'NONE', '| Camera:', extraFields?.camera_movement || 'NONE', '| Lighting:', extraFields?.lighting_mood || 'NONE')
+
   let shotFinalPrompt = refImagesNote ? `${refImagesNote}${shotPrompt}` : shotPrompt
   if (shotContext) shotFinalPrompt = `${shotFinalPrompt}\n${shotContext}`
   shotFinalPrompt = [shotFinalPrompt, finalStylePrompt, finalEraPrompt].filter(s => s.trim()).join(', ')
@@ -858,12 +740,16 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     try {
       const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(shotTplId) as any
       if (tpl?.content) {
-        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
         if (tp) {
+          const shotPromptZh = frameType === 'first'
+            ? (shot.first_frame_prompt_zh || shotPrompt)
+            : (shot.last_frame_prompt_zh || shotPrompt)
+          const stylePromptZh = getStylePromptZh(project.style_name, finalStylePrompt)
           const sv: Record<string, string> = {
-            style_prompt: finalStylePrompt, style_prompt_zh: finalStylePrompt,
+            style_prompt: finalStylePrompt, style_prompt_zh: stylePromptZh,
             era: finalEraPrompt, era_zh: project.era || '',
-            shot_description: shotPrompt, shot_description_zh: shotPrompt,
+            shot_description: shotPrompt, shot_description_zh: shotPromptZh,
             dialogue: extraFields?.dialogue || '', dialogue_en: extraFields?.dialogue || '',
             shot_type: extraFields?.shot_type || '', shot_type_en: extraFields?.shot_type || '', shot_type_zh: extraFields?.shot_type || '',
             lighting_mood: extraFields?.lighting_mood || '', lighting_mood_en: extraFields?.lighting_mood || '',
@@ -874,108 +760,47 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
           }
           for (const [k, v] of Object.entries(sv)) { tp = tp.replace(new RegExp('\\{\\{' + k + '\\}\\}', 'g'), v) }
           tp = tp.replace(/\{\{[^}]+\}\}/g, '')
-          if (tp.trim()) { shotFinalPrompt = tp.trim(); console.log('[template] shot template OK:', shotTplId) }
+          if (tp.trim()) { shotFinalPrompt = tp.trim(); console.log(`[ShotImage] ⚠ TEMPLATE OVERRIDE: ${shotTplId} — user prompt replaced by template`) }
         }
       }
     } catch { /* keep default */ }
   }
 
-  // 5. 解析模型配置（四级降级）
-
-  let model = inputModel
-  let channel = inputChannel
-  let apiKey: string | undefined = undefined
-
-  // L1: input 参数
-  // L2: 项目配置
-  if (!model || !channel) {
-    const purposeConfig = projectConfig[purposeKey] || {}
-    if (!model) model = purposeConfig.model
-    if (!channel) channel = purposeConfig.channel
-  }
-
-  // L3: 全局模型路由
-  if (!model || !channel) {
-    const modelRoutesRaw = getSetting('model_routes')
-    if (modelRoutesRaw) {
-      try {
-        const modelRoutes = JSON.parse(modelRoutesRaw as string)
-        const routeConfig = modelRoutes[purposeKey]
-        if (routeConfig) {
-          if (!model && routeConfig.model) model = routeConfig.model
-          if (!channel && routeConfig.channel) channel = routeConfig.channel
+  // 4.5 Prompt 级角色一致性校验（不阻塞生成，仅告警）
+  try {
+    const charsForCheck = (contextChars || []).map(s => {
+      const [name, ...descParts] = s.split(': ')
+      return { name, description: descParts.join(': ') || null }
+    }).filter(c => c.description)
+    if (charsForCheck.length > 0) {
+      const warnings = checkShotConsistency(shotFinalPrompt, charsForCheck)
+      if (warnings.length > 0) {
+        for (const w of warnings) {
+          console.warn(`[CONSISTENCY] ⚠ ${w.rule}`)
         }
-      } catch (e) {
-        // ignore
+      } else {
+        console.log('[CONSISTENCY] ✓ 角色外貌描述一致')
       }
     }
-  }
+  } catch (e) { /* 校验失败不影响生图 */ }
 
-  // L4: 全局默认 settings
-  if (!model || !channel) {
-    const globalProvider = getSetting('provider')
-    const globalModel = getSetting('model')
-    if (globalProvider && globalModel) {
-      if (!model) model = `${globalProvider}:${globalModel}`
-      if (!channel) channel = globalProvider
-    }
-  }
+  // 4.6 角色-参考图映射 + 构图 + 唯一性
+  const charMapNote = charImageAnchors.length > 0
+    ? `[IDENTITY ANCHORS] This image contains ${charImageAnchors.length} character(s): ${charNames.join(', ')}. Each character has a numbered reference image that shows their EXACT face:\n${charImageAnchors.map(c => `  Image #${c.refNum} → "${c.name}" — every instance of "${c.name}" MUST use the face from Image #${c.refNum}.`).join('\n')}\nCRITICAL: Do NOT swap faces between characters. 苏云's face comes from her anchor image. 叶尘's face comes from his anchor image. If you confuse them, the image is wrong.`
+    : ''
+  shotFinalPrompt = `${charMapNote}\n[COMPOSITION] ${compositionGuide}. [CHARACTER COUNT] Exactly ONE instance of each named character — NO duplicates, NO clones, NO twin figures. Each character appears exactly ONCE. [VARIATION] Each generation should be UNIQUE in pose, expression, and camera angle.\n\n${shotFinalPrompt}`
 
-  // L4b: 自动匹配第一个有 apiKey 的供应商
-  if (!model || !channel) {
-    const providers = getProviders()
-    for (const p of providers) {
-      const pApiKey = (p as any).apiKey
-      if (pApiKey && p.baseURL) {
-        const firstModel = p.models?.[0]
-        if (firstModel) {
-          const modelKey = typeof firstModel === 'string' ? firstModel : firstModel.key
-          const pKey = p.key || p.id
-          if (!channel) channel = pKey
-          if (!model) model = `${pKey}:${modelKey}`
-          break
-        }
-      }
-    }
-  }
+  const { model, channel, apiKey } = resolveModelConfig(purposeKey, projectConfig, inputModel, inputChannel)
 
-  // 5. 统一解析 providerKey，读取 apiKey 和 baseURL
-  let providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
-  if (!apiKey && providerKey) {
-    const resolved = resolveProviderConfig(providerKey)
-    if (resolved?.apiKey) {
-      apiKey = resolved.apiKey
-    }
-  }
-
-  // 修复：如果四级降级后仍拿不到 apiKey，强制清空 model/channel 执行第4级自动匹配
+  // 6. 提前校验 API Key 和模型
   if (!apiKey) {
-    model = undefined
-    channel = undefined
-    const providers = getProviders()
-    for (const p of providers) {
-      const pApiKey = (p as any).apiKey
-      if (pApiKey && p.baseURL) {
-        const firstModel = p.models?.[0]
-        if (firstModel) {
-          const modelKey = typeof firstModel === 'string' ? firstModel : firstModel.key
-          const pKey = p.key || p.id
-          channel = pKey
-          model = `${pKey}:${modelKey}`
-          break
-        }
-      }
-    }
-    providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
-    if (!apiKey && providerKey) {
-      const resolved = resolveProviderConfig(providerKey)
-      if (resolved?.apiKey) {
-        apiKey = resolved.apiKey
-      }
-    }
+    throw new Error('未配置 API Key，请在设置页配置供应商')
+  }
+  if (!model) {
+    throw new Error('未配置生图模型，请在模型配置中选择')
   }
 
-  // 6. 创建或复用 generation_tasks 记录
+  // 7. 创建或复用 generation_tasks 记录
   let taskId: string
   if (inputTaskId) {
     taskId = inputTaskId
@@ -1004,78 +829,60 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     )
   }
 
-  if (!apiKey) {
-    db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
-    ).run('未配置 API Key', taskId)
-    throw new Error('未配置 API Key，请在设置页配置供应商')
-  }
-  if (!model) {
-    db.prepare(
-      `UPDATE generation_tasks SET status = 'failed', error_message = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
-    ).run('未配置生图模型', taskId)
-    throw new Error('未配置生图模型，请在模型配置中选择')
-  }
-
-  // 7. 更新状态为 running
+  // 8. 更新状态为 running
   db.prepare(
     `UPDATE generation_tasks SET status = 'running', started_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?`
   ).run(taskId)
 
   try {
-    // 8. 画面比例 → API size 参数
+    // 9. 画面比例 → API size 参数
     const size2 = getAPISize(project.aspect_ratio || '16:9')
 
-    // 8. 调用生图 API
+    // 9. 调用生图 API
+    console.log('═══════════════════════════════════════')
+    console.log(`[ShotImage] === FINAL PROMPT TO API (${frameType}) ===`)
+    console.log(`[ShotImage] Full prompt (${shotFinalPrompt.length} chars):`)
+    console.log(shotFinalPrompt)
+    console.log(`[ShotImage] ---`)
+    console.log(`[ShotImage] Model: ${model} | Channel: ${channel}`)
+    console.log(`[ShotImage] Ref images: ${refImages.length} | Size: ${size2}`)
+    console.log(`[ShotImage] Shot context injected: ${shotContextParts.length} parts`)
+    console.log(`[ShotImage] Composition guide: ${compositionGuide.slice(0, 100)}...`)
+    console.log('═══════════════════════════════════════')
+
     const imageUrls = await callImageGenerationAPI(shotFinalPrompt, model, apiKey, channel, refImages, size2)
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', 'frames')
-    mkdirSync(imageDir, { recursive: true })
+    const imagePaths = await saveGeneratedImages(imageUrls, imageDir, `${shotId}_${frameType}`)
 
-    const imagePaths: string[] = []
-    for (let i = 0; i < imageUrls.length; i++) {
-      const url = imageUrls[i]
-      const ext = url.startsWith('data:') ? 'png' : 'png'
-      const fileName = `${shotId}_${frameType}_${Date.now()}_${i}.${ext}`
-      const filePath = join(imageDir, fileName)
-
-      if (url.startsWith('data:')) {
-        const base64Data = url.split(',')[1]
-        writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
-      } else if (url.startsWith('http')) {
-        try {
-          const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 })
-          writeFileSync(filePath, Buffer.from(resp.data))
-        } catch {
-          imagePaths.push(url)
-          continue
-        }
-      }
-      imagePaths.push(filePath)
-    }
-
-    // 10. 写入 shot_images 表
-    db.prepare(
-      `UPDATE shot_images SET is_selected = 0 WHERE shot_id = ? AND type = ?`
-    ).run(shotId, frameType)
-
-    for (const imgPath of imagePaths) {
+    // 事务包裹：shot_images 写入 + shots 引用更新 + 任务状态，确保原子性
+    const postTx = db.transaction(() => {
+      // 10. 写入 shot_images 表
       db.prepare(
-        `INSERT INTO shot_images (id, shot_id, image_path, type, is_selected, created_at) VALUES (?, ?, ?, ?, 1, datetime('now', 'localtime'))`
-      ).run(randomUUID(), shotId, imgPath, frameType)
-    }
+        `UPDATE shot_images SET is_selected = 0 WHERE shot_id = ? AND type = ?`
+      ).run(shotId, frameType)
 
-    // 11. 更新 shots 表
-    const updateColumn = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
-    db.prepare(
-      `UPDATE shots SET ${updateColumn} = ? WHERE id = ?`
-    ).run(imagePaths[0], shotId)
+      for (const imgPath of imagePaths) {
+        db.prepare(
+          `INSERT INTO shot_images (id, shot_id, image_path, type, is_selected, created_at) VALUES (?, ?, ?, ?, 1, datetime('now', 'localtime'))`
+        ).run(randomUUID(), shotId, imgPath, frameType)
+      }
 
-    // 12. 更新任务状态为 completed
-    db.prepare(
-      `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
-    ).run(imagePaths.join(','), taskId)
+      // 11. 更新 shots 表
+      const updateColumn = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
+      assertValidColumnName(updateColumn)
+      db.prepare(
+        `UPDATE shots SET ${updateColumn} = ? WHERE id = ?`
+      ).run(imagePaths[0], shotId)
+
+      // 12. 更新任务状态为 completed
+      db.prepare(
+        `UPDATE generation_tasks SET status = 'completed', output_path = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`
+      ).run(imagePaths.join(','), taskId)
+    })
+
+    postTx()
 
     return { taskId, imagePaths }
   } catch (err: any) {
@@ -1087,536 +894,47 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   }
 }
 
-/**
- * 查询分镜的历史图片记录
- */
-export function getShotImages(shotId: string, frameType: 'first' | 'last'): any[] {
-  const db = getDb()
-  return db
-    .prepare(`SELECT * FROM shot_images WHERE shot_id = ? AND type = ? ORDER BY created_at DESC`)
-    .all(shotId, frameType)
-}
+// ===== 角度锚点单体生成 =====
 
 /**
- * 删除资产历史图片
+ * 为指定角色生成单角度锚点图（增量更新，不覆盖已有角度）
  */
-export function deleteAssetImage(
-  assetType: 'character' | 'scene' | 'prop',
-  assetId: string,
-  imageId: string
-): void {
+export async function generateAngle(
+  characterId: string,
+  angle: AnchorAngle
+): Promise<{ imagePath: string; angle: AnchorAngle }> {
   const db = getDb()
-  const tableMap: Record<string, string> = {
-    character: 'character_images',
-    scene: 'scene_images',
-    prop: 'prop_images'
-  }
-  const table = tableMap[assetType]
-  const idColumn = assetType === 'character' ? 'character_id' : assetType === 'scene' ? 'scene_id' : 'prop_id'
 
-  // 获取要删除的图片信息
-  const img = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(imageId) as { image_path: string; is_selected: number } | undefined
-  if (!img) throw new Error('图片记录不存在')
+  const char = db.prepare('SELECT * FROM characters WHERE id = ?').get(characterId) as
+    | { id: string; project_id: string; name: string; description: string | null }
+    | undefined
+  if (!char) throw new Error(`角色不存在: ${characterId}`)
 
-  // 删除数据库记录
-  db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(imageId)
-
-  // 如果被删除的是当前选中的，将最新的一张设为选中
-  if (img.is_selected) {
-    const latest = db.prepare(`SELECT id FROM ${table} WHERE ${idColumn} = ? ORDER BY created_at DESC LIMIT 1`).get(assetId) as { id: string } | undefined
-    if (latest) {
-      db.prepare(`UPDATE ${table} SET is_selected = 1 WHERE id = ?`).run(latest.id)
-      // 更新资产 reference_image
-      const latestImg = db.prepare(`SELECT image_path FROM ${table} WHERE id = ?`).get(latest.id) as { image_path: string }
-      const assetTable = assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
-      db.prepare(`UPDATE ${assetTable} SET reference_image = ? WHERE id = ?`).run(latestImg.image_path, assetId)
-    } else {
-      // 没有其他图片了，清空 reference_image
-      const assetTable = assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'props'
-      db.prepare(`UPDATE ${assetTable} SET reference_image = '' WHERE id = ?`).run(assetId)
-    }
-  }
-
-  // 尝试删除文件
-  try {
-    const fs = require('fs')
-    if (fs.existsSync(img.image_path)) fs.unlinkSync(img.image_path)
-  } catch { /* file may not exist */ }
-}
-
-/** 删除分镜首帧/尾帧历史图片 */
-export function deleteShotImage(shotId: string, imageId: string): void {
-  const db = getDb()
-  const img = db.prepare('SELECT * FROM shot_images WHERE id = ? AND shot_id = ?').get(imageId, shotId) as { image_path: string; type: string; is_selected: number } | undefined
-  if (!img) throw new Error('图片记录不存在')
-
-  db.prepare('DELETE FROM shot_images WHERE id = ?').run(imageId)
-
-  // 如果删除的是当前选中图，自动选最新的一张
-  if (img.is_selected) {
-    const latest = db.prepare('SELECT id, image_path FROM shot_images WHERE shot_id = ? AND type = ? ORDER BY created_at DESC LIMIT 1').get(shotId, img.type) as { id: string; image_path: string } | undefined
-    if (latest) {
-      db.prepare('UPDATE shot_images SET is_selected = 1 WHERE id = ?').run(latest.id)
-      const col = img.type === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
-      db.prepare(`UPDATE shots SET ${col} = ? WHERE id = ?`).run(latest.image_path, shotId)
-    } else {
-      const col = img.type === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
-      db.prepare(`UPDATE shots SET ${col} = '' WHERE id = ?`).run(shotId)
-    }
-  }
-
-  try { const fs = require('fs'); if (fs.existsSync(img.image_path)) fs.unlinkSync(img.image_path) } catch {}
-}
-
-/** 删除分镜视频历史记录 */
-export function deleteShotVideo(shotId: string, videoId: string): void {
-  const db = getDb()
-  const v = db.prepare('SELECT * FROM shot_videos WHERE id = ? AND shot_id = ?').get(videoId, shotId) as { video_path: string; is_selected: number } | undefined
-  if (!v) throw new Error('视频记录不存在')
-
-  db.prepare('DELETE FROM shot_videos WHERE id = ?').run(videoId)
-
-  if (v.is_selected) {
-    const latest = db.prepare('SELECT id, video_path FROM shot_videos WHERE shot_id = ? ORDER BY created_at DESC LIMIT 1').get(shotId) as { id: string; video_path: string } | undefined
-    if (latest) {
-      db.prepare('UPDATE shot_videos SET is_selected = 1 WHERE id = ?').run(latest.id)
-      db.prepare('UPDATE shots SET video_path = ? WHERE id = ?').run(latest.video_path, shotId)
-    } else {
-      db.prepare("UPDATE shots SET video_path = '' WHERE id = ?").run(shotId)
-    }
-  }
-
-  try { const fs = require('fs'); if (fs.existsSync(v.video_path)) fs.unlinkSync(v.video_path) } catch {}
-}
-
-// ===== 视频生成 =====
-
-export interface GenerateVideoInput {
-  projectId: string
-  shotId: string
-  model?: string
-  channel?: string
-  taskId?: string
-}
-
-export async function generateShotVideo(input: GenerateVideoInput): Promise<{ taskId: string; videoPaths: string[] }> {
-  const db = getDb()
-  const { projectId, shotId, model: inputModel, channel: inputChannel, taskId: inputTaskId } = input
-
-  const shot = db.prepare('SELECT * FROM shots WHERE id = ?').get(shotId) as {
-    video_prompt: string | null
-    first_frame_image_path: string | null
-    last_frame_image_path: string | null
-    shot_type: string | null
-    camera_movement: string | null
-    lighting_mood: string | null
-    character_actions: string | null
-    dialogue: string | null
-  } | undefined
-  if (!shot) throw new Error('分镜不存在')
-
-  const videoPrompt = shot.video_prompt || ''
-  if (!videoPrompt.trim()) throw new Error('视频提示词为空，请先填写')
-
-  const project = getProject(projectId)
+  const project = getProject(char.project_id)
   if (!project) throw new Error('项目不存在')
 
-  // 收集分镜上下文（角色描述 + 场景描述 + 台词 + 景别 + 运镜 + 光线 + 动作）
-  const ctxParts: string[] = []
-  let charDescsForTpl: string[] = []
-  let sceneDescForTpl = ''
-  try {
-    const chars = db.prepare(
-      'SELECT c.name, c.description FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
-    ).all(shotId) as { name: string; description: string | null }[]
-    charDescsForTpl = chars.map(c => c.description ? `${c.name}: ${c.description}` : c.name).filter(Boolean)
-    if (charDescsForTpl.length) ctxParts.push(`Characters: ${charDescsForTpl.join('; ')}`)
-
-    const scenes = db.prepare(
-      'SELECT s.name, s.description FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
-    ).all(shotId) as { name: string; description: string | null }[]
-    sceneDescForTpl = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
-    if (sceneDescForTpl) ctxParts.push(`Scene: ${sceneDescForTpl}`)
-  } catch {}
-  if (shot.dialogue) ctxParts.push(`Dialogue: ${shot.dialogue}`)
-  if (shot.shot_type) ctxParts.push(`Shot type: ${shot.shot_type}`)
-  if (shot.camera_movement) ctxParts.push(`Camera: ${shot.camera_movement}`)
-  if (shot.lighting_mood) ctxParts.push(`Lighting: ${shot.lighting_mood}`)
-  if (shot.character_actions) {
-    try {
-      const actions = JSON.parse(shot.character_actions) as Array<{ character_name: string; action: string }>
-      if (actions.length) ctxParts.push(`Actions: ${actions.map(a => `${a.character_name} ${a.action}`).join(', ')}`)
-    } catch {}
-  }
-  const shotContext = ctxParts.join('. ')
-  const aspectRatio = project.aspect_ratio || '16:9'
-  const isVertical = aspectRatio === '9:16'
-  const arDirective = isVertical
-    ? 'MUST output a vertical 9:16 portrait video (width:1024 height:1792).'
-    : aspectRatio === '1:1'
-      ? 'MUST output a square 1:1 video (width:1024 height:1024).'
-      : 'MUST output a horizontal 16:9 landscape widescreen video (width:1792 height:1024).'
-
-  // 有首帧图则提示视频从该构图开始
-  let frameGuidance = ''
-  if (shot.first_frame_image_path) {
-    frameGuidance = shot.last_frame_image_path
-      ? 'Start from the first frame composition and smoothly transition to the last frame composition.'
-      : 'Start from the first frame composition and naturally expand the motion.'
-  }
-
+  const description = char.description || char.name
   const finalStylePrompt = project.style_prompt || ''
+  const finalEraPrompt = mapEra(project.era || '')
 
-  // 参考图引导
-  const refGuidance = shot.first_frame_image_path
-    ? 'Use the reference image as the starting frame. Maintain character identity, scene environment, lighting, and visual style from the reference image. Apply natural motion and cinematic pacing.'
-    : ''
-  // 用换行分隔比例指令和内容
-  const finalPrompt = `${arDirective}\nVideo description: ${videoPrompt}.\n${shotContext}.\n${refGuidance}\n${frameGuidance}.\nStyle: ${finalStylePrompt}`
+  const anglePrompt = getAnglePrompt(angle, description, finalStylePrompt, finalEraPrompt)
+  const size = getAngleSize(angle)
 
-  // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
-  const videoRefImages: string[] = []
-  const addRefIfExists = function(p: string | null, label: string) {
-    if (!p) return
-    try {
-      var fs2 = require("fs")
-      var path = require("path")
-      var abs = path.isAbsolute(p) ? p : path.join(project.path, p)
-      var exists = fs2.existsSync(abs)
-      console.log('[Agnes] addRef', label, 'path:', abs.slice(-60), 'exists:', exists, 'isAbs:', path.isAbsolute(p))
-      if (exists) videoRefImages.push(abs)
-    } catch (e: any) { console.log('[Agnes] addRef err:', label, e.message) }
-  }
-  addRefIfExists(shot.first_frame_image_path, 'frame')
-  try {
-    var chs = db.prepare("SELECT c.reference_image FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?").all(shotId) as { reference_image: string | null }[]
-    chs.forEach(function(c: any) { addRefIfExists(c.reference_image, 'char') })
-    if (videoRefImages.length < 2) {
-      var scs = db.prepare("SELECT s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?").all(shotId) as { reference_image: string | null }[]
-      scs.forEach(function(s: any) { addRefIfExists(s.reference_image, 'scene') })
-    }
-  } catch {}
-  console.log('[Agnes] videoRefImages:', videoRefImages.length, 'firstFrame:', shot.first_frame_image_path ? 'YES' : 'NO')
-  // 传全部参考图（首帧 + 角色定妆照 + 场景图）
-  const videoRefImage = videoRefImages.length > 0 ? videoRefImages : undefined
+  console.log(`[generateAngle] character=${char.name} angle=${angle} size=${size}`)
 
-  // 模型配置降级
-  const purposeKey = 'video'
   const projectConfig = project.model_config_json ? JSON.parse(project.model_config_json) : {}
-  const purposeConfig = projectConfig[purposeKey] || {}
-
-  let finalPromptWithTemplate = finalPrompt
-  const videoTplId = (purposeConfig as any)?.templateId
-  if (videoTplId) {
-    try {
-      const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(videoTplId) as any
-      if (tpl?.content) {
-        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
-        // 构建完整的变量映射
-        const vars: Record<string, string> = {
-          duration_seconds: '10',
-          style_prompt: project.style_prompt || '',
-          style_prompt_zh: project.style_prompt || '',
-          era: mapEra(project.era || ''),
-          era_zh: project.era || '',
-          video_prompt: videoPrompt,
-          shot_description: videoPrompt,
-          shot_description_zh: videoPrompt,
-          dialogue: shot.dialogue || '',
-          dialogue_en: shot.dialogue || '',
-          shot_type: shot.shot_type || '',
-          shot_type_en: shot.shot_type || '',
-          lighting_mood: shot.lighting_mood || '',
-          lighting_mood_en: shot.lighting_mood || '',
-          camera_movement: shot.camera_movement || '',
-          character_actions: shot.character_actions ? (() => { try { return JSON.parse(shot.character_actions!).map((a: any) => a.character_name + ' ' + a.action).join(', ') } catch { return '' } })() : '',
-          character_actions_en: shot.character_actions ? (() => { try { return JSON.parse(shot.character_actions!).map((a: any) => a.character_name + ' ' + a.action).join(', ') } catch { return '' } })() : '',
-          shot_type_zh: shot.shot_type || '',
-          used_scene_description: sceneDescForTpl || '',
-          used_scene_description_zh: sceneDescForTpl || '',
-          used_character_descriptions: charDescsForTpl.join('; '),
-          used_character_descriptions_zh: charDescsForTpl.join('; '),
-          used_prop_descriptions: '',
-          used_prop_descriptions_zh: ''
-        }
-        // 中文变量回退到英文
-        for (const k of Object.keys(vars)) {
-          if (k.endsWith('_zh') && !vars[k]) vars[k] = vars[k.replace('_zh', '')] || ''
-        }
-        // 替换所有 {{var}}
-        for (const [k, v] of Object.entries(vars)) {
-          tp = tp.replace(new RegExp('\\{\\{' + k + '\\}\\}', 'g'), v)
-        }
-        // 清理未替换的变量
-        tp = tp.replace(/\{\{[^}]+\}\}/g, '')
-        if (tp.trim()) { finalPromptWithTemplate = tp.trim(); console.log('[template] video template OK:', videoTplId) }
-      }
-    } catch { /* keep default */ }
-  }
-
-  let model = inputModel
-  let channel = inputChannel
-  let apiKey: string | undefined
-
-  if (!model || !channel) {
-    if (!model) model = purposeConfig.model
-    if (!channel) channel = purposeConfig.channel
-
-
-  }
-  if (!model || !channel) {
-    const routesRaw = getSetting('model_routes')
-    if (routesRaw) {
-      try {
-        const routes = JSON.parse(routesRaw as string)
-        const rc = routes[purposeKey]
-        if (!model && rc?.model) model = rc.model
-        if (!channel && rc?.channel) channel = rc.channel
-      } catch { /* ignore */ }
-    }
-  }
-
-  let providerKey = channel || (model?.includes(':') ? model.split(':')[0] : '')
-  if (providerKey) {
-    const resolved = resolveProviderConfig(providerKey)
-    if (resolved?.apiKey) apiKey = resolved.apiKey
-  }
+  const { model, channel, apiKey } = resolveModelConfig('character_image', projectConfig)
 
   if (!apiKey) throw new Error('未配置 API Key')
-  if (!model) throw new Error('未配置视频模型')
+  if (!model) throw new Error('未配置生图模型')
 
-  // 创建任务记录
-  let taskId: string
-  if (inputTaskId) {
-    taskId = inputTaskId
-    db.prepare(`UPDATE generation_tasks SET model=COALESCE(?,model), channel=COALESCE(?,channel), updated_at=datetime('now','localtime') WHERE id=?`)
-      .run(model||null, channel||null, taskId)
-  } else {
-    taskId = randomUUID()
-    db.prepare(`INSERT INTO generation_tasks (id,project_id,shot_id,type,purpose,channel,model,status,input_params,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'pending',?,datetime('now','localtime'),datetime('now','localtime'))`)
-      .run(taskId, projectId, shotId, 'video', 'video', channel||null, model||null, JSON.stringify({ shotId, prompt: videoPrompt }))
-  }
+  const imageUrls = await callImageGenerationAPI(anglePrompt, model, apiKey, channel, [], size)
 
-  db.prepare(`UPDATE generation_tasks SET status='running',started_at=datetime('now','localtime'),updated_at=datetime('now','localtime') WHERE id=?`).run(taskId)
+  const imageDir = join(project.path, 'assets', 'images', 'characters')
+  const paths = await saveGeneratedImages(imageUrls.slice(0, 1), imageDir, `${characterId}_${angle}`)
+  const filePath = paths[0]
 
-  try {
-    const videoUrls = await callVideoGenerationAPI(finalPromptWithTemplate || finalPrompt, model, apiKey, channel, videoRefImage, aspectRatio)
-    const videoDir = join(project.path, 'assets', 'videos')
-    mkdirSync(videoDir, { recursive: true })
+  createMultiAngle(characterId, { [angle]: filePath })
 
-    const videoPaths: string[] = []
-    for (let i = 0; i < videoUrls.length; i++) {
-      const url = videoUrls[i]
-      const fileName = `${shotId}_video_${Date.now()}_${i}.mp4`
-      const filePath = join(videoDir, fileName)
-      // 视频下载：不传 Auth（CDN直链不需要，加了对 Google Storage 会 401）
-      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000 })
-      writeFileSync(filePath, Buffer.from(resp.data))
-      videoPaths.push(filePath)
-    }
-
-    db.prepare(`UPDATE shot_videos SET is_selected=0 WHERE shot_id=?`).run(shotId)
-    for (const vp of videoPaths) {
-      db.prepare(`INSERT INTO shot_videos (id,shot_id,video_path,is_selected,has_new_badge,created_at) VALUES (?,?,?,1,1,datetime('now','localtime'))`).run(randomUUID(), shotId, vp)
-    }
-    db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(videoPaths[0], shotId)
-    db.prepare(`UPDATE generation_tasks SET status='completed',output_path=?,updated_at=datetime('now','localtime') WHERE id=?`).run(videoPaths.join(','), taskId)
-
-    return { taskId, videoPaths }
-  } catch (err: any) {
-    db.prepare(`UPDATE generation_tasks SET status='failed',error_message=?,updated_at=datetime('now','localtime') WHERE id=?`).run(err?.message||'视频生成失败', taskId)
-    throw err
-  }
-}
-
-async function callVideoGenerationAPI(prompt: string, model: string, apiKey: string, channel?: string | null, refImage?: string | string[], videoAspectRatio?: string): Promise<string[]> {
-  let baseURL = ''
-  let actualModel = model
-  const providerKey = channel || (model.includes(':') ? model.split(':')[0] : '')
-  if (providerKey) {
-    const resolved = resolveProviderConfig(providerKey)
-    if (resolved?.baseURL) baseURL = resolved.baseURL
-  }
-  if (model.includes(':')) actualModel = model.split(':').slice(1).join(':')
-  if (!baseURL) throw new Error('无法确定 API 基础地址')
-
-  let normalizedBaseURL = baseURL.replace(/\/$/, '')
-  const isAgnes = normalizedBaseURL.includes('agnes-ai.com')
-
-    if (isAgnes) {
-      // ===== Agnes API v2: POST /v1/videos -> poll /agnesapi?video_id= -> download =====
-      if (!normalizedBaseURL.endsWith("/v1")) normalizedBaseURL += "/v1"
-
-      const ar = videoAspectRatio || "16:9"
-      let width = 1280, height = 768
-      if (ar === "9:16") { width = 768; height = 1280 }
-      else if (ar === "1:1") { width = 1024; height = 1024 }
-
-      const body: any = { model: actualModel, prompt, width, height, num_frames: 241, frame_rate: 24, num_inference_steps: 50 }
-      // 图生视频：传首帧图base64，强制补齐padding到4的倍数
-      const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
-      if (refs.length > 0) {
-        try {
-          let b64 = require('fs').readFileSync(refs[0]).toString('base64')
-          while (b64.length % 4 !== 0) b64 += '='
-          body.image = b64
-          console.log('[Agnes] video image ref:', (b64.length / 1024).toFixed(0) + 'KB', 'mod4:', b64.length % 4)
-        } catch { /* skip */ }
-      }
-      const postURL = normalizedBaseURL + '/videos'
-      console.log('[Agnes] POST', postURL, 'model:', actualModel, 'prompt:', prompt.slice(0, 80), 'body:', (JSON.stringify(body).length / 1024).toFixed(0) + 'KB')
-
-      let resp: any
-      let lastPostErr = ''
-      for (let postTry = 0; postTry < 3; postTry++) {
-        try {
-          resp = await axios.post(postURL, body, {
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            timeout: 600000,
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity
-          })
-          console.log("[Agnes] POST OK:", JSON.stringify(resp.data).slice(0, 400))
-          break
-        } catch (err: any) {
-          lastPostErr = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
-          console.error("[Agnes] POST try", postTry + 1, "ERR:", err?.response?.status || err?.code, lastPostErr.slice(0, 100))
-          if (postTry < 2) { console.log("[Agnes] POST retry in 5s..."); await new Promise(r => setTimeout(r, 5000)) }
-        }
-      }
-      if (!resp) throw new Error("Agnes视频请求失败(重试3次): " + lastPostErr)
-
-      const videoId = resp.data?.video_id
-      const fallbackTaskId = resp.data?.task_id || resp.data?.id
-      console.log("[Agnes] video_id:", videoId ? videoId.slice(0, 40) + "..." : "MISSING")
-      console.log("[Agnes] task_id:", fallbackTaskId || "MISSING")
-      if (!videoId && !fallbackTaskId) throw new Error("未返回 video_id")
-
-      const queryBase = normalizedBaseURL.replace(/\/v1$/, '')
-      let url = ''
-      for (let i = 0; i < 60; i++) {
-        await new Promise(r => setTimeout(r, 5000))
-        let best: any = {}
-        // 同时查询两个端点，取进度更高的
-        if (fallbackTaskId) {
-          try {
-            const sr = await axios.get(normalizedBaseURL + '/videos/' + fallbackTaskId, {
-              headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-            })
-            best = sr.data || {}
-          } catch {}
-        }
-        if (videoId) {
-          try {
-            const sr2 = await axios.get(queryBase + '/agnesapi?video_id=' + videoId + '&model_name=agnes-video-v2.0', {
-              headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
-            })
-            const s2 = sr2.data || {}
-            if (!best.progress || (s2.progress > (best.progress || 0))) best = s2
-          } catch {}
-        }
-        if (i === 0 || i % 6 === 0 || best.status === 'completed' || best.status === 'failed') console.log('[Agnes] poll', i, 'status:', best.status || 'no_status', 'progress:', best.progress)
-        if (best.status === 'completed') {
-          url = best.remixed_from_video_id || ''
-          console.log('[Agnes] COMPLETED url:', url ? url.slice(0, 80) : 'MISSING!')
-          if (url) break
-        }
-        if (best.status === 'failed') { const errStr = typeof best.error === 'object' ? JSON.stringify(best.error) : (best.error || ''); throw new Error('视频生成失败: ' + errStr) }
-      }
-      if (!url) throw new Error("视频生成超时（5分钟）")
-      return [url]
-    }
-  if (!normalizedBaseURL.endsWith('/v1')) normalizedBaseURL += '/v1'
-
-  const videoBody: any = { model: actualModel, prompt }
-  if (!actualModel.startsWith('grok-imagine')) videoBody.size = '720p'
-  if (refImage) {
-    try {
-      const imgBuffer = require('fs').readFileSync(refImage)
-      videoBody.image = imgBuffer.toString('base64')
-    } catch { /* 图片不可读，跳过 */ }
-  }
-
-  let createResp: any
-  try {
-    createResp = await axios.post(`${normalizedBaseURL}/video/generations`, videoBody, {
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 120000
-    })
-  } catch (err: any) {
-    const detail = err?.response?.data ? JSON.stringify(err.response.data).slice(0, 500) : err?.message
-    throw new Error('视频API请求失败: ' + detail)
-  }
-  const taskId = createResp.data?.task_id || createResp.data?.id
-  if (!taskId) throw new Error('视频任务创建失败：未返回 task_id')
-
-  let videoUrl = ''
-  for (let attempt = 0; attempt < 60; attempt++) {
-    await new Promise(r => setTimeout(r, 5000))
-    const statusResp = await axios.get(`${normalizedBaseURL}/video/generations/${taskId}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      timeout: 30000
-    })
-    const s = statusResp.data?.data || statusResp.data
-    const st = (s?.status || '').toUpperCase()
-    if (st === 'COMPLETED' || st === 'SUCCESS') {
-      videoUrl = s?.result_url || s?.video_url || s?.url || ''
-      if (!videoUrl && s?.data) {
-        const inner = s.data
-        videoUrl = inner?.result_url || inner?.url || inner?.video_url || ''
-      }
-      if (!videoUrl) {
-        const findURL = (obj: any): string => {
-          if (typeof obj === 'string' && (obj.startsWith('http://') || obj.startsWith('https://'))) return obj
-          if (typeof obj === 'object' && obj) { for (const v of Object.values(obj)) { const f = findURL(v); if (f) return f } }
-          return ''
-        }
-        videoUrl = findURL(s)
-      }
-      if (videoUrl) break
-    }
-    if (st === 'FAILED' || st === 'ERROR') {
-      throw new Error('视频生成失败: ' + (s?.fail_reason || s?.error?.message || st))
-    }
-  }
-  if (!videoUrl) throw new Error('视频生成超时（5分钟），请重试')
-  return [videoUrl]
-}
-
-export function getShotVideos(shotId: string): any[] {
-  const db = getDb()
-  return db.prepare('SELECT * FROM shot_videos WHERE shot_id = ? ORDER BY created_at DESC').all(shotId)
-}
-
-export function selectShotVideo(shotId: string, videoId: string): void {
-  const db = getDb()
-  db.prepare('UPDATE shot_videos SET is_selected = 0 WHERE shot_id = ?').run(shotId)
-  db.prepare('UPDATE shot_videos SET is_selected = 1 WHERE id = ?').run(videoId)
-  const v = db.prepare('SELECT video_path FROM shot_videos WHERE id = ?').get(videoId) as { video_path: string } | undefined
-  if (v) db.prepare('UPDATE shots SET video_path = ? WHERE id = ?').run(v.video_path, shotId)
-}
-
-/**
- * 切换分镜历史图片选中状态
- */
-export function selectShotImage(
-  shotId: string,
-  frameType: 'first' | 'last',
-  imageId: string
-): void {
-  const db = getDb()
-
-  // 取消该 shot 该 frameType 的所有选中
-  db.prepare(`UPDATE shot_images SET is_selected = 0 WHERE shot_id = ? AND type = ?`).run(shotId, frameType)
-  // 选中指定图片
-  db.prepare(`UPDATE shot_images SET is_selected = 1 WHERE id = ?`).run(imageId)
-
-  // 更新 shots 的 image_path
-  const imgRow = db.prepare(`SELECT image_path FROM shot_images WHERE id = ?`).get(imageId) as
-    | { image_path: string }
-    | undefined
-  if (imgRow) {
-    const updateColumn = frameType === 'first' ? 'first_frame_image_path' : 'last_frame_image_path'
-    db.prepare(`UPDATE shots SET ${updateColumn} = ? WHERE id = ?`).run(imgRow.image_path, shotId)
-  }
+  return { imagePath: filePath, angle }
 }

@@ -92,6 +92,8 @@ const api = {
     ipcRenderer.invoke('shot:update', { shotId, input }),
   addShotAssociation: (shotId: string, type: string, assetId: string) =>
     ipcRenderer.invoke('shot:associate', { shotId, type, assetId }),
+  removeShotAssociation: (shotId: string, type: string, assetId: string) =>
+    ipcRenderer.invoke('shot:removeAssociation', { shotId, type, assetId }),
   createGenerationTask: (input: GenerationTaskInput) =>
     ipcRenderer.invoke('generationTask:create', input),
   batchCreateGenerationTasks: (input: { projectId: string; tasks: Array<{ shotId?: string; type: string; purpose: string; channel?: string; model?: string; inputParams?: string }> }) =>
@@ -147,6 +149,29 @@ const api = {
     ipcRenderer.invoke('video:selectShotVideo', { shotId, videoId }),
   deleteShotVideo: (shotId: string, videoId: string) =>
     ipcRenderer.invoke('video:deleteShotVideo', { shotId, videoId }),
+  concatVideos: (projectId: string, shotIds: string[], outputName?: string) =>
+    ipcRenderer.invoke('video:concat', { projectId, shotIds, outputName }),
+
+  // Voice (TTS)
+  generateVoice: (input: { projectId: string; shotId: string; text: string; voicePreset: string }) =>
+    ipcRenderer.invoke('voice:generate', input),
+  batchGenerateVoices: (inputs: Array<{ projectId: string; shotId: string; text: string; voicePreset: string }>) =>
+    ipcRenderer.invoke('voice:batchGenerate', inputs),
+  listVoicePresets: () => ipcRenderer.invoke('voice:listPresets'),
+  exportStoryboardPDF: (config: { projectId: string; shotIds?: string[]; includeImages?: boolean }) =>
+    ipcRenderer.invoke('export:pdfStoryboard', config),
+
+  // Multi-Angle Character Anchors
+  createMultiAngle: (characterId: string, anchors: Record<string, string>) =>
+    ipcRenderer.invoke('anchor:createMultiAngle', { characterId, anchors }),
+  getMultiAngle: (characterId: string) =>
+    ipcRenderer.invoke('anchor:getMultiAngle', characterId),
+  generateAngle: (characterId: string, angle: string) =>
+    ipcRenderer.invoke('anchor:generateAngle', { characterId, angle }),
+
+  // AI Translation
+  translateToEnglish: (text: string) =>
+    ipcRenderer.invoke('ai:translate', text),
 
   // Script Reviewer
   reviewScript: (script: string, options?: { mode?: string }) =>
