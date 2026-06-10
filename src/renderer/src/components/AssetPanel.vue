@@ -304,11 +304,13 @@ async function onDeleteHImg(at: string, aid: string, iid: string): Promise<void>
           <label>发音人</label>
           <el-select :model-value="detailData?.voice_preset || ''" @update:model-value="(v: string) => onVoicePresetChange(detailData?.id, v)" size="small" style="width:100%">
             <el-option label="不配音" value="" />
-            <el-option label="女主（晓晓·温暖女声）" value="female-lead" />
-            <el-option label="男主（云希·沉稳男声）" value="male-lead" />
-            <el-option label="旁白（云健·成熟男声）" value="narrator" />
-            <el-option label="女配（晓依·年轻女声）" value="female" />
-            <el-option label="男配（云浩·洪亮男声）" value="male" />
+            <el-option label="女主·晓晓（温暖女声）" value="female-lead" />
+            <el-option label="男主·云希（沉稳男声）" value="male-lead" />
+            <el-option label="旁白·云健（成熟男声）" value="narrator" />
+            <el-option label="女配·晓依（年轻女声）" value="female" />
+            <el-option label="男配·云扬（洪亮男声）" value="male" />
+            <el-option label="反派·云夏（低沉男声）" value="male-deep" />
+            <el-option label="老者·云扬降速（老成男声）" value="male-elder" />
           </el-select>
         </div>
         <div v-if="String(detailType) === 'character' && multiAngleAnchors" class="anchor-status">

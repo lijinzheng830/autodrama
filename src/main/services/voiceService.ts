@@ -12,16 +12,20 @@ export const VOICE_PRESETS: Record<string, string> = {
   'male-lead':   'zh-CN-YunxiNeural',
   'narrator':    'zh-CN-YunjianNeural',
   'female':      'zh-CN-XiaoyiNeural',
-  'male':        'zh-CN-YunhaoNeural',
+  'male':        'zh-CN-YunyangNeural',
+  'male-deep':   'zh-CN-YunxiaNeural',
+  'male-elder':  'zh-CN-YunyangNeural',  // 与 male 相同语音，用 rate:'-20%' 降速显老成
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
   return [
-    { key: 'female-lead', name: VOICE_PRESETS['female-lead'], label: '女主（温暖女声）' },
-    { key: 'male-lead',   name: VOICE_PRESETS['male-lead'],   label: '男主（沉稳男声）' },
-    { key: 'narrator',    name: VOICE_PRESETS['narrator'],    label: '旁白（成熟男声）' },
-    { key: 'female',      name: VOICE_PRESETS['female'],      label: '女配（年轻女声）' },
-    { key: 'male',        name: VOICE_PRESETS['male'],        label: '男配（洪亮男声）' },
+    { key: 'female-lead', name: VOICE_PRESETS['female-lead'], label: '女主·晓晓（温暖女声）' },
+    { key: 'male-lead',   name: VOICE_PRESETS['male-lead'],   label: '男主·云希（沉稳男声）' },
+    { key: 'narrator',    name: VOICE_PRESETS['narrator'],    label: '旁白·云健（成熟男声）' },
+    { key: 'female',      name: VOICE_PRESETS['female'],      label: '女配·晓依（年轻女声）' },
+    { key: 'male',        name: VOICE_PRESETS['male'],        label: '男配·云扬（洪亮男声）' },
+    { key: 'male-deep',   name: VOICE_PRESETS['male-deep'],   label: '反派·云夏（低沉男声）' },
+    { key: 'male-elder',  name: VOICE_PRESETS['male-elder'],  label: '老者·云扬降速（老成男声）' },
   ]
 }
 
