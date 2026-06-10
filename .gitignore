@@ -7,3 +7,4 @@ out
 autodrama.db
 resources/ffmpeg/
 CODE_REVIEW_*.md
+*.tsbuildinfo
