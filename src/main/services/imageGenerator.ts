@@ -8,7 +8,7 @@ import { getDb } from './db'
 import { getProject } from './project'
 
 import { join } from 'path'
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
+import { mkdirSync, writeFileSync, readFileSync, existsSync, appendFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import axios from 'axios'
 
@@ -19,6 +19,34 @@ import { checkShotConsistency } from './consistencyChecker'
 import { IMAGE_API_RETRY_DELAY, AGNES_MAX_REF_IMAGES, IMAGE_API_MAX_RETRIES } from '../utils/constants'
 
 import type { GenerateShotImageInput } from '../types'
+
+// ===== 生图 Trace 日志 =====
+
+interface GenerationTrace {
+  ts: string
+  type: 'asset' | 'first_frame' | 'last_frame' | 'angle'
+  assetId?: string
+  shotId?: string
+  model: string
+  channel: string
+  promptLength: number
+  promptFirst: string
+  refImageCount: number
+  charMapping?: string[]
+  compositionGuide?: string
+  consistencyWarnings?: string[]
+  imageCount: number
+  durationMs: number
+  error?: string
+}
+
+function writeTrace(projectPath: string, trace: GenerationTrace): void {
+  try {
+    const dir = join(projectPath, 'exports')
+    mkdirSync(dir, { recursive: true })
+    appendFileSync(join(dir, 'generation_trace.jsonl'), JSON.stringify(trace) + '\n', 'utf8')
+  } catch { /* 日志写入失败不影响生图 */ }
+}
 
 export interface GenerateImageInput {
   projectId: string
@@ -240,7 +268,20 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     // 注意：不注入风格参考图（含具体人物，img2img 会锁定角色外观）
     // 风格信息通过 prompt 中的 style_prompt 传递
     const refs: string[] = finalRefImage ? [finalRefImage] : []
+    const assetTraceStart = Date.now()
     const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refs, size)
+    writeTrace(project.path, {
+      ts: new Date().toISOString(),
+      type: type === 'character' ? 'asset' : 'asset',
+      assetId,
+      model,
+      channel: channel || '',
+      promptLength: finalPrompt.length,
+      promptFirst: finalPrompt.slice(0, 200),
+      refImageCount: refs.length,
+      imageCount: imageUrls.length,
+      durationMs: Date.now() - assetTraceStart
+    })
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', `${type}s`)
@@ -850,7 +891,35 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     console.log(`[ShotImage] Composition guide: ${compositionGuide.slice(0, 100)}...`)
     console.log('═══════════════════════════════════════')
 
+    const traceStart = Date.now()
     const imageUrls = await callImageGenerationAPI(shotFinalPrompt, model, apiKey, channel, refImages, size2)
+    const traceDuration = Date.now() - traceStart
+
+    // 写 trace 日志（便于分析 Agnes 模型边界）
+    writeTrace(project.path, {
+      ts: new Date().toISOString(),
+      type: frameType === 'first' ? 'first_frame' : 'last_frame',
+      shotId,
+      model,
+      channel: channel || '',
+      promptLength: shotFinalPrompt.length,
+      promptFirst: shotFinalPrompt.slice(0, 200),
+      refImageCount: refImages.length,
+      charMapping: charImageAnchors.map(c => `Image#${c.refNum}=${c.name}`),
+      compositionGuide: compositionGuide.slice(0, 150),
+      consistencyWarnings: (() => {
+        try {
+          const charsForCheck = (contextChars || []).map(s => {
+            const [name, ...dp] = s.split(': ')
+            return { name, description: dp.join(': ') || null }
+          }).filter(c => c.description)
+          if (charsForCheck.length === 0) return []
+          return checkShotConsistency(shotFinalPrompt, charsForCheck).map(w => w.rule)
+        } catch { return [] }
+      })(),
+      imageCount: imageUrls.length,
+      durationMs: traceDuration
+    })
 
     // 9. 下载并保存图片
     const imageDir = join(project.path, 'assets', 'images', 'frames')
