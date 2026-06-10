@@ -315,6 +315,22 @@ export function initDatabase(): Database.Database {
         console.error(`[db] template file not found: ${filePath}`)
       }
     }
+
+    // 注入系统提示词（从 prompts.ts 读取，前端可见可编辑）
+    try {
+      // 动态 require 避免循环依赖
+      const { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } = require('./prompts') as typeof import('./prompts')
+      const systemPrompts = [
+        { id: 'system-storyboard-parse', usage: 'script_parse', name: '系统·剧本解析（中文）', content: STORYBOARD_PROMPT },
+        { id: 'system-extract-assets',   usage: 'script_parse', name: '系统·角色提取（中文）', content: EXTRACT_PROMPT },
+        { id: 'system-associate-shots',  usage: 'script_parse', name: '系统·分镜关联（中文）', content: ASSOCIATE_PROMPT },
+      ]
+      for (const sp of systemPrompts) {
+        insertOrIgnore.run(sp.id, null, sp.usage, sp.name, sp.content, 'v0')
+      }
+    } catch (e) {
+      console.error('[db] 注入系统提示词失败:', e)
+    }
     console.log(`[db] loaded ${loaded}/${registry.length} official prompt templates`)
 
     // 模板版本升级：仅当官方模板版本号升级时才覆盖
