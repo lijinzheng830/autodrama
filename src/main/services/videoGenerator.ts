@@ -125,7 +125,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
         const allCharNames = charDescsForTpl.map(d => d.split(':')[0].trim())
         const silentChars = allCharNames.filter(n => !speakers.has(n))
         // 每轮对话标注谁说话
-        const turnDescs = turns.map(t => `"${t.speaker}" says: "${t.text}"`)
+        const turnDescs = turns.map(t => `"${t.speaker}" speaks (audio only, no on-screen text)`)
         parts.push(`DIALOGUE: ${turnDescs.join(' Then ')}.`)
         if (silentChars.length > 0) {
           parts.push(`${silentChars.join(', ')} remain COMPLETELY SILENT throughout — mouths fully closed, no lip movement.`)
