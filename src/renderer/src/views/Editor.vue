@@ -245,7 +245,7 @@ const stylePresets = [
   {
     name: '写实摄影',
     prompt:
-      'Photorealistic, high detail, natural lighting, 8k uhd, cinematic shot, depth of field, professional photography, realistic textures, lifelike',
+      'Photorealistic, high detail, natural lighting, 8k uhd, cinematic grading, film grain, color graded, cinematic shot, depth of field, professional photography, realistic textures, lifelike',
     negative:
       'painting, illustration, cartoon, anime, 3d render, blurry, low quality, artificial, oversaturated',
     color: '#4ecdc4'
@@ -253,7 +253,7 @@ const stylePresets = [
   {
     name: '3D渲染',
     prompt:
-      '3D render, octane render, blender, cinematic lighting, ray tracing, subsurface scattering, physically based rendering, high poly model, studio lighting',
+      '3D render, octane render, blender, cinematic lighting, cinematic grading, color graded, ray tracing, subsurface scattering, physically based rendering, high poly model, studio lighting',
     negative: '2d, flat, painting, sketch, hand drawn, low poly, blurry, low quality, cartoon',
     color: '#a78bfa'
   },
@@ -268,7 +268,7 @@ const stylePresets = [
   {
     name: '赛博朋克',
     prompt:
-      'Cyberpunk, neon lights, futuristic, dystopian city, holographic displays, rain-soaked streets, high tech low life, glowing accents, blade runner aesthetic',
+      'Cyberpunk, neon lights, futuristic, dystopian city, holographic displays, rain-soaked streets, high tech low life, glowing accents, blade runner aesthetic, cinematic grading, color graded',
     negative:
       'medieval, natural landscape, pastel colors, soft lighting, cottagecore, blurry, low quality, boring, plain',
     color: '#f472b6'
@@ -324,7 +324,7 @@ const stylePresets = [
   {
     name: '暗黑奇幻',
     prompt:
-      'Dark fantasy, gothic atmosphere, ominous, dramatic shadows, ancient ruins, mythical creatures, epic scale, moody lighting, tormented souls',
+      'Dark fantasy, gothic atmosphere, ominous, dramatic shadows, ancient ruins, mythical creatures, epic scale, moody lighting, cinematic grading, tormented souls',
     negative:
       'cheerful, bright colors, modern, cute, minimalist, photorealistic, blurry, low quality, mundane, everyday',
     color: '#7c3aed'
@@ -340,7 +340,7 @@ const stylePresets = [
   {
     name: '中国仙侠',
     prompt:
-      'Chinese Xianxia fantasy art, semi-realistic cel-shaded rendering, ink wash influences, ethereal glow, dramatic god rays, misty atmosphere, jade green and celestial gold palette, painterly textures, spiritual mood',
+      'Chinese Xianxia fantasy art, semi-realistic cel-shaded rendering, ink wash influences, ethereal glow, dramatic god rays, cinematic grading, film grain, misty atmosphere, jade green and celestial gold palette, painterly textures, spiritual mood',
     negative:
       'modern, urban, western, photorealistic, 3d render, dark gritty, cartoon, anime, mecha, sci-fi, blurry, low quality, mundane',
     color: '#7BC5A8'
