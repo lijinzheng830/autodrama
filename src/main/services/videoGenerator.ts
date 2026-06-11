@@ -524,7 +524,7 @@ function resolveFfmpegPath(tool: 'ffmpeg' | 'ffprobe' = 'ffmpeg'): string {
   const exe = tool === 'ffprobe' ? 'ffprobe.exe' : 'ffmpeg.exe'
   const candidates = [
     join(process.resourcesPath || '', 'ffmpeg', exe),
-    join(__dirname, '..', '..', '..', 'resources', 'ffmpeg', exe),
+    join(__dirname, '..', '..', 'resources', 'ffmpeg', exe),
   ]
   for (const p of candidates) {
     if (existsSync(p)) return p
