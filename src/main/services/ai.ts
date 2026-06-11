@@ -463,9 +463,9 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
           }
         }
         if (!matchedScene) { matchedScene = lastKnownScene }
-      } else {
-        lastKnownScene = matchedScene
       }
+      // 更新传播链——无论 matchedScene 来自 shot_scene 还是文本匹配还是传播
+      if (matchedScene) { lastKnownScene = matchedScene }
       if (!matchedScene) {
         console.log(`[assoc] WARN: shot c${ci}s${shot.shot_index} no scene matched. sceneNames=[${sceneNames.join(', ')}]`)
       }
