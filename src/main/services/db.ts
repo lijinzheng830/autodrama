@@ -339,7 +339,7 @@ export function initDatabase(): Database.Database {
     // 模板版本升级：仅当官方模板版本号升级时才覆盖
     const tplVersionRow = db.prepare("SELECT value FROM settings WHERE key = 'template_data_version'").get() as { value: string } | undefined
     const currentTplVersion = parseInt(tplVersionRow?.value || '0', 10)
-    const TPL_DATA_VERSION = 11 // v11: 场景图改为单张全景大图（非四象限）
+    const TPL_DATA_VERSION = 12 // v12: v1-04 4→3面板、v0-01 JSON模板值清洗、description_en全链路
     if (currentTplVersion < TPL_DATA_VERSION) {
       console.log(`[db] Template data upgrade: v${currentTplVersion} → v${TPL_DATA_VERSION}`)
       for (const item of registry) {
