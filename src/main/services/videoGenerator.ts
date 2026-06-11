@@ -55,7 +55,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     const chars = db.prepare(
       'SELECT c.name, c.description FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null }[]
-    charDescsForTpl = chars.map(c => c.description ? `${c.name}: ${c.description}` : c.name).filter(Boolean)
+    // 只用英文描述，不拼接中文名字——Agnes不理解中文
+    charDescsForTpl = chars.map(c => c.description || c.name).filter(Boolean)
     if (charDescsForTpl.length) {
       ctxParts.push(`Characters: ${charDescsForTpl.join('; ')}`)
       ctxParts.push('CRITICAL: Exactly ONE instance of each named character in the video. NO duplicates, NO clones, NO doppelgangers.')
@@ -64,18 +65,29 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     const scenes = db.prepare(
       'SELECT s.name, s.description FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null }[]
-    sceneDescForTpl = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
+    sceneDescForTpl = scenes.map(s => s.description || s.name).filter(Boolean).join('; ')
     if (sceneDescForTpl) ctxParts.push(`Scene: ${sceneDescForTpl}`)
   } catch {}
   if (shot.dialogue) ctxParts.push('Characters speaking with natural mouth movements')
   if (shot.narration) ctxParts.push('Narration segment — all characters keep mouths closed, no lip movement')
   if (shot.shot_type) ctxParts.push(`Shot type: ${translateCnField(shot.shot_type)}`)
   if (shot.camera_movement) ctxParts.push(`Camera: ${translateCnField(shot.camera_movement)}`)
-  if (shot.lighting_mood) ctxParts.push(`Lighting: ${translateCnField(shot.lighting_mood)}`)
+  if (shot.lighting_mood) {
+    const lm = shot.lighting_mood // string after guard
+    let lx = translateCnField(lm)
+    if (/[一-鿿]/.test(lx)) lx = await translateToEnglish(lm).catch(() => lm)
+    ctxParts.push(`Lighting: ${lx}`)
+  }
   if (shot.character_actions) {
     try {
       const actions = JSON.parse(shot.character_actions) as Array<{ character_name: string; action: string }>
-      if (actions.length) ctxParts.push(`Actions: ${actions.map(a => `${a.character_name} ${a.action}`).join(', ')}`)
+      if (actions.length) {
+        const actionDescs = actions.map(a => {
+          const act = a.action || ''
+          return act ? `a character ${act}` : ''
+        }).filter(Boolean)
+        if (actionDescs.length) ctxParts.push(`Actions: ${actionDescs.join(', ')}`)
+      }
     } catch {}
   }
   const shotContext = ctxParts.join('. ')
@@ -105,29 +117,10 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const rawDialogue = shot.dialogue || ''
   const rawNarration = shot.narration || ''
   const visualDirective = (() => {
+    // 仅给视觉提示——不用中文名，不传具体台词
     const parts: string[] = []
     if (rawDialogue) {
-      const turns: Array<{ speaker: string }> = []
-      const regex = /([^：:]+)[：:]([^：:]*(?:[：:][^：:]*)*?)(?=[^：:]+[：:]|$)/g
-      let m: RegExpExecArray | null
-      while ((m = regex.exec(rawDialogue)) !== null) {
-        turns.push({ speaker: m[1].trim() })
-      }
-      if (turns.length === 0) {
-        const match = rawDialogue.match(/^([^：:]+)[：:]/)
-        if (match) turns.push({ speaker: match[1].trim() })
-      }
-      if (turns.length > 0) {
-        const speakers = new Set(turns.map(t => t.speaker))
-        const allCharNames = charDescsForTpl.map(d => d.split(':')[0].trim())
-        const silentChars = allCharNames.filter(n => !speakers.has(n))
-        parts.push(`VISUAL: ${[...speakers].join(', ')} are speaking with natural mouth movements and facial expressions.`)
-        if (silentChars.length > 0) {
-          parts.push(`${silentChars.join(', ')} remain silent — mouths closed, neutral expression.`)
-        }
-      } else {
-        parts.push('VISUAL: Characters speak with natural mouth movements.')
-      }
+      parts.push('VISUAL: The speaking character(s) have natural mouth movements and facial expressions. Non-speaking characters remain silent with mouths closed.')
     }
     if (rawNarration) {
       parts.push('VISUAL: All characters keep mouths CLOSED — this is a narration segment with off-screen voice.')
