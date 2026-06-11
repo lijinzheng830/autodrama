@@ -67,9 +67,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     sceneDescForTpl = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
     if (sceneDescForTpl) ctxParts.push(`Scene: ${sceneDescForTpl}`)
   } catch {}
-  if (shot.dialogue) ctxParts.push(`Character speaking (audio track provided separately, no on-screen text)`)
-  if (shot.narration) ctxParts.push(`Off-screen narration (audio track provided separately, no on-screen text)`)
-  if (shot.narration) ctxParts.push(`Narration (internal monologue/OFF-SCREEN — ALL characters keep mouths CLOSED): ${shot.narration}`)
+  if (shot.dialogue) ctxParts.push('Characters speaking with natural mouth movements')
+  if (shot.narration) ctxParts.push('Narration segment — all characters keep mouths closed, no lip movement')
   if (shot.shot_type) ctxParts.push(`Shot type: ${translateCnField(shot.shot_type)}`)
   if (shot.camera_movement) ctxParts.push(`Camera: ${translateCnField(shot.camera_movement)}`)
   if (shot.lighting_mood) ctxParts.push(`Lighting: ${translateCnField(shot.lighting_mood)}`)
@@ -102,41 +101,38 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const refGuidance = shot.first_frame_image_path
     ? 'Use the reference image as the starting frame. Maintain character identity, scene environment, lighting, and visual style from the reference image. Apply natural motion and cinematic pacing.'
     : ''
-  // 台词和旁白——解析多轮"角色名：台词"
+  // 对话/旁白 — 仅给视觉提示（不传具体台词，配音由 Edge TTS + FFmpeg 独立处理）
   const rawDialogue = shot.dialogue || ''
   const rawNarration = shot.narration || ''
-  const audioDirective = (() => {
+  const visualDirective = (() => {
     const parts: string[] = []
     if (rawDialogue) {
-      // 拆分多轮对话: "A：xxx。B：yyy。" → [{speaker:"A", text:"xxx。"}, {speaker:"B", text:"yyy。"}]
-      const turns: Array<{ speaker: string; text: string }> = []
+      const turns: Array<{ speaker: string }> = []
       const regex = /([^：:]+)[：:]([^：:]*(?:[：:][^：:]*)*?)(?=[^：:]+[：:]|$)/g
       let m: RegExpExecArray | null
       while ((m = regex.exec(rawDialogue)) !== null) {
-        turns.push({ speaker: m[1].trim(), text: m[2].trim() })
+        turns.push({ speaker: m[1].trim() })
       }
       if (turns.length === 0) {
-        // 无角色前缀，尝试匹配第一个
         const match = rawDialogue.match(/^([^：:]+)[：:]/)
-        if (match) turns.push({ speaker: match[1].trim(), text: rawDialogue.replace(/^[^：:]+[：:]\s*/, '').trim() })
-        else parts.push(`DIALOGUE: "${rawDialogue}".`)
+        if (match) turns.push({ speaker: match[1].trim() })
       }
       if (turns.length > 0) {
         const speakers = new Set(turns.map(t => t.speaker))
         const allCharNames = charDescsForTpl.map(d => d.split(':')[0].trim())
         const silentChars = allCharNames.filter(n => !speakers.has(n))
-        // 每轮对话标注谁说话
-        const turnDescs = turns.map(t => `"${t.speaker}" speaks (audio only, no on-screen text)`)
-        parts.push(`DIALOGUE: ${turnDescs.join(' Then ')}.`)
+        parts.push(`VISUAL: ${[...speakers].join(', ')} are speaking with natural mouth movements and facial expressions.`)
         if (silentChars.length > 0) {
-          parts.push(`${silentChars.join(', ')} remain COMPLETELY SILENT throughout — mouths fully closed, no lip movement.`)
+          parts.push(`${silentChars.join(', ')} remain silent — mouths closed, neutral expression.`)
         }
+      } else {
+        parts.push('VISUAL: Characters speak with natural mouth movements.')
       }
     }
     if (rawNarration) {
-      parts.push(`NARRATION (OFF-SCREEN voice, audio only — no on-screen text). ALL characters keep mouths CLOSED — no one speaks during narration.`)
+      parts.push('VISUAL: All characters keep mouths CLOSED — this is a narration segment with off-screen voice.')
     }
-    return parts.length > 0 ? `AUDIO INSTRUCTIONS: ${parts.join(' ')}` : ''
+    return parts.length > 0 ? parts.join(' ') : ''
   })()
   // 禁止字幕——最高优先级约束
   const noSubtitlesDirective = 'CRITICAL CONSTRAINT: Absolutely NO subtitles, NO captions, NO text overlays, NO on-screen text of any kind. The dialogue is voice-only, do NOT display it as text on the video. NO character names, NO lyrics, NO words on screen.'
@@ -158,8 +154,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     return 'Balanced composition: character naturally placed within the scene.'
   })()
 
-  // 用换行分隔比例指令和内容——音频指令提到最前面
-  const finalPrompt = [audioDirective, `[COMPOSITION] ${compositionGuide}`, arDirective, stabilityDirective, noSubtitlesDirective, `Video description: ${translatedVideoPrompt}.`, shotContext, refGuidance, frameGuidance, `Style: ${finalStylePrompt}`].filter(Boolean).join('\n')
+  // 用换行分隔比例指令和内容——视觉指令（不含台词文本）提到最前面
+  const finalPrompt = [visualDirective, `[COMPOSITION] ${compositionGuide}`, arDirective, stabilityDirective, noSubtitlesDirective, `Video description: ${translatedVideoPrompt}.`, shotContext, refGuidance, frameGuidance, `Style: ${finalStylePrompt}`].filter(Boolean).join('\n')
 
   // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
   const videoRefImages: string[] = []
@@ -371,7 +367,7 @@ async function callVideoGenerationAPI(
         num_frames: videoParams?.num_frames ?? 241,
         frame_rate: videoParams?.frame_rate ?? 24,
         num_inference_steps: videoParams?.num_inference_steps ?? 100,
-        audio: true
+        audio: false  // 禁用Agnes原生配音：中文TTS质量差，台词不准+最后2秒放飞自我。改用Edge TTS+FFmpeg合成
       }
       // 图生视频：传首帧图base64，强制补齐padding到4的倍数
       const refs = Array.isArray(refImage) ? refImage : refImage ? [refImage] : []
