@@ -1503,8 +1503,12 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
     if (charMatch?.voice_preset) {
       voicePreset = charMatch.voice_preset
     } else if (/我/.test(narration) && /[……？！]/.test(narration)) {
-      // 无前缀但含第一人称+情绪标记 → 可能是内心独白被错误归类到旁白
       voicePreset = 'inner-voice'
+    } else {
+      // 最后的兜底：用镜头关联的第一个有发音人的角色配音，而不是 narrator
+      const charIds = shot.characters?.map((c: any) => c.id) || []
+      const firstChar = projectData.value?.characters?.find((c: any) => charIds.includes(c.id) && c.voice_preset)
+      if (firstChar?.voice_preset) voicePreset = firstChar.voice_preset
     }
   }
 

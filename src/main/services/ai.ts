@@ -851,10 +851,9 @@ async function saveToDatabase(
           narrationText = narrationText ? narrationText + '\n' + innerText : innerText
           innerText = ''
         }
-        // 规则3：没有角色名前缀的 dialogue → 其实是旁白
+        // 规则3：dialogue 无角色名前缀 → 记录警告但保留（AI 偶忘前缀，移走比留着更糟）
         if (dialogueText && !hasPrefix(dialogueText)) {
-          narrationText = narrationText ? narrationText + '\n' + dialogueText : dialogueText
-          dialogueText = ''
+          console.warn(`[save] WARN: dialogue without prefix, keeping as-is: "${dialogueText.slice(0, 60)}"`)
         }
         // 规则4：narration 含第一人称"我"+情绪标记 → 内心独白（即使无角色名前缀）
         if (narrationText && !hasPrefix(narrationText) && /我/.test(narrationText) && /[……？！]/.test(narrationText)) {
