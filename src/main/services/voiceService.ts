@@ -120,7 +120,11 @@ interface VoiceTurn {
 /** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
 function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, fallbackVoice: string): VoiceTurn[] {
   // 非角色名的冒号前缀——"警告："、"系统：" 等不应触发多角色拆分
-  const NON_CHAR_PREFIXES = new Set(['警告', '系统', '警报', '注意', '提示', '通知', '广播', '紧急', '危险'])
+  const NON_CHAR_PREFIXES = new Set([
+    '警告', '系统', '警报', '注意', '提示', '通知', '广播', '紧急', '危险',
+    '系统提示', '系统信息', '系统警报', '系统公告', '语音播报',
+    '机械音', '广播声', '背景音', '旁白', '画外音',
+  ])
   const turns: VoiceTurn[] = []
   // Step 1: 找到所有 "角色名：" 的位置（仅句首或标点后，用 lookbehind 不吞标点）
   const namePattern = /(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g

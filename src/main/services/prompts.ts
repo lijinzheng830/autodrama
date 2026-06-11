@@ -80,22 +80,22 @@ export const STORYBOARD_PROMPT = `你是一位专业的影视剧分镜师，擅�
       "shots": [
         {
           "shot_index": 1,
-          "shot_scene": "该分镜发生的场景中文名（如 演播厅、书房），必须从场景列表中选取确切名称",
-          "description": "English shot description (60+ words, visual only, no camera terms)",
-          "description_zh": "中文画面描述（自然流畅，非机翻）",
-          "dialogue": "角色名：台词（语气）。如 林小薇：你好吗。（微笑）。多角色连写：林小薇：你好。张伟：再见。无对白则留空字符串 """,
-          "narration": "旁白原文（无则留空字符串 ""）。旁白=无人称画外音，不带角色名前缀。如 夜幕降临，城市陷入沉默。",
-          "inner_monologue": "角色内心独白（无则留空字符串 ""）。归属特定角色，格式 角色名：独白内容。如 林小薇：为什么……我会觉得心脏在疼？",
+          "shot_scene": "演播厅",
+          "description": "Lin Xiaowei stands center stage facing the camera, gentle smile, arms slightly open. Warm golden spotlight on her face and shoulders. Behind her, a large LED wall displays scrolling comments in soft bokeh. The stage floor is polished dark wood. Rule of thirds composition, shallow depth of field.",
+          "description_zh": "林小薇站在舞台中央，面对镜头，温柔微笑。暖金色聚光灯照亮她的脸和肩膀。身后LED大屏滚动着弹幕，虚化成柔光。舞台地板是深色抛光木。三分法构图，浅景深。",
+          "dialogue": "林小薇：你好吗。（微笑）",
+          "narration": "",
+          "inner_monologue": "",
           "shot_type": "中景",
           "camera_movement": "固定",
           "lighting_mood": "暖金色聚光从上方打下，形成戏剧性光柱",
-          "character_actions": [{"character_name":"角色名","action":"缓缓转身面向镜头"}],
-          "first_frame_prompt": "English prompt for first frame (include shot type, character positions, lighting, mood)",
-          "first_frame_prompt_zh": "中文首帧提示词",
-          "last_frame_prompt": "English prompt for last frame",
-          "last_frame_prompt_zh": "中文尾帧提示词",
-          "video_prompt": "English prompt describing camera movement and transitions",
-          "video_prompt_zh": "中文视频提示词"
+          "character_actions": [{"character_name":"林小薇","action":"静立面对镜头微笑"}],
+          "first_frame_prompt": "Medium shot. Lin Xiaowei stands center stage facing camera, gentle smile, warm golden spotlight on face and shoulders, soft bokeh LED wall background, rule of thirds composition, shallow depth of field",
+          "first_frame_prompt_zh": "中景。林小薇站在舞台中央面对镜头，温柔微笑，暖金色聚光灯照亮面部和肩膀，LED墙背景虚化，三分法构图，浅景深",
+          "last_frame_prompt": "",
+          "last_frame_prompt_zh": "",
+          "video_prompt": "Static tripod shot, gentle breathing, subtle smile",
+          "video_prompt_zh": "固定机位，轻柔呼吸，嘴角微扬"
         }
       ]
     }
