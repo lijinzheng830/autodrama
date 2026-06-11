@@ -99,7 +99,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const aspectRatio = project.aspect_ratio || '16:9'
 
   const aspectHint = aspectRatio || '16:9'
-  const styleDesc = finalStylePrompt || 'high quality illustration'
+  const styleDesc = finalStylePrompt || 'Photorealistic, high detail, natural lighting, 8k uhd, cinematic grading'
 
   // 获取资产名称（用于模板变量）
   let assetName = ''
@@ -160,7 +160,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
         `[Style] ${styleDesc}${finalEraPrompt ? ', ' + finalEraPrompt : ''}`,
         `[Lighting] Professional studio lighting, soft key light, even illumination, no harsh shadows`,
         `[Composition] Four panels arranged horizontally left to right in a single row, thin gray vertical dividers, equal width, no overlap — Panel 1 (Far Left, Close-up): head and shoulders, facial features, expression, hair, accessories; Panel 2 (Mid-Left, Full Body Front): standing straight with realistic adult body proportions (7-8 head heights), natural shoulder width, defined waist, natural hip curve, full outfit and silhouette, feet grounded at panel bottom; Panel 3 (Mid-Right, 45-Degree): side profile showing natural spinal curve, waist-hip ratio, garment draping and clothing depth; Panel 4 (Far Right, Full Body Back): back view showing hair from behind, shoulder blade definition, natural back curve, clothing back design with consistent hem line`,
-        `[Quality] ${aspectHint} aspect ratio, realistic adult anatomy with natural body proportions (NOT compressed or stubby), defined waist-hip curve (NOT flat/straight silhouette), identical clothing design across all 4 panels (front/back hemlines match, slits/pleats consistent), consistent character identity, uniform studio lighting, equal panel spacing`
+        `[Quality] ${aspectHint} aspect ratio, PHOTOREALISTIC STYLE — absolutely NOT anime, NOT cartoon, NOT illustration, NOT cel-shaded, NOT 2D. Must look like a real photograph taken with a professional camera. Realistic adult anatomy with natural body proportions (NOT compressed or stubby), defined waist-hip curve (NOT flat/straight silhouette), identical clothing design across all 4 panels, consistent character identity, uniform studio lighting, equal panel spacing`
       ].join('\n')
     } else if (type === 'scene') {
       finalPrompt = [
