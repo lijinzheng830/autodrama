@@ -160,7 +160,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
     const outputPath = join(audioDir, `${shotId}.mp3`)
     const cleanText = cleanBrackets(text)
     console.log(`[voice] single-voice → ${fallbackCfg.voice} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
-    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume })
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000 })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
@@ -181,7 +181,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
     const outputPath = join(audioDir, `${shotId}.mp3`)
     const cleanText = cleanBrackets(text)
     console.log(`[voice] parseTurns返回0 → fallback single-voice`)
-    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume })
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000 })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
@@ -192,7 +192,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   for (const turn of turns) {
     const tmpPath = join(audioDir, `${shotId}_tmp_${randomUUID().slice(0, 8)}.mp3`)
     const cfg = getVoiceConfig(turn.voicePreset)
-    const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume })
+    const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume, timeout: 60000 })
     await tts.ttsPromise(turn.text, tmpPath)
     tempFiles.push(tmpPath)
   }
