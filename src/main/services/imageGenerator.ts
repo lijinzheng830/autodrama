@@ -270,8 +270,13 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     // 注意：不注入风格参考图（含具体人物，img2img 会锁定角色外观）
     // 风格信息通过 prompt 中的 style_prompt 传递
     const refs: string[] = finalRefImage ? [finalRefImage] : []
+    const negPrompt = type === 'scene'
+      ? 'people, characters, humans, figures, silhouettes, animals, text, labels, split panels, wrong perspective, inconsistent vanishing point, distorted object scaling, merged furniture, floating objects, flat lighting, cartoon, illustration, anime'
+      : type === 'character'
+        ? 'wrong anatomy, wrong head-body ratio, flat body silhouette, distorted proportions, extra limbs, missing limbs, fused body parts, wrong hand size, wrong face size, cartoon, illustration, anime, cel-shaded, 2D'
+        : 'cartoon, illustration, anime, wrong proportions, text, labels'
     const assetTraceStart = Date.now()
-    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refs, size)
+    const imageUrls = await callImageGenerationAPI(finalPrompt, model, apiKey, channel, refs, size, negPrompt)
     writeTrace(project.path, {
       ts: new Date().toISOString(),
       type: type === 'character' ? 'asset' : 'asset',
@@ -405,7 +410,8 @@ async function callImageGenerationAPI(
   apiKey: string,
   channel?: string | null,
   refImages?: string[],
-  size?: string | null
+  size?: string | null,
+  negativePrompt?: string
 ): Promise<string[]> {
   // 解析 provider 和 modelKey
   let baseURL = ''
@@ -444,12 +450,12 @@ async function callImageGenerationAPI(
     if (isAgnes) {
       // Agnes: 先图生图（images/generations + extra_body.image）
       console.log('[Agnes] Trying images/generations (img2img)...')
-      resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+      resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size, negativePrompt)
       if (!resp) {
         lastError = lastImageError
         // 图生图挂了 → 回退到 chat/completions（不经过 ComfyUI）
         console.log('[Agnes] images/generations failed, falling back to chat/completions...')
-        resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+        resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size, negativePrompt)
         if (resp) console.log('[Agnes] chat/completions fallback OK')
         else if (lastChatError) lastError = lastChatError
       } else {
@@ -457,14 +463,14 @@ async function callImageGenerationAPI(
       }
     } else if (hasMultipleRefs) {
       // 多参考图 → 直接走 chat/completions（images/generations 只支持单图）
-      resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+      resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size, negativePrompt)
       if (!resp) lastError = lastChatError
     } else {
       // 单参考图或无参考图 → 先尝试 images/generations
-      resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages?.[0], size)
+      resp = await tryImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages?.[0], size, negativePrompt)
       if (!resp) {
         lastError = lastImageError
-        resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size)
+        resp = await tryChatImageAPI(normalizedBaseURL, actualModel, prompt, apiKey, refImages, size, negativePrompt)
         if (!resp && lastChatError) lastError = lastChatError
       }
     }
@@ -502,7 +508,7 @@ async function callImageGenerationAPI(
   return urls
 }
 
-async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | string[] | null, size?: string | null): Promise<any> {
+async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImage?: string | string[] | null, size?: string | null, negativePrompt?: string): Promise<any> {
   const url = `${baseURL}/images/generations`
   const isAgnes = baseURL.includes('agnes-ai.com')
   const body: any = { prompt, model, n: 1, seed: Math.floor(Math.random() * 2147483647) }
@@ -525,6 +531,9 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
     }
     if (imgUrls.length > 0) {
       body.extra_body = { image: imgUrls, response_format: 'b64_json' }
+      if (negativePrompt) body.extra_body.negative_prompt = negativePrompt
+    } else if (negativePrompt) {
+      body.extra_body = { negative_prompt: negativePrompt, response_format: 'b64_json' }
     }
   } else {
     if (size) body.size = size
@@ -568,7 +577,7 @@ async function tryImageAPI(baseURL: string, model: string, prompt: string, apiKe
   return null
 }
 
-async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImages?: string[], _size?: string | null): Promise<any> {
+async function tryChatImageAPI(baseURL: string, model: string, prompt: string, apiKey: string, refImages?: string[], _size?: string | null, negativePrompt?: string): Promise<any> {
   try {
     const url = `${baseURL}/chat/completions`
     const userContent: any[] = []
@@ -585,7 +594,10 @@ async function tryChatImageAPI(baseURL: string, model: string, prompt: string, a
         })
       } catch { /* 文件不可读，跳过 */ }
     }
-    userContent.push({ type: 'text', text: `Generate an image based on this description: ${prompt}. Return only the image.` })
+    const fullPrompt = negativePrompt
+      ? `[NEGATIVE CONSTRAINTS — DO NOT GENERATE]: ${negativePrompt}\n\n[POSITIVE PROMPT]: Generate an image based on this description: ${prompt}. Return only the image.`
+      : `Generate an image based on this description: ${prompt}. Return only the image.`
+    userContent.push({ type: 'text', text: fullPrompt })
     return await axios.post(url, {
       model,
       messages: [{ role: 'user', content: userContent }],
@@ -915,8 +927,9 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     console.log(`[ShotImage] Composition guide: ${compositionGuide.slice(0, 100)}...`)
     console.log('═══════════════════════════════════════')
 
+    const shotNegPrompt = 'wrong anatomy, wrong head-body ratio, extra limbs, distorted proportions, cartoon, illustration, anime, wrong perspective, inconsistent vanishing point, floating objects, merged furniture, text, subtitles, labels'
     const traceStart = Date.now()
-    const imageUrls = await callImageGenerationAPI(shotFinalPrompt, model, apiKey, channel, refImages, size2)
+    const imageUrls = await callImageGenerationAPI(shotFinalPrompt, model, apiKey, channel, refImages, size2, shotNegPrompt)
     const traceDuration = Date.now() - traceStart
 
     // 写 trace 日志（便于分析 Agnes 模型边界）
