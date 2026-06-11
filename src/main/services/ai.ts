@@ -320,7 +320,8 @@ function normalizeShotData(raw: any): ShotData {
           }
           const charActionsStr = Array.isArray(charActions) ? JSON.stringify(charActions) : ''
           // 自动生成 first_frame_prompt（如果 AI 没提供）
-          const ffPrompt = s.first_frame_prompt || s.firstFramePrompt || `${st} shot: ${desc}${lm ? ', ' + lm : ''}`
+          const dialogueHint = s.dialogue ? `. The character is speaking: "${(s.dialogue as string).slice(0, 80)}"` : ''
+          const ffPrompt = s.first_frame_prompt || s.firstFramePrompt || `${st} shot: ${desc}${dialogueHint}${lm ? ', ' + lm : ''}`
           const ffPromptZh = s.first_frame_prompt_zh || descZh
           const lfPrompt = s.last_frame_prompt || s.lastFramePrompt || `${st} shot, closing composition: ${desc}`
           const lfPromptZh = s.last_frame_prompt_zh || descZh

@@ -68,7 +68,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     sceneDescForTpl = scenes.map(s => s.description || s.name).filter(Boolean).join('; ')
     if (sceneDescForTpl) ctxParts.push(`Scene: ${sceneDescForTpl}`)
   } catch {}
-  if (shot.dialogue) ctxParts.push('Characters speaking with natural mouth movements')
+  if (shot.dialogue) ctxParts.push(`Dialogue: ${shot.dialogue.slice(0, 120)}`)
   if (shot.narration) ctxParts.push('Narration segment — all characters keep mouths closed, no lip movement')
   if (shot.shot_type) ctxParts.push(`Shot type: ${translateCnField(shot.shot_type)}`)
   if (shot.camera_movement) ctxParts.push(`Camera: ${translateCnField(shot.camera_movement)}`)

@@ -776,6 +776,8 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     } catch { /* JSON parse fail */ }
   }
   if (contextPropsDesc) shotContextParts.push(`Props in scene: ${contextPropsDesc}`)
+  if (extraFields?.dialogue) shotContextParts.push(`Dialogue spoken in this shot: ${extraFields.dialogue.slice(0, 200)}`)
+  if ((shot as any).inner_monologue) shotContextParts.push(`Inner monologue in this shot: ${(shot as any).inner_monologue.slice(0, 200)}`)
 
   const shotContext = shotContextParts.join('. ')
 
