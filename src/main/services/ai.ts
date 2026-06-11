@@ -332,6 +332,7 @@ function normalizeShotData(raw: any): ShotData {
             description: desc,
             description_en: s.shot_description_en || s.description_en || '',
             description_zh: descZh,
+            shot_scene: s.shot_scene || s.used_scene_name || '',
             dialogue: s.dialogue || '',
             narration: s.narration || '',
             shot_type: st,
@@ -360,6 +361,7 @@ function normalizeShotData(raw: any): ShotData {
           description: s.description || '',
           description_en: s.description_en || '',
           description_zh: s.description_zh || '',
+          shot_scene: s.shot_scene || s.used_scene_name || '',
           narration: s.narration || '',
           shot_type: s.shot_type || '',
           camera_movement: s.camera_movement || '',
@@ -387,6 +389,7 @@ function normalizeShotData(raw: any): ShotData {
             description: s.description || '',
             description_en: s.description_en || '',
             description_zh: s.description_zh || '',
+            shot_scene: s.shot_scene || s.used_scene_name || '',
             dialogue: s.dialogue || '',
             shot_type: s.shot_type || '',
             camera_movement: s.camera_movement || '',
@@ -409,6 +412,7 @@ function normalizeShotData(raw: any): ShotData {
           description: sc.description || '',
           description_en: sc.description_en || '',
           description_zh: sc.description_zh || '',
+          shot_scene: sc.shot_scene || sc.used_scene_name || '',
           dialogue: sc.dialogue || '',
           shot_type: sc.shot_type || '',
           camera_movement: sc.camera_movement || '',
@@ -482,15 +486,23 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
         .filter(n => charNames.includes(n))
       const allCharNames = [...new Set([...matchedChars, ...prefixNames])]
 
-      // 场景匹配：先精确匹配 → 再模糊匹配（场景名包含在文本中，或文本词包含在场景名中）
-      let matchedScene = findNamesInText(searchText, sceneNames)[0] || ''
-      if (!matchedScene) {
-        // 模糊匹配：分出场景名的关键词，在文本中搜索
-        for (const sn of sceneNames) {
-          const keywords = sn.split(/[\s\-—，。、：:]+/).filter(k => k.length >= 2)
-          if (keywords.some(kw => searchText.includes(kw))) {
-            matchedScene = sn
-            break
+      // 场景匹配：优先用 AI 返回的 shot_scene（直接、准确）
+      let matchedScene = (shot as any).shot_scene || ''
+      if (matchedScene && !sceneNames.includes(matchedScene)) {
+        // AI 给的名字不在提取列表里 → 尝试模糊匹配到已有场景
+        const found = sceneNames.find(sn => sn.includes(matchedScene) || matchedScene.includes(sn))
+        if (found) matchedScene = found
+      }
+      if (!matchedScene || !sceneNames.includes(matchedScene)) {
+        // 回退：精确匹配 → 模糊匹配
+        matchedScene = findNamesInText(searchText, sceneNames)[0] || ''
+        if (!matchedScene) {
+          for (const sn of sceneNames) {
+            const keywords = sn.split(/[\s\-—，。、：:]+/).filter(k => k.length >= 2)
+            if (keywords.some(kw => searchText.includes(kw))) {
+              matchedScene = sn
+              break
+            }
           }
         }
       }

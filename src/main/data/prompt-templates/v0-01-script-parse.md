@@ -111,6 +111,7 @@
 
 {
   "shot_index": 1,
+  "shot_scene": "该分镜发生的场景中文名（如\"演播厅\"）",
   "shot_description": "中文画面描述，只写纯视觉内容，不含对白",
   "shot_description_en": "英文画面描述，自然流畅，非机翻",
   "dialogue": "角色名：台词（语气）。无则用空字符串 \"\"",
@@ -136,6 +137,7 @@
 [
   {
     "shot_index": 1,
+    "shot_scene": "舞台",
     "shot_description": "林小薇从舞台后方走向台中央，裙摆随着步伐摆动",
     "shot_description_en": "Lin Xiaowei walks from the back of the stage to center stage, her skirt swaying with each step",
     "dialogue": "",
@@ -153,6 +155,7 @@
   },
   {
     "shot_index": 2,
+    "shot_scene": "舞台",
     "shot_description": "特写镜头，林小薇闭眼深吸一口气，肩膀微微下沉",
     "shot_description_en": "Close-up of Lin Xiaowei closing her eyes, taking a deep breath, shoulders sinking slightly",
     "dialogue": "",
@@ -170,6 +173,7 @@
   },
   {
     "shot_index": 3,
+    "shot_scene": "舞台",
     "shot_description": "中景，林小薇手持金色复古麦克风开始唱歌，面部表情投入",
     "shot_description_en": "Medium shot, Lin Xiaowei holding golden retro microphone, singing with emotional expression",
     "dialogue": "林小薇：（深情的声音开始演唱）",
