@@ -1,6 +1,7 @@
-﻿/**
- * 閰嶉煶鏈嶅姟 鈥?Microsoft Edge TTS锛堝厤璐广€佹棤闇€ API Key锛? * 涓哄垎闀滃鐧界敓鎴?MP3 閰嶉煶鏂囦欢
- * 鏀寔澶氳鑹插鐧斤細鎸夎鑹叉媶鍒嗭紝鍚勭敤鍚勭殑鍙戦煶浜猴紝FFmpeg 鎷兼帴
+/**
+ * 配音服务 — Microsoft Edge TTS（免费、无需 API Key）
+ * 为分镜对白生成 MP3 配音文件
+ * 支持多角色对白：按角色拆分，各用各的发音人，FFmpeg 拼接
  */
 import { mkdirSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -17,7 +18,7 @@ interface VoiceConfig {
 }
 
 export const VOICE_PRESETS: Record<string, VoiceConfig> = {
-  // 濂冲０
+  // 女声
   'female-lead':      { name: 'zh-CN-XiaoxiaoNeural' },
   'female':           { name: 'zh-CN-XiaoyiNeural' },
   'female-child':     { name: 'zh-CN-XiaotongNeural' },
@@ -26,7 +27,7 @@ export const VOICE_PRESETS: Record<string, VoiceConfig> = {
   'female-crisp':     { name: 'zh-CN-XiaoshuangNeural' },
   'female-narrative': { name: 'zh-CN-XiaoqiuNeural' },
   'female-cute':      { name: 'zh-CN-XiaomengNeural' },
-  // 鐢峰０
+  // 男声
   'male-lead':        { name: 'zh-CN-YunxiNeural' },
   'narrator':         { name: 'zh-CN-YunjianNeural' },
   'male':             { name: 'zh-CN-YunyangNeural' },
@@ -39,28 +40,28 @@ export const VOICE_PRESETS: Record<string, VoiceConfig> = {
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
   return [
-    // 濂冲０
-    { key: 'female-lead',      name: VOICE_PRESETS['female-lead'].name,      label: '濂充富路鏅撴檽锛堟俯鏆栫煡鎬э級' },
-    { key: 'female',           name: VOICE_PRESETS['female'].name,           label: '濂抽厤路鏅撲緷锛堝勾杞绘椿鍔涳級' },
-    { key: 'female-child',     name: VOICE_PRESETS['female-child'].name,     label: '钀濊帀路鏅撳饯锛堝効绔ュ０绾匡級' },
-    { key: 'female-teen',      name: VOICE_PRESETS['female-teen'].name,      label: '灏戝コ路鏅撶澘锛堟槑浜厓姘旓級' },
-    { key: 'female-gentle',    name: VOICE_PRESETS['female-gentle'].name,    label: '娓╂煍路鏅撴兜锛堣蒋绯俯鏌旓級' },
-    { key: 'female-crisp',     name: VOICE_PRESETS['female-crisp'].name,     label: '鐖芥湕路鏅撳弻锛堝共缁冨埄钀斤級' },
-    { key: 'female-narrative', name: VOICE_PRESETS['female-narrative'].name, label: '鍙欒堪路鏅撶锛堟矇绋冲彊浜嬶級' },
-    { key: 'female-cute',      name: VOICE_PRESETS['female-cute'].name,      label: '钀岀郴路鏅撴ⅵ锛堝彲鐖辩敎鑵伙級' },
-    // 鐢峰０
-    { key: 'male-lead',        name: VOICE_PRESETS['male-lead'].name,        label: '鐢蜂富路浜戝笇锛堟矇绋筹級' },
-    { key: 'narrator',         name: VOICE_PRESETS['narrator'].name,         label: '鏃佺櫧路浜戝仴锛堟垚鐔熺敺澹帮級' },
-    { key: 'male',             name: VOICE_PRESETS['male'].name,             label: '鐢烽厤路浜戞壃锛堟椽浜級' },
-    { key: 'male-deep',        name: VOICE_PRESETS['male-deep'].name,        label: '鍙嶆淳路浜戝锛堜綆娌夛級' },
-    { key: 'male-warm',        name: VOICE_PRESETS['male-warm'].name,        label: '鏆栫敺路浜戣景锛堟俯鍜屼翰鍒囷級' },
-    { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '闃冲厜路浜戝竼锛堝厖婊℃椿鍔涳級' },
-    { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '鎬昏路浜戞灚锛堜弗鑲冧笓涓氾級' },
-    { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '灏戝勾路浜戞澃锛堥潚鏄ュ皯骞达級' },
+    // 女声
+    { key: 'female-lead',      name: VOICE_PRESETS['female-lead'].name,      label: '女主·晓晓（温暖知性）' },
+    { key: 'female',           name: VOICE_PRESETS['female'].name,           label: '女配·晓依（年轻活力）' },
+    { key: 'female-child',     name: VOICE_PRESETS['female-child'].name,     label: '萝莉·晓彤（儿童声线）' },
+    { key: 'female-teen',      name: VOICE_PRESETS['female-teen'].name,      label: '少女·晓睿（明亮元气）' },
+    { key: 'female-gentle',    name: VOICE_PRESETS['female-gentle'].name,    label: '温柔·晓涵（软糯温柔）' },
+    { key: 'female-crisp',     name: VOICE_PRESETS['female-crisp'].name,     label: '爽朗·晓双（干练利落）' },
+    { key: 'female-narrative', name: VOICE_PRESETS['female-narrative'].name, label: '叙述·晓秋（沉稳叙事）' },
+    { key: 'female-cute',      name: VOICE_PRESETS['female-cute'].name,      label: '萌系·晓梦（可爱甜腻）' },
+    // 男声
+    { key: 'male-lead',        name: VOICE_PRESETS['male-lead'].name,        label: '男主·云希（沉稳）' },
+    { key: 'narrator',         name: VOICE_PRESETS['narrator'].name,         label: '旁白·云健（成熟男声）' },
+    { key: 'male',             name: VOICE_PRESETS['male'].name,             label: '男配·云扬（洪亮）' },
+    { key: 'male-deep',        name: VOICE_PRESETS['male-deep'].name,        label: '反派·云夏（低沉）' },
+    { key: 'male-warm',        name: VOICE_PRESETS['male-warm'].name,        label: '暖男·云辰（温和亲切）' },
+    { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '阳光·云帆（充满活力）' },
+    { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '总裁·云枫（严肃专业）' },
+    { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '少年·云杰（青春少年）' },
   ]
 }
 
-/** 鏍规嵁 preset key 鑾峰彇 EdgeTTS 鏋勯€犲弬鏁?*/
+/** 根据 preset key 获取 EdgeTTS 构造参数 */
 function getVoiceConfig(key: string): { voice: string; rate: string; pitch: string; volume: string } {
   const cfg = VOICE_PRESETS[key] || VOICE_PRESETS['female']
   return {
@@ -83,15 +84,16 @@ interface VoiceTurn {
   voicePreset: string
 }
 
-/** 娓呮礂鎷彿鍐呰〃婕旀彁绀?*/
+/** 清洗括号内表演提示 */
 function cleanBrackets(text: string): string {
-  return text.replace(/[锛?][^锛?]*[锛?]/g, '').trim()
+  return text.replace(/[（(][^）)]*[）)]/g, '').trim()
 }
 
-/** 瑙ｆ瀽鍘熷瀵圭櫧涓鸿鑹插垎鍙モ€斺€旂敤浣嶇疆鍒囧垎鏇夸唬姝ｅ垯鎹曡幏锛岄伩鍏嶅瑙掕壊鍚嶈鍚?*/
+/** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
 function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, fallbackVoice: string): VoiceTurn[] {
   const turns: VoiceTurn[] = []
-  // Step 1: 鎵惧埌鎵€鏈?"瑙掕壊鍚嶏細" 鐨勪綅缃紙浠呭彞棣栨垨鏍囩偣鍚庯紝鐢?lookbehind 涓嶅悶鏍囩偣锛?  const namePattern = /(?<=^|[銆傦紒锛焆)\s*([^銆傦紒锛燂細:]+)[锛?]/g
+  // Step 1: 找到所有 "角色名：" 的位置（仅句首或标点后，用 lookbehind 不吞标点）
+  const namePattern = /(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g
   const markers: Array<{ name: string; start: number; end: number }> = []
   let m: RegExpExecArray | null
   while ((m = namePattern.exec(rawDialogue)) !== null) {
@@ -99,11 +101,13 @@ function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, f
   }
   if (markers.length === 0) return turns
 
-  // Step 2: 鎸夋爣璁板垏鍒嗘枃鏈?  for (let i = 0; i < markers.length; i++) {
+  // Step 2: 按标记切分文本
+  for (let i = 0; i < markers.length; i++) {
     const textStart = markers[i].end
     const textEnd = i + 1 < markers.length ? markers[i + 1].start : rawDialogue.length
     const rawText = rawDialogue.slice(textStart, textEnd).trim()
-    // 娓呮礂鎷彿鍐呰〃婕旀彁绀?    const cleaned = rawText.replace(/[锛?][^锛?]*[锛?]/g, '').trim()
+    // 清洗括号内表演提示
+    const cleaned = rawText.replace(/[（(][^）)]*[）)]/g, '').trim()
     if (!cleaned) continue
     const voicePreset = charVoiceMap[markers[i].name] || fallbackVoice
     turns.push({ text: cleaned, voicePreset })
@@ -111,7 +115,7 @@ function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, f
   return turns
 }
 
-/** 鏌ユ壘 FFmpeg 璺緞 */
+/** 查找 FFmpeg 路径 */
 function findFfmpeg(): string {
   const { existsSync } = require('fs') as typeof import('fs')
   const { join: pJoin } = require('path') as typeof import('path')
@@ -123,20 +127,20 @@ function findFfmpeg(): string {
   for (const c of candidates) {
     if (existsSync(c)) return c
   }
-  throw new Error('FFmpeg 鏈壘鍒?)
+  throw new Error('FFmpeg 未找到')
 }
 
 /**
- * 涓哄崟涓垎闀滅敓鎴愰厤闊筹紙鏀寔澶氳鑹插鐧斤級
- * 杩斿洖: 闊抽鏂囦欢璺緞
+ * 为单个分镜生成配音（支持多角色对白）
+ * 返回: 音频文件路径
  */
 export async function generateVoice(input: GenerateVoiceInput): Promise<string> {
   const { projectId, shotId, text, voicePreset } = input
 
-  if (!text || !text.trim()) throw new Error(`鍒嗛暅 ${shotId} 瀵圭櫧涓虹┖锛岃烦杩嘸)
+  if (!text || !text.trim()) throw new Error(`分镜 ${shotId} 对白为空，跳过`)
 
   const project = getProject(projectId)
-  if (!project) throw new Error('椤圭洰涓嶅瓨鍦?)
+  if (!project) throw new Error('项目不存在')
 
   const audioDir = join(project.path, 'assets', 'audio')
   mkdirSync(audioDir, { recursive: true })
@@ -147,23 +151,23 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
 
   console.log(`[voice] shot=${shotId.slice(0,8)} voicePreset=${voicePreset} voiceName=${fallbackCfg.voice} textLen=${text.length}`)
 
-  // 妫€鏌ユ槸鍚﹀瑙掕壊锛氭枃鏈腑鏄惁鏈?"瑙掕壊鍚嶏細" 妯″紡
-  const hasCharPrefix = /(?<=^|[銆傦紒锛焆)\s*[^銆傦紒锛燂細:]+[锛?]/.test(text)
+  // 检查是否多角色：文本中是否有 "角色名：" 模式
+  const hasCharPrefix = /(?<=^|[。！？])\s*[^。！？：:]+[：:]/.test(text)
   console.log(`[voice] hasCharPrefix=${hasCharPrefix} textFirst=${text.slice(0, 60)}`)
 
   if (!hasCharPrefix) {
-    // 鍗曡鑹?/ 宸叉竻娲楁枃鏈?鈫?鐩存帴鐢熸垚
+    // 单角色 / 已清洗文本 → 直接生成
     const outputPath = join(audioDir, `${shotId}.mp3`)
     const cleanText = cleanBrackets(text)
-    console.log(`[voice] single-voice 鈫?${fallbackCfg.voice} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
+    console.log(`[voice] single-voice → ${fallbackCfg.voice} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
     const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000 })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
   }
 
-  // 澶氳鑹插鐧?鈫?鎸夎鑹叉媶鍒嗙敓鎴?鈫?FFmpeg 鎷兼帴
-  // 鏌ラ」鐩腑鎵€鏈夎鑹诧紙涓嶉檺褰撳墠鍒嗛暅鍏宠仈锛夛紝鐢ㄥ悕瀛楀尮閰嶅鐧戒腑鐨勮鑹插悕
+  // 多角色对白 → 按角色拆分生成 → FFmpeg 拼接
+  // 查项目中所有角色（不限当前分镜关联），用名字匹配对白中的角色名
   const allChars = db.prepare('SELECT name, voice_preset FROM characters WHERE project_id = (SELECT project_id FROM shots WHERE id = ?)').all(shotId) as Array<{ name: string; voice_preset: string | null }>
   const charVoiceMap: Record<string, string> = {}
   for (const c of allChars) {
@@ -171,18 +175,19 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   }
   console.log(`[voice] charVoiceMap keys:`, Object.keys(charVoiceMap).join(', '))
   const turns = parseTurns(text, charVoiceMap, voicePreset || 'female')
-  console.log(`[voice] turns=${turns.length}:`, turns.map(t => `${t.voicePreset}鈫?${t.text.slice(0, 30)}"`).join(' | '))
+  console.log(`[voice] turns=${turns.length}:`, turns.map(t => `${t.voicePreset}→"${t.text.slice(0, 30)}"`).join(' | '))
   if (turns.length === 0) {
-    // 瑙ｆ瀽澶辫触锛屽洖閫€鍒板崟璇煶锛堟竻娲楀悗锛?    const outputPath = join(audioDir, `${shotId}.mp3`)
+    // 解析失败，回退到单语音（清洗后）
+    const outputPath = join(audioDir, `${shotId}.mp3`)
     const cleanText = cleanBrackets(text)
-    console.log(`[voice] parseTurns杩斿洖0 鈫?fallback single-voice`)
+    console.log(`[voice] parseTurns返回0 → fallback single-voice`)
     const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000 })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
   }
 
-  // 閫愬彞鐢熸垚
+  // 逐句生成
   const tempFiles: string[] = []
   for (const turn of turns) {
     const tmpPath = join(audioDir, `${shotId}_tmp_${randomUUID().slice(0, 8)}.mp3`)
@@ -192,13 +197,13 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
     tempFiles.push(tmpPath)
   }
 
-  // FFmpeg 鎷兼帴
+  // FFmpeg 拼接
   const outputPath = join(audioDir, `${shotId}.mp3`)
   if (tempFiles.length === 1) {
     const { renameSync } = require('fs') as typeof import('fs')
     renameSync(tempFiles[0], outputPath)
   } else {
-    // 鏋勫缓 concat file list
+    // 构建 concat file list
     const listPath = join(audioDir, `${shotId}_concat.txt`)
     const lines = tempFiles.map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
     writeFileSync(listPath, lines.join('\n'), 'utf8')
@@ -208,7 +213,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
         '-c', 'copy', '-y', outputPath
       ], { timeout: 60000, stdio: 'pipe' })
     } catch {
-      // concat demuxer 澶辫触鏃跺洖閫€鍒?concat filter
+      // concat demuxer 失败时回退到 concat filter
       const inputs: string[] = []
       const filters: string[] = []
       for (let i = 0; i < tempFiles.length; i++) {
@@ -221,7 +226,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
         '-map', '[out]', '-y', outputPath
       ], { timeout: 60000, stdio: 'pipe' })
     }
-    // 娓呯悊
+    // 清理
     for (const f of tempFiles) { try { unlinkSync(f) } catch {} }
     try { unlinkSync(listPath) } catch {}
   }
@@ -231,7 +236,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
 }
 
 /**
- * 鎵归噺鐢熸垚閰嶉煶 鈥?骞惰锛屽崟鏉″け璐ヤ笉褰卞搷鍏朵粬
+ * 批量生成配音 — 并行，单条失败不影响其他
  */
 export async function batchGenerateVoices(
   inputs: GenerateVoiceInput[]
@@ -247,9 +252,8 @@ export async function batchGenerateVoices(
     if (r.status === 'fulfilled') {
       results[r.value.shotId] = r.value.path
     } else {
-      console.error('[voice] 澶辫触:', r.reason?.message || r.reason)
+      console.error('[voice] 失败:', r.reason?.message || r.reason)
     }
   }
   return results
 }
-
