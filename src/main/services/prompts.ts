@@ -33,6 +33,11 @@ export const STORYBOARD_PROMPT = `你是一位专业的影视剧分镜师，擅�
 - 必须包含：运镜方式（camera movement）、画面内角色的动作变化、转场方式
 - video_prompt_zh 是中文版本
 
+### shot_scene（场景归属）— 必须填写
+- 每个分镜必须标注它发生在哪个场景，取场景名列表中的确切名称
+- 如果连续多个分镜在同一场景发生，每个都要填（不要留空）
+- 如 "演播厅"、"地下监控室"、"书房" 等
+
 ### shot_type（景别）— 7 选 1，必须填写
 大特写 / 特写 / 近景 / 中景 / 全景 / 远景 / 大远景
 
@@ -75,6 +80,7 @@ export const STORYBOARD_PROMPT = `你是一位专业的影视剧分镜师，擅�
       "shots": [
         {
           "shot_index": 1,
+          "shot_scene": "该分镜发生的场景中文名（如 演播厅、书房），必须从场景列表中选取确切名称",
           "description": "English shot description (60+ words, visual only, no camera terms)",
           "description_zh": "中文画面描述（自然流畅，非机翻）",
           "dialogue": "角色名：台词（语气）。如 林小薇：你好吗。（微笑）。多角色连写：林小薇：你好。张伟：再见。无对白则留空字符串 """,
