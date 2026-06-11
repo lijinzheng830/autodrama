@@ -852,26 +852,36 @@ async function saveToDatabase(
         let narrationText = (shot as any).narration || ''
         let innerText = (shot as any).inner_monologue || ''
 
-        // 不是当前字段格式 → 移到正确字段
-        if (narrationText && !narrationText.startsWith('旁白：') && !narrationText.startsWith('旁白:')) {
+        // 写入防线：用前缀标签验证字段归属
+        // 有前缀 → 归属正确。无前缀 或 前缀不匹配 → 移到正确字段
+        if (narrationText) {
           if (narrationText.includes('的内心独白：') || narrationText.includes('的内心独白:')) {
             innerText = innerText ? innerText + '\n' + narrationText : narrationText
-          } else {
+            narrationText = ''
+          } else if (/^[^：:]+[：:]/.test(narrationText) && !narrationText.startsWith('旁白：') && !narrationText.startsWith('旁白:')) {
+            // 有角色名前缀但无"旁白：" → 是对白或内心独白混入了
             dialogueText = dialogueText ? dialogueText + '\n' + narrationText : narrationText
+            narrationText = ''
           }
-          narrationText = ''
+          // 否则保留在 narration（可能是没前缀的旧格式，前端兜底处理）
         }
-        if (innerText && !innerText.includes('的内心独白：') && !innerText.includes('的内心独白:')) {
+        if (innerText) {
           if (innerText.startsWith('旁白：') || innerText.startsWith('旁白:')) {
             narrationText = narrationText ? narrationText + '\n' + innerText : innerText
-          } else {
+            innerText = ''
+          } else if (/^[^：:]+[：:]/.test(innerText) && !innerText.includes('的内心独白：') && !innerText.includes('的内心独白:')) {
             dialogueText = dialogueText ? dialogueText + '\n' + innerText : innerText
+            innerText = ''
           }
-          innerText = ''
         }
-        if (dialogueText && /^[^：:]+[：:]/.test(dialogueText) && (dialogueText.includes('的内心独白：') || dialogueText.includes('的内心独白:'))) {
-          innerText = innerText ? innerText + '\n' + dialogueText : dialogueText
-          dialogueText = ''
+        if (dialogueText) {
+          if (dialogueText.startsWith('旁白：') || dialogueText.startsWith('旁白:')) {
+            narrationText = narrationText ? narrationText + '\n' + dialogueText : dialogueText
+            dialogueText = ''
+          } else if (dialogueText.includes('的内心独白：') || dialogueText.includes('的内心独白:')) {
+            innerText = innerText ? innerText + '\n' + dialogueText : dialogueText
+            dialogueText = ''
+          }
         }
         insertShot.run(
           shotId,
