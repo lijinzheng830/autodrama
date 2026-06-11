@@ -856,6 +856,11 @@ async function saveToDatabase(
           narrationText = narrationText ? narrationText + '\n' + dialogueText : dialogueText
           dialogueText = ''
         }
+        // 规则4：narration 含第一人称"我"+情绪标记 → 内心独白（即使无角色名前缀）
+        if (narrationText && !hasPrefix(narrationText) && /我/.test(narrationText) && /[……？！]/.test(narrationText)) {
+          innerText = innerText ? innerText + '\n' + narrationText : narrationText
+          narrationText = ''
+        }
         insertShot.run(
           shotId,
           chapterId,
