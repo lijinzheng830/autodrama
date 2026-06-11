@@ -149,20 +149,21 @@ interface VoiceTurn {
 
 /** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
 function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, fallbackVoice: string): VoiceTurn[] {
-  // 非角色名的冒号前缀——"警告："、"系统：" 等不应触发多角色拆分
-  const NON_CHAR_PREFIXES = new Set([
-    '警告', '系统', '警报', '注意', '提示', '通知', '广播', '紧急', '危险',
-    '系统提示', '系统信息', '系统警报', '系统公告', '语音播报',
-    '机械音', '广播声', '背景音', '旁白', '画外音',
-  ])
+  // 非角色名冒号前缀——后缀通配替代精确枚举
+  const isNonCharName = (n: string): boolean => {
+    const exact = new Set(['系统', '旁白', '画外音', '机械音', '背景音', '紧急', '危险'])
+    if (exact.has(n)) return true
+    return n.endsWith('警告') || n.endsWith('提示') || n.endsWith('通知')
+      || n.endsWith('广播') || n.endsWith('播报') || n.endsWith('公告')
+      || n.endsWith('信息') || n.endsWith('警报')
+  }
   const turns: VoiceTurn[] = []
-  // Step 1: 找到所有 "角色名：" 的位置（仅句首或标点后，用 lookbehind 不吞标点）
   const namePattern = /(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g
   const markers: Array<{ name: string; start: number; end: number }> = []
   let m: RegExpExecArray | null
   while ((m = namePattern.exec(rawDialogue)) !== null) {
     const name = m[1].trim()
-    if (!NON_CHAR_PREFIXES.has(name)) markers.push({ name, start: m.index, end: m.index + m[0].length })
+    if (!isNonCharName(name)) markers.push({ name, start: m.index, end: m.index + m[0].length })
   }
   if (markers.length === 0) return turns
 

@@ -142,7 +142,7 @@ function toFileUrl(p: string): string {
           </div>
           <div v-if="shot.dialogue" class="voice-line voice-dialogue">{{ shot.dialogue.slice(0, 60) }}</div>
           <div v-if="shot.inner_monologue" class="voice-line voice-monologue">{{ shot.inner_monologue.slice(0, 60) }}</div>
-          <div v-if="shot.narration" class="voice-line voice-narration">{{ shot.narration.slice(0, 60) }}</div>
+          <div v-if="shot.narration" class="narration-badge" :title="shot.narration">{{ shot.narration.slice(0, 40) }}</div>
           <div class="tag-bar">
             <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
             <span v-for="s in shot.scenes" :key="s.id" class="tag tag-scene">{{ s.name }}</span>
@@ -315,6 +315,12 @@ function toFileUrl(p: string): string {
 .voice-dialogue { color: #e0a040; }
 .voice-monologue { color: #c0a0e0; }
 .voice-narration { color: #a0c0e0; }
+.narration-badge {
+  font-size: 10px; color: #a0c0e0; background: rgba(160,192,224,.06);
+  padding: 1px 6px; border-radius: 3px; max-width: 80%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: auto;
+}
 .edit-cell { background: #303060; border-radius: 4px; padding: 2px; }
 .tag-bar { display: flex; flex-wrap: wrap; gap: 2px; }
 .tag { font-size: 10px; padding: 1px 4px; border-radius: 3px; }
