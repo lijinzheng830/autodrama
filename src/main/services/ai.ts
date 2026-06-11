@@ -880,9 +880,24 @@ async function saveToDatabase(
               dialogueText = dialogueText ? dialogueText + '\n' + t : t
             }
           }
+          // 系统词感叹号前缀（如"警报！"）→ 移入旁白
+          else if (/^[^！：:]{1,8}[！]/.test(t)) {
+            const sysName = t.match(/^([^！：:]{1,8})[！]/)?.[1] || ''
+            const sys = sysName.endsWith('警告') || sysName.endsWith('警报') || sysName.endsWith('提示') || sysName.endsWith('注意')
+            if (sys) {
+              narrationText = narrationText ? narrationText + '\n旁白：' + t.replace(/^[^！]+[！]\s*/, '') : '旁白：' + t.replace(/^[^！]+[！]\s*/, '')
+            } else {
+              dialogueText = dialogueText ? dialogueText + '\n' + t : t
+            }
+          }
           // 无前缀纯文本 → 看字段来源决定归属
           else if (t === (shot as any).narration) {
-            narrationText = narrationText ? narrationText + '\n' + '旁白：' + t : '旁白：' + t
+            // 第一人称短文本+情绪标点 → 更可能是内心独白
+            if (/我|自己/.test(t) && t.length < 40 && /[……？！]/.test(t)) {
+              innerText = innerText ? innerText + '\n' + t : t
+            } else {
+              narrationText = narrationText ? narrationText + '\n' + '旁白：' + t : '旁白：' + t
+            }
           } else if (t === (shot as any).inner_monologue) {
             innerText = innerText ? innerText + '\n' + t : t
           } else {
