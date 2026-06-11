@@ -1,6 +1,6 @@
 import { getDb } from './db'
 import { getProviders } from './settings'
-import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
+import { STORYBOARD_PROMPT, EXTRACT_PROMPT } from './prompts'
 import { updateProjectScript, Character, Scene, Prop } from './project'
 import { checkLicense } from '../utils/license'
 import { randomUUID } from 'crypto'
@@ -421,6 +421,77 @@ function normalizeShotData(raw: any): ShotData {
   return { chapters: [] }
 }
 
+// ========== 程序化关联（替代 AI 第三步，准确率远高于 AI 判断）==========
+
+/** 从文本中检测所有已知名词的出现 */
+function findNamesInText(text: string, names: string[]): string[] {
+  if (!text) return []
+  return names.filter(n => text.includes(n))
+}
+
+/** 程序化关联：扫描每个镜头的对白/旁白/描述/动作，精确匹配角色/场景/道具名 */
+function buildAssociations(shotsData: ShotData, extractData: ExtractData): AssocData {
+  const charNames = (extractData.characters || []).map(c => (c.name || '').trim()).filter(Boolean)
+  const sceneNames = (extractData.scenes || []).map(s => (s.name || '').trim()).filter(Boolean)
+  const propNames = (extractData.props || []).map(p => (p.name || '').trim()).filter(Boolean)
+
+  const associations: AssocItem[] = []
+
+  // 用于场景传播：同一章内未匹配的镜头继承最近的已知场景
+  let lastKnownScene = ''
+
+  const chapters = shotsData.chapters || []
+  for (let ci = 0; ci < chapters.length; ci++) {
+    const shots = chapters[ci].shots || []
+    for (const shot of shots) {
+      // 收集该镜头所有可搜索文本
+      const searchText = [
+        shot.dialogue || '',
+        shot.narration || '',
+        shot.description || '',
+        (shot as any).description_zh || '',
+        (shot as any).first_frame_prompt_zh || '',
+        (shot as any).last_frame_prompt_zh || '',
+        // character_actions 里的角色名
+        ((shot as any).character_actions || [])
+          .map((a: any) => a.character_name || '')
+          .join(' '),
+      ].join(' ')
+
+      // 角色匹配：文本中出现角色名 → 关联
+      const matchedChars = findNamesInText(searchText, charNames)
+      // 额外：对白/旁白中解析"角色名："前缀
+      const dialogueNarration = (shot.dialogue || '') + ' ' + (shot.narration || '')
+      const prefixNames = (dialogueNarration.match(/(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g) || [])
+        .map(m => m.replace(/[。！？\s：:]/g, '').trim())
+        .filter(n => charNames.includes(n))
+      const allCharNames = [...new Set([...matchedChars, ...prefixNames])]
+
+      // 场景匹配
+      let matchedScene = findNamesInText(searchText, sceneNames)[0] || ''
+      if (!matchedScene) {
+        // 传播上一镜头的场景
+        matchedScene = lastKnownScene
+      } else {
+        lastKnownScene = matchedScene
+      }
+
+      // 道具匹配
+      const matchedProps = findNamesInText(searchText, propNames)
+
+      associations.push({
+        chapter_index: ci,
+        shot_index: shot.shot_index || 0,
+        character_names: allCharNames,
+        scene_name: matchedScene,
+        prop_names: matchedProps,
+      })
+    }
+  }
+
+  return { associations }
+}
+
 // ========== 自动挡流程 ==========
 
 export async function autoProcess(
@@ -528,34 +599,11 @@ export async function autoProcess(
   onProgress({ step: 2, status: 'done', message: '提取角色、场景和道具 完成' })
   sendProgress({ step: 2, status: 'done', message: '提取角色、场景和道具 完成' })
 
-  // 步骤3：批量关联
+  // 步骤3：程序化关联（替代AI——精确匹配，不受AI幻觉影响）
   onProgress({ step: 3, status: 'running', message: '正在关联角色、场景和道具到分镜...' })
   sendProgress({ step: 3, status: 'running', message: '正在关联角色、场景和道具到分镜...' })
 
-  const assocResult = await callAI(
-    [
-      { role: 'system', content: ASSOCIATE_PROMPT },
-      {
-        role: 'user',
-        content: JSON.stringify({
-          chapters: shotsData.chapters,
-          characters: extractData.characters,
-          scenes: extractData.scenes,
-          props: extractData.props
-        })
-      }
-    ],
-    undefined,
-    modelOverride
-  )
-  let assocData: AssocData
-  try {
-    assocData = JSON.parse(extractJSON(assocResult))
-  } catch (e) {
-    console.error('[autoProcess] 关联步骤 JSON 提取失败. AI返回前1000字符:', assocResult.substring(0, 1000))
-    console.error('[autoProcess] Parse error:', (e as Error).message)
-    throw e
-  }
+  const assocData: AssocData = buildAssociations(shotsData, extractData)
 
   onProgress({ step: 3, status: 'done', message: '关联角色、场景和道具到分镜 完成' })
   sendProgress({ step: 3, status: 'done', message: '关联角色、场景和道具到分镜 完成' })
