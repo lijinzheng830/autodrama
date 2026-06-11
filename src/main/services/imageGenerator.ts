@@ -712,9 +712,8 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       'SELECT s.name, s.description, s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
     for (const sc of shotScenes) {
-      if (sc.reference_image) {
-        try { if (existsSync(sc.reference_image)) refImages.push(sc.reference_image) } catch {}
-      }
+      // 场景参考图不再注入——Agnes无空间理解，图文冲突导致比例失调
+      // 场景信息仅通过 shotContextParts 文字描述传递
       if (sc.description) contextScene = `${sc.name}: ${sc.description}`
       else if (sc.name && !contextScene) contextScene = sc.name
     }
@@ -737,8 +736,6 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       if (anchor) {
         const descSnippet = anchor.description ? ` (${anchor.description.slice(0, 80)})` : ''
         labels.push(`Image #${refNum}: = "${anchor.name}"${descSnippet} — THIS IS THE FACE ANCHOR for ${anchor.name}. Every instance of "${anchor.name}" in the generated image MUST have this exact face, hairstyle, hair color, eye color, and skin tone. Use this face. Do NOT swap it with another character.`)
-      } else if (img.includes('scenes')) {
-        labels.push(`Image #${refNum}: SCENE BACKGROUND — COPY this exact environment, architecture, lighting, colors. Characters are placed INTO this background.`)
       } else if (img.includes('props')) {
         labels.push(`Image #${refNum}: PROP REFERENCE — COPY this exact object appearance, shape, color, texture, and materials. The character should interact with THIS exact object.`)
       } else if (img === refImage || (refImage && i === refImages.length - 1)) {
@@ -860,7 +857,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const charMapNote = charImageAnchors.length > 0
     ? `[IDENTITY ANCHORS] This image contains ${charImageAnchors.length} character(s): ${charNames.join(', ')}. Each character has a numbered reference image that shows their EXACT face:\n${charImageAnchors.map(c => `  Image #${c.refNum} → "${c.name}" — every instance of "${c.name}" MUST use the face from Image #${c.refNum}.`).join('\n')}\nCRITICAL: Do NOT swap faces between characters. Each character's face comes ONLY from their own anchor image listed above. If ANY character uses the wrong face, the image is wrong.`
     : ''
-  const spatialIntegration = 'SPATIAL INTEGRATION (critical): The character is PHYSICALLY INSIDE the scene — NOT a cutout pasted on a background. Scene lighting MUST illuminate the character — warm stage lights cast onto skin and clothing creating highlights and shadows consistent with the environment. The character casts a soft shadow on the floor/surface they stand on. Atmospheric perspective: light rays, haze, or volumetric effects visible between foreground and background. The reference images are visual GUIDES, not layers — the output must be a single unified photograph where character and environment exist in the same 3D space.'
+  const spatialIntegration = 'CLEAR SEPARATION: All characters and objects must be visually distinct with no overlapping or intersecting edges. No object clipping through character body. Each element occupies its own clear space within the image. Character casts a soft shadow on the ground/floor beneath them.'
   // 将用户指令提前，提高模型遵循度
   const hasHandheld = /hold|holding|手持|拿着|握着|touching|holding/i.test(shotPrompt)
   const propBoost = hasHandheld ? ' CRITICAL: The handheld object described above MUST match its reference image EXACTLY — same shape, color, material, and size. It is NOT a generic prop. The character MUST be physically holding or touching this specific object.' : ''
@@ -927,7 +924,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     console.log(`[ShotImage] Composition guide: ${compositionGuide.slice(0, 100)}...`)
     console.log('═══════════════════════════════════════')
 
-    const shotNegPrompt = 'wrong anatomy, wrong head-body ratio, extra limbs, distorted proportions, cartoon, illustration, anime, wrong perspective, inconsistent vanishing point, floating objects, merged furniture, text, subtitles, labels'
+    const shotNegPrompt = 'wrong anatomy, wrong head-body ratio, extra limbs, distorted proportions, cartoon, illustration, anime, wrong perspective, inconsistent vanishing point, floating objects, merged furniture, text, subtitles, labels, no clipping, no character intersecting with objects, no object passing through character body, character clearly separated from background objects, no merged body parts, no overlapping figures'
     const traceStart = Date.now()
     const imageUrls = await callImageGenerationAPI(shotFinalPrompt, model, apiKey, channel, refImages, size2, shotNegPrompt)
     const traceDuration = Date.now() - traceStart
