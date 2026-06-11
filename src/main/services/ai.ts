@@ -835,12 +835,18 @@ async function saveToDatabase(
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
         const vPromptZh = shot.video_prompt_zh || shot.description || ''
-        // 写入防线：narration 中 "角色名：" 格式 → 自动迁移到 inner_monologue
+        // 写入防线：narration 中误归类的内心独白 → 自动迁移到 inner_monologue
         let narrationText = (shot as any).narration || ''
         let innerText = (shot as any).inner_monologue || ''
-        if (!innerText && narrationText && /^[^。！？，,\s]{1,8}[：:]/.test(narrationText)) {
-          innerText = narrationText
-          narrationText = ''
+        if (!innerText && narrationText) {
+          // 带"角色名："前缀 → 内心独白
+          const hasCharPrefix = /^[^。！？，,\s]{1,8}[：:]/.test(narrationText)
+          // 含第一人称"我"+"……"或"？"等情绪标记 → 内心独白
+          const looksLikeMonologue = /我/.test(narrationText) && /[……？！]/.test(narrationText)
+          if (hasCharPrefix || looksLikeMonologue) {
+            innerText = narrationText
+            narrationText = ''
+          }
         }
         const dialogueText = shot.dialogue || ''
         insertShot.run(
