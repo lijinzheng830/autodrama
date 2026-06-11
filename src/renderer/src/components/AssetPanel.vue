@@ -41,6 +41,7 @@ const editAssetName = ref(''), editAssetDesc = ref('')
 const editFirstFramePrompt = ref(''), editLastFramePrompt = ref(''), editVideoPrompt = ref('')
 const genCount = ref(1), generatingAngle = ref<string | null>(null)
 const _saving = ref(false) // 防重复保存
+const voicePresets = ref<Array<{ key: string; name: string; label: string }>>([])
 
 async function handleGenerateAngle(angle: string): Promise<void> {
   if (!props.detailData?.id || generatingAngle.value) return
@@ -177,7 +178,10 @@ async function fsDelete(): Promise<void> {
     fsSrc.value = fsList.value[fsIdx.value]
   } catch { /* ignore */ }
 }
-onMounted(() => window.addEventListener('keydown', fsKey))
+onMounted(async () => {
+  window.addEventListener('keydown', fsKey)
+  try { voicePresets.value = await window.api.listVoicePresets() } catch { /* keep defaults */ }
+})
 onUnmounted(() => window.removeEventListener('keydown', fsKey))
 function toFileUrl(p: string): string { return p ? 'file://' + p.replace(/\\/g, '/') : '' }
 
@@ -306,12 +310,7 @@ async function onDeleteHImg(at: string, aid: string, iid: string): Promise<void>
           <label>发音人</label>
           <el-select :model-value="detailData?.voice_preset || ''" @update:model-value="(v: string) => onVoicePresetChange(detailData?.id, v)" size="small" style="width:100%">
             <el-option label="不配音" value="" />
-            <el-option label="女主·晓晓（温暖女声）" value="female-lead" />
-            <el-option label="男主·云希（沉稳男声）" value="male-lead" />
-            <el-option label="旁白·云健（成熟男声）" value="narrator" />
-            <el-option label="女配·晓依（年轻女声）" value="female" />
-            <el-option label="男配·云扬（洪亮男声）" value="male" />
-            <el-option label="反派·云夏（低沉男声）" value="male-deep" />
+            <el-option v-for="vp in voicePresets" :key="vp.key" :label="vp.label" :value="vp.key" />
           </el-select>
         </div>
         <div v-if="String(detailType) === 'character' && multiAngleAnchors" class="anchor-status">
