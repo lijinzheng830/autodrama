@@ -299,146 +299,87 @@ export function extractJSON(text: string): string {
 
 // ========== 数据规范化 ==========
 
+/** 标准化单个 shot 对象：统一字段映射、character_actions 转换、prompt 自动生成 */
+function normalizeShot(s: any, i: number): any {
+  const desc = s.shot_description || s.description || ''
+  const descZh = s.description_zh || s.shot_description || ''
+  const st = s.shot_type || ''
+  const cm = s.camera_movement || ''
+  const lm = s.lighting_mood || ''
+  let charActions = s.character_actions
+  if (charActions && typeof charActions === 'object' && !Array.isArray(charActions)) {
+    charActions = Object.entries(charActions).map(([name, action]) => ({ character_name: name, action }))
+  }
+  const charActionsStr = Array.isArray(charActions) ? JSON.stringify(charActions) : ''
+  const dialogueHint = s.dialogue ? `. The character is speaking: "${(s.dialogue as string).slice(0, 80)}"` : ''
+  const ffPrompt = s.first_frame_prompt || s.firstFramePrompt || `${st} shot: ${desc}${dialogueHint}${lm ? ', ' + lm : ''}`
+  const lfPrompt = s.last_frame_prompt || s.lastFramePrompt || `${st} shot, closing composition: ${desc}`
+  const vPrompt = s.video_prompt || s.videoPrompt || `${cm || 'static'} camera, ${desc}. Smooth cinematic motion.`
+
+  return {
+    shot_index: s.shot_index ?? s.shot_id ?? i + 1,
+    description: desc,
+    description_en: s.shot_description_en || s.description_en || '',
+    description_zh: descZh,
+    shot_scene: s.shot_scene || s.used_scene_name || '',
+    dialogue: s.dialogue || '',
+    narration: s.narration || '',
+    inner_monologue: s.inner_monologue || '',
+    shot_type: st,
+    camera_movement: cm,
+    lighting_mood: lm,
+    character_actions: charActionsStr,
+    first_frame_prompt: ffPrompt,
+    first_frame_prompt_zh: s.first_frame_prompt_zh || descZh,
+    last_frame_prompt: lfPrompt,
+    last_frame_prompt_zh: s.last_frame_prompt_zh || descZh,
+    video_prompt: vPrompt,
+    video_prompt_zh: s.video_prompt_zh || descZh,
+  }
+}
+
+/** 重编号 shot_index 确保连续无跳跃 */
+function renumberShots(chapters: any[]): any[] {
+  for (const ch of chapters) {
+    (ch.shots || []).forEach((s: any, i: number) => { s.shot_index = i + 1 })
+  }
+  return chapters
+}
+
 function normalizeShotData(raw: any): ShotData {
   if (!raw || typeof raw !== 'object') return { chapters: [] }
 
   // AI 直接返回数组 [{shot_description: ..., ...}] → 包装为章节
   if (Array.isArray(raw) && raw.length > 0 && !raw[0]?.shots) {
-    return {
-      chapters: [{
-        title: '第1章',
-        shots: raw.map((s: any, i: number) => {
-          const desc = s.shot_description || s.description || ''
-          const descZh = s.description_zh || s.shot_description || ''
-          const st = s.shot_type || ''
-          const cm = s.camera_movement || ''
-          const lm = s.lighting_mood || ''
-          // character_actions 从对象格式转为数组
-          let charActions = s.character_actions
-          if (charActions && typeof charActions === 'object' && !Array.isArray(charActions)) {
-            charActions = Object.entries(charActions).map(([name, action]) => ({ character_name: name, action }))
-          }
-          const charActionsStr = Array.isArray(charActions) ? JSON.stringify(charActions) : ''
-          // 自动生成 first_frame_prompt（如果 AI 没提供）
-          const dialogueHint = s.dialogue ? `. The character is speaking: "${(s.dialogue as string).slice(0, 80)}"` : ''
-          const ffPrompt = s.first_frame_prompt || s.firstFramePrompt || `${st} shot: ${desc}${dialogueHint}${lm ? ', ' + lm : ''}`
-          const ffPromptZh = s.first_frame_prompt_zh || descZh
-          const lfPrompt = s.last_frame_prompt || s.lastFramePrompt || `${st} shot, closing composition: ${desc}`
-          const lfPromptZh = s.last_frame_prompt_zh || descZh
-          const vPrompt = s.video_prompt || s.videoPrompt || `${cm || 'static'} camera, ${desc}. Smooth cinematic motion.`
-          const vPromptZh = s.video_prompt_zh || descZh
-
-          return {
-            shot_index: s.shot_index ?? s.shot_id ?? i + 1,
-            description: desc,
-            description_en: s.shot_description_en || s.description_en || '',
-            description_zh: descZh,
-            shot_scene: s.shot_scene || s.used_scene_name || '',
-            dialogue: s.dialogue || '',
-            narration: s.narration || '',
-            inner_monologue: s.inner_monologue || '',
-            shot_type: st,
-            camera_movement: cm,
-            lighting_mood: lm,
-            character_actions: charActionsStr,
-            first_frame_prompt: ffPrompt,
-            first_frame_prompt_zh: ffPromptZh,
-            last_frame_prompt: lfPrompt,
-            last_frame_prompt_zh: lfPromptZh,
-            video_prompt: vPrompt,
-            video_prompt_zh: vPromptZh
-          }
-        }).map((s: any) => {
-          // 校验警告
-          if ((s.description_zh || '').length < 60) console.warn(`[parse] WARN shot #${s.shot_index}: description_zh ${(s.description_zh||'').length}字 < 60字最低要求`)
-          if ((s.description_en || '').split(/\s+/).length < 50) console.warn(`[parse] WARN shot #${s.shot_index}: description_en ${(s.description_en||'').split(/\s+/).length}词 < 50词最低要求`)
-          return s
-        })
-      }]
-    }
+    const shots = raw.map(normalizeShot).map((s: any) => {
+      if ((s.description_zh || '').length < 60) console.warn(`[parse] WARN shot #${s.shot_index}: description_zh ${(s.description_zh||'').length}字 < 60字`)
+      if ((s.description_en || '').split(/\s+/).length < 50) console.warn(`[parse] WARN shot #${s.shot_index}: description_en ${(s.description_en||'').split(/\s+/).length}词 < 50词`)
+      return s
+    })
+    return { chapters: renumberShots([{ title: '第1章', shots }]) }
   }
 
-  // Already has chapters array → return as-is
+  // Already has chapters array
   if (Array.isArray(raw.chapters)) {
-    return {
-      chapters: raw.chapters.map((ch: any) => ({
-        title: ch.title || ch.scene_name || '',
-        shots: (ch.shots || []).map((s: any, i: number) => ({
-          shot_index: s.shot_index ?? s.shot_id ?? i + 1,
-          description: s.description || '',
-          description_en: s.description_en || '',
-          description_zh: s.description_zh || '',
-          shot_scene: s.shot_scene || s.used_scene_name || '',
-          dialogue: s.dialogue || '',
-          narration: s.narration || '',
-          inner_monologue: s.inner_monologue || '',
-          shot_type: s.shot_type || '',
-          camera_movement: s.camera_movement || '',
-          lighting_mood: s.lighting_mood || '',
-          first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
-          first_frame_prompt_zh: s.first_frame_prompt_zh || '',
-          last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
-          last_frame_prompt_zh: s.last_frame_prompt_zh || '',
-          video_prompt: s.video_prompt || s.videoPrompt || '',
-          video_prompt_zh: s.video_prompt_zh || ''
-        }))
-      }))
-    }
+    return { chapters: renumberShots(raw.chapters.map((ch: any) => ({
+      title: ch.title || ch.scene_name || '',
+      shots: (ch.shots || []).map(normalizeShot),
+    }))) }
   }
 
   // Has scenes array → convert to chapters
   if (Array.isArray(raw.scenes)) {
     const hasShots = raw.scenes.some((sc: any) => sc.shots && sc.shots.length > 0)
     if (hasShots) {
-      return {
-        chapters: raw.scenes.map((sc: any) => ({
-          title: sc.scene_name || sc.title || sc.name || '',
-          shots: (sc.shots || []).map((s: any, i: number) => ({
-            shot_index: s.shot_index ?? s.shot_id ?? i + 1,
-            description: s.description || '',
-            description_en: s.description_en || '',
-            description_zh: s.description_zh || '',
-            shot_scene: s.shot_scene || s.used_scene_name || '',
-            dialogue: s.dialogue || '',
-            narration: s.narration || '',
-            inner_monologue: s.inner_monologue || '',
-            shot_type: s.shot_type || '',
-            camera_movement: s.camera_movement || '',
-            lighting_mood: s.lighting_mood || '',
-            first_frame_prompt: s.first_frame_prompt || s.firstFramePrompt || '',
-            first_frame_prompt_zh: s.first_frame_prompt_zh || '',
-            last_frame_prompt: s.last_frame_prompt || s.lastFramePrompt || '',
-            last_frame_prompt_zh: s.last_frame_prompt_zh || '',
-            video_prompt: s.video_prompt || s.videoPrompt || '',
-            video_prompt_zh: s.video_prompt_zh || ''
-          }))
-        }))
-      }
+      return { chapters: renumberShots(raw.scenes.map((sc: any) => ({
+        title: sc.scene_name || sc.title || sc.name || '',
+        shots: (sc.shots || []).map(normalizeShot),
+      }))) }
     }
-    return {
-      chapters: [{
-        title: '第1章',
-        shots: raw.scenes.map((sc: any, i: number) => ({
-          shot_index: sc.shot_index ?? sc.id ?? sc.shot_id ?? i + 1,
-          description: sc.description || '',
-          description_en: sc.description_en || '',
-          description_zh: sc.description_zh || '',
-          shot_scene: sc.shot_scene || sc.used_scene_name || '',
-          dialogue: sc.dialogue || '',
-          narration: sc.narration || '',
-          inner_monologue: sc.inner_monologue || '',
-          shot_type: sc.shot_type || '',
-          camera_movement: sc.camera_movement || '',
-          lighting_mood: sc.lighting_mood || '',
-          first_frame_prompt: sc.first_frame_prompt || sc.firstFramePrompt || '',
-          first_frame_prompt_zh: sc.first_frame_prompt_zh || '',
-          last_frame_prompt: sc.last_frame_prompt || sc.lastFramePrompt || '',
-          last_frame_prompt_zh: sc.last_frame_prompt_zh || '',
-          video_prompt: sc.video_prompt || sc.videoPrompt || '',
-          video_prompt_zh: sc.video_prompt_zh || ''
-        }))
-      }]
-    }
+    return { chapters: renumberShots([{
+      title: '第1章',
+      shots: raw.scenes.map(normalizeShot),
+    }]) }
   }
 
   return { chapters: [] }
@@ -688,9 +629,11 @@ function isValidPrompt(prompt?: string): boolean {
   if (!prompt || !prompt.trim()) return false
   const p = prompt.trim()
   if (p.includes('占位')) return false
-  if (p.length > 1500) return false  // 过长的是模板指令文本
-  // 如果以markdown标题或指令开头，视为无效
+  if (p.length > 1500) return false
   if (/^(#{1,3}\s|##\s|你是一名|你是|核心|任务)/.test(p)) return false
+  // 英文 < 30 词或中文 < 20 字 → 太短，回退到 auto-generate
+  if (/[a-zA-Z]/.test(p) && p.split(/\s+/).length < 30) return false
+  if (/[一-鿿]/.test(p) && p.length < 20) return false
   return true
 }
 
@@ -875,10 +818,20 @@ async function saveToDatabase(
         const shotCharNames = (shotAssoc?.character_names || []).map((n: string) => n.trim()).filter(Boolean)
         const shotSceneName = (shotAssoc?.scene_name || '').trim()
         // 自动生成首帧/尾帧提示词（如果AI生成的是占位符或过长指令）
-        const autoFFPrompt = buildAutoFramePrompt(shot.description || '', 'first', shotCharNames, shotSceneName)
-        const autoLFPrompt = buildAutoFramePrompt(shot.description || '', 'last', shotCharNames, shotSceneName)
-        const ffPrompt = isValidPrompt(shot.first_frame_prompt) ? shot.first_frame_prompt : autoFFPrompt
-        const lfPrompt = isValidPrompt(shot.last_frame_prompt) ? shot.last_frame_prompt : autoLFPrompt
+        // 角色动作注入：把 character_actions 拼接到 prompt 末尾
+        const actionsHint = (() => {
+          try {
+            const ca = (shot as any).character_actions
+            if (!ca) return ''
+            const arr = typeof ca === 'string' ? JSON.parse(ca) : ca
+            if (!Array.isArray(arr) || !arr.length) return ''
+            return '. Actions in this shot: ' + arr.map((a: any) => `${a.character_name} ${a.action}`).join(', ')
+          } catch { return '' }
+        })()
+        const autoFFPrompt = buildAutoFramePrompt(shot.description || '', 'first', shotCharNames, shotSceneName) + actionsHint
+        const autoLFPrompt = buildAutoFramePrompt(shot.description || '', 'last', shotCharNames, shotSceneName) + actionsHint
+        const ffPrompt = (isValidPrompt(shot.first_frame_prompt) ? shot.first_frame_prompt : autoFFPrompt) + (isValidPrompt(shot.first_frame_prompt) ? actionsHint : '')
+        const lfPrompt = (isValidPrompt(shot.last_frame_prompt) ? shot.last_frame_prompt : autoLFPrompt) + (isValidPrompt(shot.last_frame_prompt) ? actionsHint : '')
         const vPrompt = (shot.video_prompt && shot.video_prompt.trim()) ? shot.video_prompt : buildAutoVideoPrompt(shot.description || '', shotCharNames, shotSceneName)
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
