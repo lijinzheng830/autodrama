@@ -476,17 +476,39 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
         .filter(n => charNames.includes(n))
       const allCharNames = [...new Set([...matchedChars, ...prefixNames])]
 
-      // 场景匹配
+      // 场景匹配：先精确匹配 → 再模糊匹配（场景名包含在文本中，或文本词包含在场景名中）
       let matchedScene = findNamesInText(searchText, sceneNames)[0] || ''
+      if (!matchedScene) {
+        // 模糊匹配：分出场景名的关键词，在文本中搜索
+        for (const sn of sceneNames) {
+          const keywords = sn.split(/[\s\-—，。、：:]+/).filter(k => k.length >= 2)
+          if (keywords.some(kw => searchText.includes(kw))) {
+            matchedScene = sn
+            break
+          }
+        }
+      }
       if (!matchedScene) {
         // 传播上一镜头的场景
         matchedScene = lastKnownScene
       } else {
         lastKnownScene = matchedScene
       }
+      if (!matchedScene) {
+        console.log(`[assoc] WARN: shot c${ci}s${shot.shot_index} no scene matched. sceneNames=[${sceneNames.join(', ')}] desc_zh="${(shot as any).description_zh?.slice(0, 60)}"`)
+      }
 
-      // 道具匹配
-      const matchedProps = findNamesInText(searchText, propNames)
+      // 道具匹配（精确 + 模糊）
+      let matchedProps = findNamesInText(searchText, propNames)
+      if (matchedProps.length === 0) {
+        // 模糊匹配
+        for (const pn of propNames) {
+          const keywords = pn.split(/[\s\-—，。、：:]+/).filter(k => k.length >= 2)
+          if (keywords.some(kw => searchText.includes(kw))) {
+            matchedProps.push(pn)
+          }
+        }
+      }
 
       associations.push({
         chapter_index: ci,
