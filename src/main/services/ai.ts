@@ -452,10 +452,19 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
         (shot as any).description_zh || '',
         (shot as any).first_frame_prompt_zh || '',
         (shot as any).last_frame_prompt_zh || '',
-        // character_actions 里的角色名
-        ((shot as any).character_actions || [])
-          .map((a: any) => a.character_name || '')
-          .join(' '),
+        // character_actions 里的角色名（可能是 JSON 字符串或数组）
+        (() => {
+          try {
+            const ca = (shot as any).character_actions
+            if (!ca) return ''
+            if (typeof ca === 'string') {
+              const arr = JSON.parse(ca)
+              return Array.isArray(arr) ? arr.map((a: any) => a.character_name || '').join(' ') : ''
+            }
+            if (Array.isArray(ca)) return ca.map((a: any) => a.character_name || '').join(' ')
+          } catch { /* ignore */ }
+          return ''
+        })(),
       ].join(' ')
 
       // 角色匹配：文本中出现角色名 → 关联
