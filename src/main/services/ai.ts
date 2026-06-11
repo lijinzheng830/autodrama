@@ -835,6 +835,13 @@ async function saveToDatabase(
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
         const vPromptZh = shot.video_prompt_zh || shot.description || ''
+        // 写入防线：narration 中 "角色名：" 格式 → 自动迁移到 inner_monologue
+        let narrationText = (shot as any).narration || ''
+        let innerText = (shot as any).inner_monologue || ''
+        if (!innerText && narrationText && /^[^。！？，,\s]{1,8}[：:]/.test(narrationText)) {
+          innerText = narrationText
+          narrationText = ''
+        }
         const dialogueText = shot.dialogue || ''
         insertShot.run(
           shotId,
@@ -844,8 +851,8 @@ async function saveToDatabase(
           (shot as any).description_en || '',
           shot.description_zh || shot.description || '',
           dialogueText,
-          shot.narration || '',
-          (shot as any).inner_monologue || '',
+          narrationText,
+          innerText,
           (shot as any).character_actions || '',
           shot.shot_type || '',
           shot.camera_movement || '',
