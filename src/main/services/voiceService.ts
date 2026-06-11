@@ -18,22 +18,46 @@ interface VoiceConfig {
 }
 
 export const VOICE_PRESETS: Record<string, VoiceConfig> = {
-  'female-lead': { name: 'zh-CN-XiaoxiaoNeural' },
-  'male-lead':   { name: 'zh-CN-YunxiNeural' },
-  'narrator':    { name: 'zh-CN-YunjianNeural' },
-  'female':      { name: 'zh-CN-XiaoyiNeural' },
-  'male':        { name: 'zh-CN-YunyangNeural' },
-  'male-deep':   { name: 'zh-CN-YunxiaNeural' },
+  // 女声
+  'female-lead':      { name: 'zh-CN-XiaoxiaoNeural' },
+  'female':           { name: 'zh-CN-XiaoyiNeural' },
+  'female-child':     { name: 'zh-CN-XiaotongNeural' },
+  'female-teen':      { name: 'zh-CN-XiaoruiNeural' },
+  'female-gentle':    { name: 'zh-CN-XiaohanNeural' },
+  'female-crisp':     { name: 'zh-CN-XiaoshuangNeural' },
+  'female-narrative': { name: 'zh-CN-XiaoqiuNeural' },
+  'female-cute':      { name: 'zh-CN-XiaomengNeural' },
+  // 男声
+  'male-lead':        { name: 'zh-CN-YunxiNeural' },
+  'narrator':         { name: 'zh-CN-YunjianNeural' },
+  'male':             { name: 'zh-CN-YunyangNeural' },
+  'male-deep':        { name: 'zh-CN-YunxiaNeural' },
+  'male-warm':        { name: 'zh-CN-YunchenNeural' },
+  'male-bright':      { name: 'zh-CN-YunfanNeural' },
+  'male-serious':     { name: 'zh-CN-YunfengNeural' },
+  'male-teen':        { name: 'zh-CN-YunjieNeural' },
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
   return [
-    { key: 'female-lead', name: VOICE_PRESETS['female-lead'].name, label: '女主·晓晓（温暖女声）' },
-    { key: 'male-lead',   name: VOICE_PRESETS['male-lead'].name,   label: '男主·云希（沉稳男声）' },
-    { key: 'narrator',    name: VOICE_PRESETS['narrator'].name,    label: '旁白·云健（成熟男声）' },
-    { key: 'female',      name: VOICE_PRESETS['female'].name,      label: '女配·晓依（年轻女声）' },
-    { key: 'male',        name: VOICE_PRESETS['male'].name,        label: '男配·云扬（洪亮男声）' },
-    { key: 'male-deep',   name: VOICE_PRESETS['male-deep'].name,   label: '反派·云夏（低沉男声）' },
+    // 女声
+    { key: 'female-lead',      name: VOICE_PRESETS['female-lead'].name,      label: '女主·晓晓（温暖知性）' },
+    { key: 'female',           name: VOICE_PRESETS['female'].name,           label: '女配·晓依（年轻活力）' },
+    { key: 'female-child',     name: VOICE_PRESETS['female-child'].name,     label: '萝莉·晓彤（儿童声线）' },
+    { key: 'female-teen',      name: VOICE_PRESETS['female-teen'].name,      label: '少女·晓睿（明亮元气）' },
+    { key: 'female-gentle',    name: VOICE_PRESETS['female-gentle'].name,    label: '温柔·晓涵（软糯温柔）' },
+    { key: 'female-crisp',     name: VOICE_PRESETS['female-crisp'].name,     label: '爽朗·晓双（干练利落）' },
+    { key: 'female-narrative', name: VOICE_PRESETS['female-narrative'].name, label: '叙述·晓秋（沉稳叙事）' },
+    { key: 'female-cute',      name: VOICE_PRESETS['female-cute'].name,      label: '萌系·晓梦（可爱甜腻）' },
+    // 男声
+    { key: 'male-lead',        name: VOICE_PRESETS['male-lead'].name,        label: '男主·云希（沉稳）' },
+    { key: 'narrator',         name: VOICE_PRESETS['narrator'].name,         label: '旁白·云健（成熟男声）' },
+    { key: 'male',             name: VOICE_PRESETS['male'].name,             label: '男配·云扬（洪亮）' },
+    { key: 'male-deep',        name: VOICE_PRESETS['male-deep'].name,        label: '反派·云夏（低沉）' },
+    { key: 'male-warm',        name: VOICE_PRESETS['male-warm'].name,        label: '暖男·云辰（温和亲切）' },
+    { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '阳光·云帆（充满活力）' },
+    { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '总裁·云枫（严肃专业）' },
+    { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '少年·云杰（青春少年）' },
   ]
 }
 
