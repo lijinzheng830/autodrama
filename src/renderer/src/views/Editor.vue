@@ -1500,7 +1500,12 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
     const charMatch = projectData.value?.characters?.find((c: any) =>
       narration.startsWith(c.name + '：') || narration.startsWith(c.name + ':')
     )
-    if (charMatch?.voice_preset) voicePreset = charMatch.voice_preset
+    if (charMatch?.voice_preset) {
+      voicePreset = charMatch.voice_preset
+    } else if (/我/.test(narration) && /[……？！]/.test(narration)) {
+      // 无前缀但含第一人称+情绪标记 → 可能是内心独白被错误归类到旁白
+      voicePreset = 'inner-voice'
+    }
   }
 
   try {
