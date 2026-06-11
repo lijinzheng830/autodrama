@@ -41,23 +41,23 @@ export const VOICE_PRESETS: Record<string, VoiceConfig> = {
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
   return [
     // 女声
-    { key: 'female-lead',      name: VOICE_PRESETS['female-lead'].name,      label: '女主·晓晓（温暖知性）' },
-    { key: 'female',           name: VOICE_PRESETS['female'].name,           label: '女配·晓依（年轻活力）' },
-    { key: 'female-child',     name: VOICE_PRESETS['female-child'].name,     label: '萝莉·晓彤（儿童声线）' },
-    { key: 'female-teen',      name: VOICE_PRESETS['female-teen'].name,      label: '少女·晓睿（明亮元气）' },
-    { key: 'female-gentle',    name: VOICE_PRESETS['female-gentle'].name,    label: '温柔·晓涵（软糯温柔）' },
-    { key: 'female-crisp',     name: VOICE_PRESETS['female-crisp'].name,     label: '爽朗·晓双（干练利落）' },
-    { key: 'female-narrative', name: VOICE_PRESETS['female-narrative'].name, label: '叙述·晓秋（沉稳叙事）' },
-    { key: 'female-cute',      name: VOICE_PRESETS['female-cute'].name,      label: '萌系·晓梦（可爱甜腻）' },
+    { key: 'female-lead',      name: VOICE_PRESETS['female-lead'].name,      label: '女主·女性（温暖知性）' },
+    { key: 'female',           name: VOICE_PRESETS['female'].name,           label: '女配·女性（年轻活力）' },
+    { key: 'female-child',     name: VOICE_PRESETS['female-child'].name,     label: '萝莉·女性（儿童声线）' },
+    { key: 'female-teen',      name: VOICE_PRESETS['female-teen'].name,      label: '少女·女性（明亮元气）' },
+    { key: 'female-gentle',    name: VOICE_PRESETS['female-gentle'].name,    label: '温柔·女性（软糯温柔）' },
+    { key: 'female-crisp',     name: VOICE_PRESETS['female-crisp'].name,     label: '爽朗·女性（干练利落）' },
+    { key: 'female-narrative', name: VOICE_PRESETS['female-narrative'].name, label: '叙述·女性（沉稳叙事）' },
+    { key: 'female-cute',      name: VOICE_PRESETS['female-cute'].name,      label: '萌系·女性（可爱甜腻）' },
     // 男声
-    { key: 'male-lead',        name: VOICE_PRESETS['male-lead'].name,        label: '男主·云希（沉稳）' },
-    { key: 'narrator',         name: VOICE_PRESETS['narrator'].name,         label: '旁白·云健（成熟男声）' },
-    { key: 'male',             name: VOICE_PRESETS['male'].name,             label: '男配·云扬（洪亮）' },
-    { key: 'male-deep',        name: VOICE_PRESETS['male-deep'].name,        label: '反派·云夏（低沉）' },
-    { key: 'male-warm',        name: VOICE_PRESETS['male-warm'].name,        label: '暖男·云辰（温和亲切）' },
-    { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '阳光·云帆（充满活力）' },
-    { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '总裁·云枫（严肃专业）' },
-    { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '少年·云杰（青春少年）' },
+    { key: 'male-lead',        name: VOICE_PRESETS['male-lead'].name,        label: '男主·男性（沉稳）' },
+    { key: 'narrator',         name: VOICE_PRESETS['narrator'].name,         label: '旁白·男性（成熟男声）' },
+    { key: 'male',             name: VOICE_PRESETS['male'].name,             label: '男配·男性（洪亮）' },
+    { key: 'male-deep',        name: VOICE_PRESETS['male-deep'].name,        label: '反派·男性（低沉）' },
+    { key: 'male-warm',        name: VOICE_PRESETS['male-warm'].name,        label: '暖男·男性（温和亲切）' },
+    { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '阳光·男性（充满活力）' },
+    { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '总裁·男性（严肃专业）' },
+    { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '少年·男性（青春少年）' },
   ]
 }
 
