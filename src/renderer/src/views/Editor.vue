@@ -477,8 +477,11 @@ async function loadTemplates(): Promise<void> {
     const list = (await window.api.getPromptTemplates(projectId, 'script_parse')) as any[]
     templates.value = list
     if (list.length > 0 && !selectedTemplate.value) {
-      selectedTemplate.value = list[0].id
-      templatePreview.value = list[0].content
+      // 默认选 system-storyboard-parse（prompt 模板已清理元指令），其次 v0
+      const systemTpl = list.find((t: any) => t.id === 'system-storyboard-parse')
+      const def = systemTpl || list[0]
+      selectedTemplate.value = def.id
+      templatePreview.value = def.content
     }
   } catch (err) {
     console.error('加载模板失败', err)

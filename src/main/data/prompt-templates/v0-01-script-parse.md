@@ -129,22 +129,22 @@
 
 {
   "shot_index": 1,
-  "shot_scene": "该分镜发生的场景中文名（如\"演播厅\"）",
-  "shot_description": "中文画面描述 ≥60字，只写纯视觉内容，不含对白",
-  "shot_description_en": "英文画面描述 ≥50词，自然流畅，非机翻",
-  "dialogue": "角色名：台词（语气）。角色开口说话必须带前缀，如 林小薇：好久不见。（微笑）。多角色对白连写：林小薇：你好。张伟：再见。无对白则为空字符串 \"\"",
-  "inner_monologue": "角色名：内心独白内容。角色心里想的没说出来才填，无则空字符串 \"\"",
-  "narration": "旁白内容。纯画外音无角色名前缀，无则空字符串 \"\"",
+  "shot_scene": "演播厅",
+  "shot_description": "林小薇站在舞台中央面对镜头温柔微笑，暖金色聚光灯照亮面部和肩膀，身后LED大屏虚化",
+  "shot_description_en": "Lin Xiaowei stands center stage facing the camera with a gentle smile, warm golden spotlight on face and shoulders, soft bokeh LED wall behind",
+  "dialogue": "",
+  "inner_monologue": "",
+  "narration": "",
   "shot_type": "中景",
   "camera_movement": "固定",
   "character_actions": [{"character_name":"林小薇","action":"缓缓转身面对镜头"}],
   "lighting_mood": "暖金色聚光灯，柔和明亮",
-  "first_frame_prompt": "English image prompt with exact character names",
-  "first_frame_prompt_zh": "中文首帧提示词",
-  "last_frame_prompt": "English last frame prompt",
-  "last_frame_prompt_zh": "中文尾帧提示词",
-  "video_prompt": "English video motion prompt",
-  "video_prompt_zh": "中文视频提示词"
+  "first_frame_prompt": "Medium shot, Lin Xiaowei center stage, gentle smile, warm golden spotlight, soft bokeh LED wall, rule of thirds",
+  "first_frame_prompt_zh": "中景，林小薇舞台中央温柔微笑，暖金色聚光灯，LED墙虚化，三分法构图",
+  "last_frame_prompt": "",
+  "last_frame_prompt_zh": "",
+  "video_prompt": "Static tripod shot, gentle breathing, subtle smile",
+  "video_prompt_zh": "固定机位，轻柔呼吸，嘴角微扬"
 }
 
 ## 分镜流程示例
