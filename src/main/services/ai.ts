@@ -335,6 +335,7 @@ function normalizeShotData(raw: any): ShotData {
             shot_scene: s.shot_scene || s.used_scene_name || '',
             dialogue: s.dialogue || '',
             narration: s.narration || '',
+            inner_monologue: s.inner_monologue || '',
             shot_type: st,
             camera_movement: cm,
             lighting_mood: lm,
@@ -362,7 +363,9 @@ function normalizeShotData(raw: any): ShotData {
           description_en: s.description_en || '',
           description_zh: s.description_zh || '',
           shot_scene: s.shot_scene || s.used_scene_name || '',
+          dialogue: s.dialogue || '',
           narration: s.narration || '',
+          inner_monologue: s.inner_monologue || '',
           shot_type: s.shot_type || '',
           camera_movement: s.camera_movement || '',
           lighting_mood: s.lighting_mood || '',
@@ -391,6 +394,8 @@ function normalizeShotData(raw: any): ShotData {
             description_zh: s.description_zh || '',
             shot_scene: s.shot_scene || s.used_scene_name || '',
             dialogue: s.dialogue || '',
+            narration: s.narration || '',
+            inner_monologue: s.inner_monologue || '',
             shot_type: s.shot_type || '',
             camera_movement: s.camera_movement || '',
             lighting_mood: s.lighting_mood || '',
@@ -414,6 +419,8 @@ function normalizeShotData(raw: any): ShotData {
           description_zh: sc.description_zh || '',
           shot_scene: sc.shot_scene || sc.used_scene_name || '',
           dialogue: sc.dialogue || '',
+          narration: sc.narration || '',
+          inner_monologue: sc.inner_monologue || '',
           shot_type: sc.shot_type || '',
           camera_movement: sc.camera_movement || '',
           lighting_mood: sc.lighting_mood || '',
@@ -458,6 +465,7 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
       const searchText = [
         shot.dialogue || '',
         shot.narration || '',
+        (shot as any).inner_monologue || '',
         shot.description || '',
         (shot as any).description_zh || '',
         (shot as any).first_frame_prompt_zh || '',
@@ -480,7 +488,7 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
       // 角色匹配：文本中出现角色名 → 关联
       const matchedChars = findNamesInText(searchText, charNames)
       // 额外：对白/旁白中解析"角色名："前缀
-      const dialogueNarration = (shot.dialogue || '') + ' ' + (shot.narration || '')
+      const dialogueNarration = (shot.dialogue || '') + ' ' + (shot.narration || '') + ' ' + ((shot as any).inner_monologue || '')
       const prefixNames = (dialogueNarration.match(/(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g) || [])
         .map(m => m.replace(/[。！？\s：:]/g, '').trim())
         .filter(n => charNames.includes(n))
@@ -829,7 +837,7 @@ async function saveToDatabase(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
     )
     const insertShot = db.prepare(
-      'INSERT INTO shots (id, chapter_id, shot_index, description, description_en, description_zh, dialogue, narration, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO shots (id, chapter_id, shot_index, description, description_en, description_zh, dialogue, narration, inner_monologue, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     const insertShotChar = db.prepare(
       'INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)'
@@ -879,6 +887,7 @@ async function saveToDatabase(
           shot.description_zh || shot.description || '',
           dialogueText,
           shot.narration || '',
+          (shot as any).inner_monologue || '',
           shot.shot_type || '',
           shot.camera_movement || '',
           shot.lighting_mood || '',

@@ -38,6 +38,20 @@
 5. **景别 7 选 1，不可自造** — 大远景 / 远景 / 全景 / 中景 / 近景 / 特写 / 大特写
 6. **运镜 8 选 1，不可自造** — 固定 / 缓慢推进 / 缓慢拉远 / 左摇 / 右摇 / 跟随 / 环绕 / 升降
 
+### 💬 对白 / 🗣️ 内心独白 / 📢 旁白 — 严格区分
+| 类型 | 字段 | 格式 | 画面表现 | 示例 |
+|------|------|------|---------|------|
+| 💬 对白 | dialogue | `角色名：台词（语气）` | 角色嘴巴在动 | `林小薇：好久不见。（微笑）` |
+| 🗣️ 内心独白 | inner_monologue | `角色名：独白内容` | 角色嘴巴闭合，表情/眼神传达情绪 | `林小薇：为什么……我会觉得心脏在疼？` |
+| 📢 旁白 | narration | 纯文本（无角色名前缀） | 所有角色嘴巴闭合，画外音 | `夜幕降临，城市陷入了沉默。` |
+
+**关键规则**：
+- 只有角色开口说话 → dialogue。一定有 `角色名：` 前缀。
+- 角色心里想的、没有说出口 → inner_monologue。一定有 `角色名：` 前缀。
+- 第三方叙述、环境描写的声音化 → narration。**没有**角色名前缀。
+- 原文中角色的内心想法（如"她想……""他在心里默念……"）→ inner_monologue
+- **绝不能把对白写成旁白，也绝不能把内心独白写成对白。三个字段不能同时非空。**
+
 ### 景别选择指南
 | 场景类型 | 推荐景别 | 示例 |
 |---------|---------|------|
@@ -114,8 +128,9 @@
   "shot_scene": "该分镜发生的场景中文名（如\"演播厅\"）",
   "shot_description": "中文画面描述，只写纯视觉内容，不含对白",
   "shot_description_en": "英文画面描述，自然流畅，非机翻",
-  "dialogue": "角色名：台词（语气）。无则用空字符串 \"\"",
-  "narration": "旁白/独白内容。无则用空字符串 \"\"",
+  "dialogue": "角色名：台词（语气）。只有角色开口说话才填，无则空字符串 \"\"",
+  "inner_monologue": "角色名：内心独白内容。角色心里想的没说出来才填，无则空字符串 \"\"",
+  "narration": "旁白内容。纯画外音无角色名前缀，无则空字符串 \"\"",
   "shot_type": "中景",
   "camera_movement": "固定",
   "character_actions": [{"character_name":"林小薇","action":"缓缓转身面对镜头"}],
@@ -141,6 +156,7 @@
     "shot_description": "林小薇从舞台后方走向台中央，裙摆随着步伐摆动",
     "shot_description_en": "Lin Xiaowei walks from the back of the stage to center stage, her skirt swaying with each step",
     "dialogue": "",
+    "inner_monologue": "林小薇：台下这么多人……我能做到吗？",
     "narration": "",
     "shot_type": "全景",
     "camera_movement": "跟随",
@@ -159,6 +175,7 @@
     "shot_description": "特写镜头，林小薇闭眼深吸一口气，肩膀微微下沉",
     "shot_description_en": "Close-up of Lin Xiaowei closing her eyes, taking a deep breath, shoulders sinking slightly",
     "dialogue": "",
+    "inner_monologue": "",
     "narration": "",
     "shot_type": "特写",
     "camera_movement": "固定",
@@ -177,6 +194,7 @@
     "shot_description": "中景，林小薇手持金色复古麦克风开始唱歌，面部表情投入",
     "shot_description_en": "Medium shot, Lin Xiaowei holding golden retro microphone, singing with emotional expression",
     "dialogue": "林小薇：（深情的声音开始演唱）",
+    "inner_monologue": "",
     "narration": "",
     "shot_type": "中景",
     "camera_movement": "缓慢推进",
