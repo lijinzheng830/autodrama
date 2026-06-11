@@ -47,6 +47,24 @@ export function fillZhFallback(vars: Record<string, string>): void {
   }
 }
 
+/** 风格英文质量描述（注入到模板的 style_prompt 变量，Agnes 对英文理解更精准） */
+export const STYLE_PROMPT: Record<string, string> = {
+  '二次元动漫': 'Anime style, clean lineart, flat color shading, hard-edged shadows, vibrant palette, crisp bright composition',
+  '写实摄影': 'Photorealistic, 8K resolution, highly detailed textures, natural lighting, professional photography, visible skin pores, realistic material质感, soft shadows, fashion photography style',
+  '3D渲染': '3D render style, PBR materials, realistic reflections, subsurface scattering, volumetric light, Octane render quality, clean geometry topology',
+  '水彩插画': 'Watercolor painting style, soft blurred edges, visible paper texture, natural paint bleeding, wet-on-wet color transitions, soft pastel tones',
+  '赛博朋克': 'Cyberpunk style, neon lighting, rain-soaked street reflections, high-contrast dark tones, glowing circuit patterns, industrial metal textures',
+  '像素复古': 'Pixel art style, visible pixel grid, 16-bit color palette, crisp block edges, classic RPG game sprite aesthetic',
+  '油画质感': 'Classical oil painting style, visible impasto brushstrokes, chiaroscuro lighting, layered transparent glazes, rich warm tones, canvas texture',
+  '扁平插画': 'Flat illustration style, solid color blocks, no gradients, clean geometric shapes, bold shadow shapes, modern vector aesthetic',
+  '吉卜力': 'Studio Ghibli animation style, hand-drawn soft lineart, watercolor backgrounds, warm natural tones, soft lighting, everyday magic atmosphere',
+  '美漫风格': 'American comic style, thick black outlines, vibrant saturated colors, halftone dot shading, dynamic composition, heroic proportions',
+  '暗黑奇幻': 'Dark fantasy style, muted somber tones, dramatic lighting, gothic architecture, dense fog atmosphere, rusted metal textures',
+  '日系治愈': 'Japanese healing style, soft warm light, gentle pastel tones, fluffy soft textures, warm peaceful atmosphere, shallow depth of field',
+  '中国水墨': 'Chinese ink wash painting style, layered ink tones, rice paper texture, negative space composition, expressive brushwork, bleeding effect',
+  '中国仙侠': 'Chinese xianxia fantasy style, flowing silk textures, jade luster, spiritual energy glow effects, ancient architecture, mist-shrouded, ethereal atmosphere',
+}
+
 /** 风格中文质量描述（注入到中文模板的 style_prompt_zh 变量） */
 export const STYLE_PROMPT_ZH: Record<string, string> = {
   '二次元动漫': '二次元动漫风格，清晰黑色轮廓线，平涂色块，硬边阴影，鲜艳配色，干净明亮的画面',
@@ -63,6 +81,16 @@ export const STYLE_PROMPT_ZH: Record<string, string> = {
   '日系治愈': '日系治愈风格，柔和暖光，淡雅粉彩色调，蓬松柔软质感，温馨宁静氛围，浅景深',
   '中国水墨': '中国水墨画风格，浓淡墨色层次，宣纸纹理，留白构图，写意笔触，晕染效果',
   '中国仙侠': '中国仙侠风格，飘逸丝绸质感，玉石光泽，灵气光效，古风建筑，云雾缭绕，仙境氛围',
+}
+
+/** 根据项目风格名获取英文风格描述（精确匹配 + 模糊匹配） */
+export function getStylePrompt(styleName: string, fallback: string): string {
+  if (!styleName) return fallback
+  if (STYLE_PROMPT[styleName]) return STYLE_PROMPT[styleName]
+  for (const [key, value] of Object.entries(STYLE_PROMPT)) {
+    if (styleName.includes(key) || key.includes(styleName)) return value
+  }
+  return fallback
 }
 
 /** 根据项目风格名获取中文风格描述（精确匹配 + 模糊匹配） */

@@ -12,7 +12,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, appendFileSync } fr
 import { randomUUID } from 'crypto'
 import axios from 'axios'
 
-import { mapEra, getStylePromptZh, getAPISize, getAnglePrompt, getAngleSize, translateCnField, detectShotType, AnchorAngle } from './styleMapper'
+import { mapEra, getStylePrompt, getStylePromptZh, getAPISize, getAnglePrompt, getAngleSize, translateCnField, detectShotType, AnchorAngle } from './styleMapper'
 import { resolveModelConfig, resolveProviderConfig } from './modelRouter'
 import { assertValidAssetType, assertValidFrameType, assertValidTableName, assertValidColumnName, createMultiAngle } from './characterAnchorService'
 import { checkShotConsistency } from './consistencyChecker'
@@ -130,6 +130,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       if (tpl?.content) {
         let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
         if (tp) {
+          const stylePromptEn = getStylePrompt(project.style_name, finalStylePrompt)
           const stylePromptZh = getStylePromptZh(project.style_name, finalStylePrompt)
           tp = tp.replace(/\{\{character_name\}\}/g, assetName || description)
             .replace(/\{\{character_description\}\}/g, description)
@@ -140,7 +141,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
             .replace(/\{\{prop_name\}\}/g, assetName || description)
             .replace(/\{\{prop_description\}\}/g, description)
             .replace(/\{\{prop_prompt\}\}/g, description)
-            .replace(/\{\{style_prompt\}\}/g, finalStylePrompt)
+            .replace(/\{\{style_prompt\}\}/g, stylePromptEn)
             .replace(/\{\{style_prompt_zh\}\}/g, stylePromptZh)
             .replace(/\{\{style_name\}\}/g, project.style_name || '')
             .replace(/\{\{era\}\}/g, finalEraPrompt)
@@ -803,9 +804,10 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
           const shotPromptZh = frameType === 'first'
             ? (shot.first_frame_prompt_zh || shotPrompt)
             : (shot.last_frame_prompt_zh || shotPrompt)
+          const stylePromptEn2 = getStylePrompt(project.style_name, finalStylePrompt)
           const stylePromptZh = getStylePromptZh(project.style_name, finalStylePrompt)
           const sv: Record<string, string> = {
-            style_prompt: finalStylePrompt, style_prompt_zh: stylePromptZh,
+            style_prompt: stylePromptEn2, style_prompt_zh: stylePromptZh,
             era: finalEraPrompt, era_zh: project.era || '',
             shot_description: shotPrompt, shot_description_zh: shotPromptZh,
             dialogue: extraFields?.dialogue || '', dialogue_en: extraFields?.dialogue || '',
