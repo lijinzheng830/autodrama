@@ -1,11 +1,14 @@
 /**
  * 配音服务 — Microsoft Edge TTS（免费、无需 API Key）
  * 为分镜对白生成 MP3 配音文件
+ * 支持多角色对白：按角色拆分，各用各的发音人，FFmpeg 拼接
  */
-import { mkdirSync } from 'fs'
+import { mkdirSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { execFileSync } from 'child_process'
 import { getDb } from './db'
 import { getProject } from './project'
+import { randomUUID } from 'crypto'
 
 export const VOICE_PRESETS: Record<string, string> = {
   'female-lead': 'zh-CN-XiaoxiaoNeural',
@@ -14,7 +17,7 @@ export const VOICE_PRESETS: Record<string, string> = {
   'female':      'zh-CN-XiaoyiNeural',
   'male':        'zh-CN-YunyangNeural',
   'male-deep':   'zh-CN-YunxiaNeural',
-  'male-elder':  'zh-CN-YunyangNeural',  // 与 male 相同语音，用 rate:'-20%' 降速显老成
+  'male-elder':  'zh-CN-YunyangNeural',
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
@@ -33,11 +36,49 @@ export interface GenerateVoiceInput {
   projectId: string
   shotId: string
   text: string
-  voicePreset: string  // VOICE_PRESETS 的 key
+  voicePreset: string
+}
+
+interface VoiceTurn {
+  text: string
+  voicePreset: string
+}
+
+/** 解析原始对白为角色分句（在清洗前调用） */
+function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>): VoiceTurn[] {
+  const turns: VoiceTurn[] = []
+  // 匹配 "角色名：台词" 或 "角色名:台词"
+  const regex = /([^：:]+)[：:]\s*([^：:]*(?:[：:][^：:]*)*?)(?=[^：:]+[：:]|$)/g
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(rawDialogue)) !== null) {
+    const name = m[1].trim()
+    const text = m[2].trim()
+    // 清洗括号内表演提示
+    const cleaned = text.replace(/[（(][^）)]*[）)]/g, '').trim()
+    if (!cleaned) continue
+    const voicePreset = charVoiceMap[name] || 'female'
+    turns.push({ text: cleaned, voicePreset })
+  }
+  return turns
+}
+
+/** 查找 FFmpeg 路径 */
+function findFfmpeg(): string {
+  const { existsSync } = require('fs') as typeof import('fs')
+  const { join: pJoin } = require('path') as typeof import('path')
+  const candidates = [
+    pJoin(require('electron').app?.getPath('exe') || '', '..', 'resources', 'ffmpeg', 'ffmpeg.exe'),
+    pJoin(__dirname, '..', '..', 'resources', 'ffmpeg', 'ffmpeg.exe'),
+    'ffmpeg', 'ffmpeg.exe',
+  ]
+  for (const c of candidates) {
+    if (existsSync(c)) return c
+  }
+  throw new Error('FFmpeg 未找到')
 }
 
 /**
- * 为单个分镜对白生成配音
+ * 为单个分镜生成配音（支持多角色对白）
  * 返回: 音频文件路径
  */
 export async function generateVoice(input: GenerateVoiceInput): Promise<string> {
@@ -45,46 +86,108 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
 
   if (!text || !text.trim()) throw new Error(`分镜 ${shotId} 对白为空，跳过`)
 
-  const voiceName = VOICE_PRESETS[voicePreset] || VOICE_PRESETS['female']
-  if (voiceName !== VOICE_PRESETS[voicePreset]) {
-    console.warn(`[voice] 未知预设 ${voicePreset}，回退到 female`)
-  }
-
   const project = getProject(projectId)
   if (!project) throw new Error('项目不存在')
 
   const audioDir = join(project.path, 'assets', 'audio')
   mkdirSync(audioDir, { recursive: true })
 
-  const outputPath = join(audioDir, `${shotId}.mp3`)
-
   const { EdgeTTS } = await import('node-edge-tts')
-  const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
-  await tts.ttsPromise(text, outputPath)
+  const voiceName = VOICE_PRESETS[voicePreset] || VOICE_PRESETS['female']
 
-  // 更新 shots 表
+  // 检查是否多角色：文本中是否有 "角色名：" 模式
+  const hasCharPrefix = /[^：:]+[：:]\s*[^：:]/.test(text)
+
+  if (!hasCharPrefix) {
+    // 单角色 / 已清洗文本 → 直接生成
+    const outputPath = join(audioDir, `${shotId}.mp3`)
+    const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
+    await tts.ttsPromise(text, outputPath)
+    const db = getDb()
+    db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
+    return outputPath
+  }
+
+  // 多角色对白 → 按角色拆分生成 → FFmpeg 拼接
+  // 从 project 获取角色→配音映射
   const db = getDb()
-  db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
+  const chars = db.prepare('SELECT c.name, c.voice_preset FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?').all(shotId) as Array<{ name: string; voice_preset: string | null }>
+  const charVoiceMap: Record<string, string> = {}
+  for (const c of chars) {
+    if (c.voice_preset) charVoiceMap[c.name] = c.voice_preset
+  }
 
+  const turns = parseTurns(text, charVoiceMap)
+  if (turns.length === 0) {
+    // 解析失败，回退到单语音
+    const outputPath = join(audioDir, `${shotId}.mp3`)
+    const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
+    await tts.ttsPromise(text, outputPath)
+    db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
+    return outputPath
+  }
+
+  // 逐句生成
+  const tempFiles: string[] = []
+  for (const turn of turns) {
+    const tmpPath = join(audioDir, `${shotId}_tmp_${randomUUID().slice(0, 8)}.mp3`)
+    const ttsVoice = VOICE_PRESETS[turn.voicePreset] || voiceName
+    const tts = new EdgeTTS({ voice: ttsVoice, lang: 'zh-CN' })
+    await tts.ttsPromise(turn.text, tmpPath)
+    tempFiles.push(tmpPath)
+  }
+
+  // FFmpeg 拼接
+  const outputPath = join(audioDir, `${shotId}.mp3`)
+  if (tempFiles.length === 1) {
+    const { renameSync } = require('fs') as typeof import('fs')
+    renameSync(tempFiles[0], outputPath)
+  } else {
+    // 构建 concat file list
+    const listPath = join(audioDir, `${shotId}_concat.txt`)
+    const lines = tempFiles.map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
+    writeFileSync(listPath, lines.join('\n'), 'utf8')
+    try {
+      execFileSync(findFfmpeg(), [
+        '-f', 'concat', '-safe', '0', '-i', listPath,
+        '-c', 'copy', '-y', outputPath
+      ], { timeout: 60000, stdio: 'pipe' })
+    } catch {
+      // concat demuxer 失败时回退到 concat filter
+      const inputs: string[] = []
+      const filters: string[] = []
+      for (let i = 0; i < tempFiles.length; i++) {
+        inputs.push('-i', tempFiles[i])
+        filters.push(`[${i}:a:0]`)
+      }
+      execFileSync(findFfmpeg(), [
+        ...inputs,
+        '-filter_complex', `${filters.join('')}concat=n=${tempFiles.length}:v=0:a=1[out]`,
+        '-map', '[out]', '-y', outputPath
+      ], { timeout: 60000, stdio: 'pipe' })
+    }
+    // 清理
+    for (const f of tempFiles) { try { unlinkSync(f) } catch {} }
+    try { unlinkSync(listPath) } catch {}
+  }
+
+  db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
   return outputPath
 }
 
 /**
  * 批量生成配音 — 并行，单条失败不影响其他
- * 返回: { shotId: audioPath } 映射
  */
 export async function batchGenerateVoices(
   inputs: GenerateVoiceInput[]
 ): Promise<Record<string, string>> {
   const results: Record<string, string> = {}
-
   const settled = await Promise.allSettled(
     inputs.map(async (input) => {
       const path = await generateVoice(input)
       return { shotId: input.shotId, path }
     })
   )
-
   for (const r of settled) {
     if (r.status === 'fulfilled') {
       results[r.value.shotId] = r.value.path
@@ -92,6 +195,5 @@ export async function batchGenerateVoices(
       console.error('[voice] 失败:', r.reason?.message || r.reason)
     }
   }
-
   return results
 }

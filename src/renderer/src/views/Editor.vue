@@ -1230,16 +1230,6 @@ function goSettings(): void {
   router.push('/settings')
 }
 
-// 配音文本清洗：去角色名前缀（"林小薇："→""）和括号内表演提示（"（空灵温柔）"→""）
-// 支持多轮对白："林小薇：你好。张伟：再见。" → "你好。再见。"
-function cleanDialogueText(raw: string): string {
-  return raw
-    .replace(/(^|[。！？])\s*[^。！？：:]+[：:]/g, '$1')  // 去角色名前缀（仅限句首或标点后）
-    .replace(/[（(][^）)]*[）)]/g, '')                      // 去括号内表演提示
-    .replace(/\s+/g, ' ')                                   // 合并多余空白
-    .trim()
-}
-
 // ===== 顶部工具栏 =====
 
 async function openGenRecord(): Promise<void> {
@@ -1475,38 +1465,34 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
   // 判断配音类型：对白 / 角色内心独白 / 系统旁白
   const narration = shot?.narration?.trim() || ''
   const dialogue = shot?.dialogue?.trim() || ''
-  const text = cleanDialogueText(dialogue || narration)
-  if (!text) {
+  // 传原始文本给后端——后端自动检测多角色对白并按角色拆分配音
+  const rawText = dialogue || narration
+  if (!rawText) {
     ElMessage.warning('该分镜没有对白或旁白')
     return
   }
   let voicePreset = 'narrator'
 
   if (dialogue) {
-    // 对白：找关联角色第一个有 voice_preset 的
     const charIds = shot.characters?.map((c: any) => c.id) || []
     const charWithVoice = projectData.value?.characters?.find((c: any) => charIds.includes(c.id) && c.voice_preset)
     if (!charWithVoice) {
       ElMessage.warning('请先在角色详情中为该分镜的出场角色设置发音人')
       return
     }
-    voicePreset = charWithVoice.voice_preset
+    voicePreset = charWithVoice.voice_preset  // 单角色时的默认发音人
   } else if (narration) {
-    // 旁白：检查是否以"角色名："开头 → 角色内心独白
     const charMatch = projectData.value?.characters?.find((c: any) =>
       narration.startsWith(c.name + '：') || narration.startsWith(c.name + ':')
     )
-    if (charMatch?.voice_preset) {
-      voicePreset = charMatch.voice_preset
-    }
-    // 否则默认 narrator（系统旁白）
+    if (charMatch?.voice_preset) voicePreset = charMatch.voice_preset
   }
 
   try {
     const audioPath = await window.api.generateVoice({
       projectId,
       shotId,
-      text: text,
+      text: rawText,
       voicePreset
     })
     shot.voice_path = audioPath
@@ -1529,7 +1515,7 @@ async function handleBatchGenerateVoices(): Promise<void> {
     if (!selectedShots.value.has(shot.id)) continue
     const dialogue2 = shot.dialogue?.trim() || ''
     const narration2 = shot.narration?.trim() || ''
-    const text2 = cleanDialogueText(dialogue2 || narration2)
+    const text2 = dialogue2 || narration2  // 原始文本，后端处理多角色拆分
     if (!text2) continue
     let voicePreset2 = 'narrator'
     if (dialogue2) {
