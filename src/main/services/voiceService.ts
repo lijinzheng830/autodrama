@@ -10,11 +10,39 @@ import { getDb } from './db'
 import { getProject } from './project'
 import { randomUUID } from 'crypto'
 
+// Edge TTS express-as 风格映射: 中文情绪词 → Edge TTS style
+const EMOTION_STYLE_MAP: Record<string, string> = {
+  '温柔': 'gentle', '轻柔': 'gentle', '软糯': 'gentle', '空灵': 'gentle',
+  '快乐': 'cheerful', '欢快': 'cheerful', '高兴': 'cheerful',
+  '悲伤': 'sad', '忧郁': 'sad', '伤感': 'sad', '低落': 'sad',
+  '愤怒': 'angry', '生气': 'angry', '怒吼': 'angry',
+  '兴奋': 'excited', '激动': 'excited', '热烈': 'excited',
+  '恐惧': 'fearful', '害怕': 'fearful', '惊恐': 'terrified',
+  '失望': 'disappointed', '失落': 'disappointed',
+  '低语': 'whispering', '轻声': 'whispering', '耳语': 'whispering',
+  '希望': 'hopeful', '憧憬': 'hopeful',
+  '友好': 'friendly', '亲切': 'friendly',
+  '抒情': 'lyrical', '诗意': 'lyrical',
+  '中立': 'neutral', '默认': 'neutral', '冷静': 'calm',
+}
+
+function extractEmotion(text: string): { cleanText: string; style?: string } {
+  const m = text.match(/[（(]([^）)]+)[）)]/)
+  if (!m) return { cleanText: text }
+  const word = m[1]
+  if (EMOTION_STYLE_MAP[word]) return { cleanText: text.slice(m.index! + m[0].length).trim(), style: EMOTION_STYLE_MAP[word] }
+  for (const [cn, en] of Object.entries(EMOTION_STYLE_MAP)) {
+    if (word.includes(cn) || cn.includes(word)) return { cleanText: text.slice(m.index! + m[0].length).trim(), style: en }
+  }
+  return { cleanText: text.slice(m.index! + m[0].length).trim() }
+}
+
 interface VoiceConfig {
   name: string
-  rate?: string     // e.g. '+10%' / '-20%' / 'default'
-  pitch?: string    // e.g. '+5Hz' / '-3Hz' / 'default'
-  volume?: string   // e.g. '+10%' / 'default'
+  rate?: string
+  pitch?: string
+  volume?: string
+  style?: string   // Edge TTS express-as default style for this voice
 }
 
 export const VOICE_PRESETS: Record<string, VoiceConfig> = {
@@ -62,13 +90,14 @@ export function listVoicePresets(): { key: string; name: string; label: string }
 }
 
 /** 根据 preset key 获取 EdgeTTS 构造参数 */
-function getVoiceConfig(key: string): { voice: string; rate: string; pitch: string; volume: string } {
+function getVoiceConfig(key: string): { voice: string; rate: string; pitch: string; volume: string; style: string } {
   const cfg = VOICE_PRESETS[key] || VOICE_PRESETS['female']
   return {
     voice: cfg.name,
     rate: cfg.rate || 'default',
     pitch: cfg.pitch || 'default',
     volume: cfg.volume || 'default',
+    style: cfg.style || 'neutral',
   }
 }
 
@@ -82,11 +111,6 @@ export interface GenerateVoiceInput {
 interface VoiceTurn {
   text: string
   voicePreset: string
-}
-
-/** 清洗括号内表演提示 */
-function cleanBrackets(text: string): string {
-  return text.replace(/[（(][^）)]*[）)]/g, '').trim()
 }
 
 /** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
@@ -158,9 +182,10 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   if (!hasCharPrefix) {
     // 单角色 / 已清洗文本 → 直接生成
     const outputPath = join(audioDir, `${shotId}.mp3`)
-    const cleanText = cleanBrackets(text)
-    console.log(`[voice] single-voice → ${fallbackCfg.voice} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
-    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000 })
+    const { cleanText, style: emotionStyle } = extractEmotion(text)
+    const finalStyle = emotionStyle || fallbackCfg.style || 'neutral'
+    console.log(`[voice] single-voice → ${fallbackCfg.voice} style=${finalStyle} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: finalStyle })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
@@ -179,9 +204,10 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   if (turns.length === 0) {
     // 解析失败，回退到单语音（清洗后）
     const outputPath = join(audioDir, `${shotId}.mp3`)
-    const cleanText = cleanBrackets(text)
-    console.log(`[voice] parseTurns返回0 → fallback single-voice`)
-    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000 })
+    const { cleanText, style: emotionStyle } = extractEmotion(text)
+    const finalStyle = emotionStyle || fallbackCfg.style || 'neutral'
+    console.log(`[voice] parseTurns返回0 → fallback style=${finalStyle}`)
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: finalStyle })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
@@ -192,7 +218,9 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   for (const turn of turns) {
     const tmpPath = join(audioDir, `${shotId}_tmp_${randomUUID().slice(0, 8)}.mp3`)
     const cfg = getVoiceConfig(turn.voicePreset)
-    const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume, timeout: 60000 })
+    const { style: emoStyle } = extractEmotion(turn.text)
+    const style = emoStyle || cfg.style || 'neutral'
+    const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume, timeout: 60000, style })
     await tts.ttsPromise(turn.text, tmpPath)
     tempFiles.push(tmpPath)
   }

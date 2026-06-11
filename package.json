@@ -31,7 +31,7 @@
     "axios": "^1.16.1",
     "better-sqlite3": "^12.10.0",
     "element-plus": "^2.14.0",
-    "node-edge-tts": "^1.2.10",
+    "node-edge-tts": "file:./patches/node-edge-tts",
     "pdfkit": "^0.19.0",
     "pinia": "^3.0.4",
     "uuid": "^14.0.0",
