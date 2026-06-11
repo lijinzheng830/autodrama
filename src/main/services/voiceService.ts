@@ -24,7 +24,6 @@ export const VOICE_PRESETS: Record<string, VoiceConfig> = {
   'female':      { name: 'zh-CN-XiaoyiNeural' },
   'male':        { name: 'zh-CN-YunyangNeural' },
   'male-deep':   { name: 'zh-CN-YunxiaNeural' },
-  'male-elder':  { name: 'zh-CN-YunyangNeural', rate: '-20%' },
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
@@ -35,7 +34,6 @@ export function listVoicePresets(): { key: string; name: string; label: string }
     { key: 'female',      name: VOICE_PRESETS['female'].name,      label: '女配·晓依（年轻女声）' },
     { key: 'male',        name: VOICE_PRESETS['male'].name,        label: '男配·云扬（洪亮男声）' },
     { key: 'male-deep',   name: VOICE_PRESETS['male-deep'].name,   label: '反派·云夏（低沉男声）' },
-    { key: 'male-elder',  name: VOICE_PRESETS['male-elder'].name,  label: '老者·云扬降速（老成男声）' },
   ]
 }
 

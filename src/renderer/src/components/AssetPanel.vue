@@ -312,7 +312,6 @@ async function onDeleteHImg(at: string, aid: string, iid: string): Promise<void>
             <el-option label="女配·晓依（年轻女声）" value="female" />
             <el-option label="男配·云扬（洪亮男声）" value="male" />
             <el-option label="反派·云夏（低沉男声）" value="male-deep" />
-            <el-option label="老者·云扬降速（老成男声）" value="male-elder" />
           </el-select>
         </div>
         <div v-if="String(detailType) === 'character' && multiAngleAnchors" class="anchor-status">
