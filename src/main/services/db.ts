@@ -60,6 +60,8 @@ export function initDatabase(): Database.Database {
       chapter_id TEXT NOT NULL,
       shot_index INTEGER NOT NULL,
       description TEXT,
+      description_en TEXT,
+      description_zh TEXT,
       dialogue TEXT,
       first_frame_prompt TEXT,
       last_frame_prompt TEXT,
@@ -383,7 +385,8 @@ export function initDatabase(): Database.Database {
     { table: 'characters', column: 'description_zh', type: 'TEXT' },
     { table: 'scenes', column: 'description_zh', type: 'TEXT' },
     { table: 'props', column: 'description_zh', type: 'TEXT' },
-    { table: 'characters', column: 'voice_preset', type: 'TEXT' }
+    { table: 'characters', column: 'voice_preset', type: 'TEXT' },
+    { table: 'shots', column: 'description_en', type: 'TEXT' }
   ]
 
   for (const m of migrations) {

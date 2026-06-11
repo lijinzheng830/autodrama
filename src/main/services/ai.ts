@@ -330,6 +330,7 @@ function normalizeShotData(raw: any): ShotData {
           return {
             shot_index: s.shot_index ?? s.shot_id ?? i + 1,
             description: desc,
+            description_en: s.shot_description_en || s.description_en || '',
             description_zh: descZh,
             dialogue: s.dialogue || '',
             narration: s.narration || '',
@@ -357,7 +358,8 @@ function normalizeShotData(raw: any): ShotData {
         shots: (ch.shots || []).map((s: any, i: number) => ({
           shot_index: s.shot_index ?? s.shot_id ?? i + 1,
           description: s.description || '',
-          dialogue: s.dialogue || '',
+          description_en: s.description_en || '',
+          description_zh: s.description_zh || '',
           narration: s.narration || '',
           shot_type: s.shot_type || '',
           camera_movement: s.camera_movement || '',
@@ -383,6 +385,8 @@ function normalizeShotData(raw: any): ShotData {
           shots: (sc.shots || []).map((s: any, i: number) => ({
             shot_index: s.shot_index ?? s.shot_id ?? i + 1,
             description: s.description || '',
+            description_en: s.description_en || '',
+            description_zh: s.description_zh || '',
             dialogue: s.dialogue || '',
             shot_type: s.shot_type || '',
             camera_movement: s.camera_movement || '',
@@ -403,6 +407,8 @@ function normalizeShotData(raw: any): ShotData {
         shots: raw.scenes.map((sc: any, i: number) => ({
           shot_index: sc.shot_index ?? sc.id ?? sc.shot_id ?? i + 1,
           description: sc.description || '',
+          description_en: sc.description_en || '',
+          description_zh: sc.description_zh || '',
           dialogue: sc.dialogue || '',
           shot_type: sc.shot_type || '',
           camera_movement: sc.camera_movement || '',
@@ -811,7 +817,7 @@ async function saveToDatabase(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
     )
     const insertShot = db.prepare(
-      'INSERT INTO shots (id, chapter_id, shot_index, description, description_zh, dialogue, narration, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO shots (id, chapter_id, shot_index, description, description_en, description_zh, dialogue, narration, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     const insertShotChar = db.prepare(
       'INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)'
@@ -857,6 +863,7 @@ async function saveToDatabase(
           chapterId,
           shot.shot_index || 0,
           shot.description || '',
+          (shot as any).description_en || '',
           shot.description_zh || shot.description || '',
           dialogueText,
           shot.narration || '',
