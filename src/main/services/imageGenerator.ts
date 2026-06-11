@@ -859,8 +859,14 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     : ''
   const spatialIntegration = 'CLEAR SEPARATION: All characters and objects must be visually distinct with no overlapping or intersecting edges. No object clipping through character body. Each element occupies its own clear space within the image. Character casts a soft shadow on the ground/floor beneath them.'
   // 将用户指令提前，提高模型遵循度
-  const hasHandheld = /hold|holding|手持|拿着|握着|touching|holding/i.test(shotPrompt)
-  const propBoost = hasHandheld ? ' CRITICAL: The handheld object described above MUST match its reference image EXACTLY — same shape, color, material, and size. It is NOT a generic prop. The character MUST be physically holding or touching this specific object.' : ''
+  // 检测手持道具：scan shotPrompt + first_frame_prompt
+  const hasHandheld = /hold|holding|手持|拿着|握着|touching|wearing|carrying/i
+    .test(shotPrompt + ' ' + (shot.first_frame_prompt || ''))
+  const propBoost = hasHandheld
+    ? ' CRITICAL: The handheld object described above MUST match its reference image EXACTLY — same shape, colour, material, and size. It is NOT a generic prop. The character MUST be physically holding or touching this specific object.'
+    : (contextPropsDesc && refImages.length > 1)
+      ? ' CRITICAL: A prop reference image is provided. The character MUST be INTERACTING with this prop — holding it, touching it, or using it. The prop MUST be visible in the image and match its reference EXACTLY in appearance. Do NOT place it passively in the background.'
+      : ''
   const userDirective = shotPrompt.trim() ? `[USER INSTRUCTION] ${shotPrompt.trim()} — The above is the director's specific instruction. All objects, poses, and actions described above MUST be present in the final image.${propBoost}` : ''
   shotFinalPrompt = `${userDirective}\n${charMapNote}\n[COMPOSITION] ${compositionGuide}. ${spatialIntegration}. [CHARACTER COUNT] Exactly ONE instance of each named character — NO duplicates, NO clones, NO twin figures. Each character appears exactly ONCE. [VARIATION] Each generation should be UNIQUE in pose, expression, and camera angle.\n\n${shotFinalPrompt}`
 
