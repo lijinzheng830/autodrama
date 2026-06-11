@@ -1230,6 +1230,16 @@ function goSettings(): void {
   router.push('/settings')
 }
 
+// 配音文本清洗：去角色名前缀（"林小薇："→""）和括号内表演提示（"（空灵温柔）"→""）
+// 支持多轮对白："林小薇：你好。张伟：再见。" → "你好。再见。"
+function cleanDialogueText(raw: string): string {
+  return raw
+    .replace(/(^|[。！？])\s*[^。！？：:]+[：:]/g, '$1')  // 去角色名前缀（仅限句首或标点后）
+    .replace(/[（(][^）)]*[）)]/g, '')                      // 去括号内表演提示
+    .replace(/\s+/g, ' ')                                   // 合并多余空白
+    .trim()
+}
+
 // ===== 顶部工具栏 =====
 
 async function openGenRecord(): Promise<void> {
@@ -1465,15 +1475,7 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
   // 判断配音类型：对白 / 角色内心独白 / 系统旁白
   const narration = shot?.narration?.trim() || ''
   const dialogue = shot?.dialogue?.trim() || ''
-  // 清洗文本：去掉角色名前缀（"林小薇："→""）和括号内表演提示（"（空灵温柔）"→""）
-  const cleanText = (raw: string): string => {
-    return raw
-      .replace(/[^：:]+[：:]/g, '')       // 去角色名："林小薇："→""
-      .replace(/[（(][^）)]*[）)]/g, '')   // 去括号："（空灵温柔）"→""
-      .replace(/\s+/g, ' ')               // 合并多余空格
-      .trim()
-  }
-  const text = cleanText(dialogue || narration)
+  const text = cleanDialogueText(dialogue || narration)
   if (!text) {
     ElMessage.warning('该分镜没有对白或旁白')
     return
@@ -1527,7 +1529,7 @@ async function handleBatchGenerateVoices(): Promise<void> {
     if (!selectedShots.value.has(shot.id)) continue
     const dialogue2 = shot.dialogue?.trim() || ''
     const narration2 = shot.narration?.trim() || ''
-    const text2 = dialogue2 || narration2
+    const text2 = cleanDialogueText(dialogue2 || narration2)
     if (!text2) continue
     let voicePreset2 = 'narrator'
     if (dialogue2) {
