@@ -835,20 +835,27 @@ async function saveToDatabase(
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
         const vPromptZh = shot.video_prompt_zh || shot.description || ''
-        // 写入防线：narration 中误归类的内心独白 → 自动迁移到 inner_monologue
+        // 写入防线：纠正 AI 常见的三类字段混淆（不管 prompt 怎么修，这里兜底）
+        let dialogueText = (shot as any).dialogue || ''
         let narrationText = (shot as any).narration || ''
         let innerText = (shot as any).inner_monologue || ''
-        if (!innerText && narrationText) {
-          // 带"角色名："前缀 → 内心独白
-          const hasCharPrefix = /^[^。！？，,\s]{1,8}[：:]/.test(narrationText)
-          // 含第一人称"我"+"……"或"？"等情绪标记 → 内心独白
-          const looksLikeMonologue = /我/.test(narrationText) && /[……？！]/.test(narrationText)
-          if (hasCharPrefix || looksLikeMonologue) {
-            innerText = narrationText
-            narrationText = ''
-          }
+        const hasPrefix = (t: string) => /^[^。！？：:]+[：:]/.test(t)
+
+        // 规则1：有角色名前缀的 narration → 其实是内心独白
+        if (narrationText && hasPrefix(narrationText)) {
+          innerText = innerText ? innerText + '\n' + narrationText : narrationText
+          narrationText = ''
         }
-        const dialogueText = shot.dialogue || ''
+        // 规则2：没有角色名前缀的 inner_monologue → 其实是旁白
+        if (innerText && !hasPrefix(innerText)) {
+          narrationText = narrationText ? narrationText + '\n' + innerText : innerText
+          innerText = ''
+        }
+        // 规则3：没有角色名前缀的 dialogue → 其实是旁白
+        if (dialogueText && !hasPrefix(dialogueText)) {
+          narrationText = narrationText ? narrationText + '\n' + dialogueText : dialogueText
+          dialogueText = ''
+        }
         insertShot.run(
           shotId,
           chapterId,
