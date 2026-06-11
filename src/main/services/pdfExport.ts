@@ -136,8 +136,9 @@ async function createPDF(config: PDFExportConfig): Promise<Buffer> {
       if (shot.lighting_mood) meta.push(`光线: ${shot.lighting_mood}`)
       if (meta.length > 0) title('', meta.join('  |  '))
 
-      if (shot.dialogue) title('对白', `💬 ${shot.dialogue}`)
-      if (shot.narration) title('旁白', `📢 ${shot.narration}`)
+      if (shot.dialogue) title('对白', shot.dialogue)
+      if ((shot as any).inner_monologue) title('内心独白', (shot as any).inner_monologue)
+      if (shot.narration) title('旁白', shot.narration)
 
       if (shot.characters && shot.characters.length > 0) {
         const charNames = shot.characters.map((c: any) => c.name).join('、')
