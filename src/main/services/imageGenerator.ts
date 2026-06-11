@@ -128,7 +128,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     try {
       const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(tplId) as any
       if (tpl?.content) {
-        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
         if (tp) {
           const stylePromptEn = getStylePrompt(project.style_name, finalStylePrompt)
           const stylePromptZh = getStylePromptZh(project.style_name, finalStylePrompt)
@@ -178,7 +178,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       try {
         const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(templateId) as any
         if (tpl?.content) {
-          let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
+          let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
           if (tp) {
             tp = tp.replace(/\{\{prop_name\}\}/g, description)
               .replace(/\{\{prop_description\}\}/g, description)
@@ -811,7 +811,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     try {
       const tpl = db.prepare('SELECT content, template_version FROM prompt_templates WHERE id = ?').get(shotTplId) as any
       if (tpl?.content) {
-        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.chinese || p.english || '' } catch { return '' } })() : tpl.content
+        let tp = tpl.template_version === 'v1' ? (() => { try { const p = JSON.parse(tpl.content); return p.english || p.chinese || '' } catch { return '' } })() : tpl.content
         if (tp) {
           const shotPromptZh = frameType === 'first'
             ? (shot.first_frame_prompt_zh || shotPrompt)
