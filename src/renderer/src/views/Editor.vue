@@ -204,6 +204,7 @@ async function handleGenerateVideo(): Promise<void> {
       if (shot) shot.video_path = result.videoPaths[0]
       if (detailData.value) detailData.value.video_path = result.videoPaths[0]
     }
+    await loadGenerationRecords()
     startBroadcastPolling()
   } catch (err: any) {
     ElMessage.error(err?.message || '视频生成失败')
