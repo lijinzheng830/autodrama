@@ -26,6 +26,14 @@ const EMOTION_STYLE_MAP: Record<string, string> = {
   '中立': 'neutral', '默认': 'neutral', '冷静': 'calm',
 }
 
+/** 剥离前缀标签——TTS 只朗读内容，不读 "旁白：""林小薇的内心独白：" 等标签 */
+function stripPrefix(text: string): string {
+  return text
+    .replace(/^旁白[：:]\s*/, '')
+    .replace(/^[^：:]+\s*的内心独白[：:]\s*/, '')
+    .replace(/^[^：:]+[：:]\s*/, '')
+}
+
 function extractEmotion(text: string): { cleanText: string; style?: string } {
   const m = text.match(/[（(]([^）)]+)[）)]/)
   if (!m) return { cleanText: text }
@@ -193,7 +201,8 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   if (!hasCharPrefix) {
     // 单角色 / 已清洗文本 → 直接生成
     const outputPath = join(audioDir, `${shotId}.mp3`)
-    const { cleanText, style: emotionStyle } = extractEmotion(text)
+    const { cleanText: emoText, style: emotionStyle } = extractEmotion(text)
+    const cleanText = stripPrefix(emoText)
     const finalStyle = emotionStyle || fallbackCfg.style || 'neutral'
     console.log(`[voice] single-voice → ${fallbackCfg.voice} style=${finalStyle} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
     const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: finalStyle })
@@ -215,7 +224,8 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   if (turns.length === 0) {
     // 解析失败，回退到单语音（清洗后）
     const outputPath = join(audioDir, `${shotId}.mp3`)
-    const { cleanText, style: emotionStyle } = extractEmotion(text)
+    const { cleanText: emoText, style: emotionStyle } = extractEmotion(text)
+    const cleanText = stripPrefix(emoText)
     const finalStyle = emotionStyle || fallbackCfg.style || 'neutral'
     console.log(`[voice] parseTurns返回0 → fallback style=${finalStyle}`)
     const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: finalStyle })
@@ -231,8 +241,9 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
     const cfg = getVoiceConfig(turn.voicePreset)
     const { style: emoStyle } = extractEmotion(turn.text)
     const style = emoStyle || cfg.style || 'neutral'
+    const cleanTurnText = stripPrefix(turn.text)
     const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume, timeout: 60000, style })
-    await tts.ttsPromise(turn.text, tmpPath)
+    await tts.ttsPromise(cleanTurnText, tmpPath)
     tempFiles.push(tmpPath)
   }
 

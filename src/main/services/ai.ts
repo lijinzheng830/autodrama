@@ -835,30 +835,31 @@ async function saveToDatabase(
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
         const vPromptZh = shot.video_prompt_zh || shot.description || ''
-        // 写入防线：纠正 AI 常见的三类字段混淆（不管 prompt 怎么修，这里兜底）
+        // 写入防线：用前缀标签纠正字段归属（100% 确定性）
         let dialogueText = (shot as any).dialogue || ''
         let narrationText = (shot as any).narration || ''
         let innerText = (shot as any).inner_monologue || ''
-        const hasPrefix = (t: string) => /^[^。！？：:]+[：:]/.test(t)
 
-        // 规则1：有角色名前缀的 narration → 其实是内心独白
-        if (narrationText && hasPrefix(narrationText)) {
-          innerText = innerText ? innerText + '\n' + narrationText : narrationText
+        // 不是当前字段格式 → 移到正确字段
+        if (narrationText && !narrationText.startsWith('旁白：') && !narrationText.startsWith('旁白:')) {
+          if (narrationText.includes('的内心独白：') || narrationText.includes('的内心独白:')) {
+            innerText = innerText ? innerText + '\n' + narrationText : narrationText
+          } else {
+            dialogueText = dialogueText ? dialogueText + '\n' + narrationText : narrationText
+          }
           narrationText = ''
         }
-        // 规则2：没有角色名前缀的 inner_monologue → 其实是旁白
-        if (innerText && !hasPrefix(innerText)) {
-          narrationText = narrationText ? narrationText + '\n' + innerText : innerText
+        if (innerText && !innerText.includes('的内心独白：') && !innerText.includes('的内心独白:')) {
+          if (innerText.startsWith('旁白：') || innerText.startsWith('旁白:')) {
+            narrationText = narrationText ? narrationText + '\n' + innerText : innerText
+          } else {
+            dialogueText = dialogueText ? dialogueText + '\n' + innerText : innerText
+          }
           innerText = ''
         }
-        // 规则3：dialogue 无角色名前缀 → 记录警告但保留（AI 偶忘前缀，移走比留着更糟）
-        if (dialogueText && !hasPrefix(dialogueText)) {
-          console.warn(`[save] WARN: dialogue without prefix, keeping as-is: "${dialogueText.slice(0, 60)}"`)
-        }
-        // 规则4：narration 含第一人称"我"+情绪标记 → 内心独白（即使无角色名前缀）
-        if (narrationText && !hasPrefix(narrationText) && /我/.test(narrationText) && /[……？！]/.test(narrationText)) {
-          innerText = innerText ? innerText + '\n' + narrationText : narrationText
-          narrationText = ''
+        if (dialogueText && /^[^：:]+[：:]/.test(dialogueText) && (dialogueText.includes('的内心独白：') || dialogueText.includes('的内心独白:'))) {
+          innerText = innerText ? innerText + '\n' + dialogueText : dialogueText
+          dialogueText = ''
         }
         insertShot.run(
           shotId,

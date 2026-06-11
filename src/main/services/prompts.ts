@@ -16,10 +16,10 @@ export const STORYBOARD_PROMPT = `你是一位专业的影视剧分镜师，擅�
 - description_zh 是中文版本，自然流畅，不是逐字翻译
 
 ### dialogue（对白）/ inner_monologue（内心独白）/ narration（旁白）
-- 对白：必须带角色名前缀，格式为 "角色名：台词（语气）"。如 "林小薇：你好吗。（微笑）"。多角色对话时直接连写。没有则留空字符串 ""
-- 内心独白：角色的心理活动，**带角色名前缀**，格式为 "角色名：独白内容"。如 "林小薇：为什么……我会觉得心脏在疼？"。没有则留空字符串 ""
-- 旁白：全知视角画外音，**不带角色名前缀**。如 "夜幕降临，城市陷入沉默。" 没有则留空字符串 ""
-- **关键区分**：💬 对白 = 嘴在动，必须标注谁在说。🗣️ 内心独白 = 角色心里想的，归属特定角色必须标注。如果文本含第一人称"我"的内心感受（如"为什么我会觉得……"、"我想……"），就是内心独白，不是旁白。📢 旁白 = 全知视角画外音，无"我"无角色，谁都不标注
+- 对白：格式 "角色名：台词（语气）"。如 "林小薇：你好吗。（微笑）"。多角色连写。无则空
+- 内心独白：格式 "角色名的内心独白：独白内容"。如 "林小薇的内心独白：为什么……我会觉得心脏在疼？"。无则空
+- 旁白：格式 "旁白：旁白内容"。如 "旁白：夜幕降临，城市陷入沉默。"。无则空
+- **三种前缀互不冲突——确定性匹配，不需要AI理解语义**：对白="角色名：" / 独白="角色名的内心独白：" / 旁白="旁白："
 
 ### first_frame_prompt / last_frame_prompt（首帧/尾帧英文提示词）
 - 这是发给 AI 生图 API 的指令，必须用英文
@@ -84,8 +84,8 @@ export const STORYBOARD_PROMPT = `你是一位专业的影视剧分镜师，擅�
           "description": "Lin Xiaowei stands center stage facing the camera, gentle smile, arms slightly open. Warm golden spotlight on her face and shoulders. Behind her, a large LED wall displays scrolling comments in soft bokeh. The stage floor is polished dark wood. Rule of thirds composition, shallow depth of field.",
           "description_zh": "林小薇站在舞台中央，面对镜头，温柔微笑。暖金色聚光灯照亮她的脸和肩膀。身后LED大屏滚动着弹幕，虚化成柔光。舞台地板是深色抛光木。三分法构图，浅景深。",
           "dialogue": "林小薇：你好吗。（微笑）",
-          "narration": "",
           "inner_monologue": "",
+          "narration": "",
           "shot_type": "中景",
           "camera_movement": "固定",
           "lighting_mood": "暖金色聚光从上方打下，形成戏剧性光柱",
