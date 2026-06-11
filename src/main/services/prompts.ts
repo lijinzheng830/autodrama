@@ -97,7 +97,8 @@ export const STORYBOARD_PROMPT = `你是一位专业的影视剧分镜师，擅�
 export const EXTRACT_PROMPT = `从以下分镜结果中提取所有角色、场景和道具。
 
 ## 语言要求
-所有 description 必须用英文——因为它是直接发给 AI 生图 API 的指令。中文版本存入 description_zh 字段。
+- **名称（name）必须用中文**——角色名、场景名、道具名使用中文，从原文中提取。绝对禁止英文名。
+- 所有 description 必须用英文——因为它是直接发给 AI 生图 API 的指令。中文版本存入 description_zh 字段。
 
 ## 角色提取
 每个角色必须包含**详细**的外貌描述。description 用英文（至少 80 词），description_zh 用中文。必须涵盖以下 6 项，缺一不可：
