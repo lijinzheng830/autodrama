@@ -847,40 +847,46 @@ async function saveToDatabase(
         const ffPromptZh = shot.first_frame_prompt_zh || shot.description || ''
         const lfPromptZh = shot.last_frame_prompt_zh || shot.description || ''
         const vPromptZh = shot.video_prompt_zh || shot.description || ''
-        // 写入防线：用前缀标签纠正字段归属（100% 确定性）
+        // 写入防线：不管AI怎么塞，写入DB前强制补前缀+重新分配字段
         let dialogueText = (shot as any).dialogue || ''
         let narrationText = (shot as any).narration || ''
         let innerText = (shot as any).inner_monologue || ''
 
-        // 写入防线：用前缀标签验证字段归属
-        // 有前缀 → 归属正确。无前缀 或 前缀不匹配 → 移到正确字段
-        if (narrationText) {
-          if (narrationText.includes('的内心独白：') || narrationText.includes('的内心独白:')) {
-            innerText = innerText ? innerText + '\n' + narrationText : narrationText
-            narrationText = ''
-          } else if (/^[^：:]+[：:]/.test(narrationText) && !narrationText.startsWith('旁白：') && !narrationText.startsWith('旁白:')) {
-            // 有角色名前缀但无"旁白：" → 是对白或内心独白混入了
-            dialogueText = dialogueText ? dialogueText + '\n' + narrationText : narrationText
-            narrationText = ''
+        // 把所有非空文本汇合，按前缀重新分配
+        const allTexts: string[] = []
+        if (dialogueText) allTexts.push(dialogueText)
+        if (narrationText) allTexts.push(narrationText)
+        if (innerText) allTexts.push(innerText)
+        dialogueText = ''; narrationText = ''; innerText = ''
+
+        for (const t of allTexts) {
+          // "旁白：" → narration
+          if (t.startsWith('旁白：') || t.startsWith('旁白:')) {
+            narrationText = narrationText ? narrationText + '\n' + t : t
           }
-          // 否则保留在 narration（可能是没前缀的旧格式，前端兜底处理）
-        }
-        if (innerText) {
-          if (innerText.startsWith('旁白：') || innerText.startsWith('旁白:')) {
-            narrationText = narrationText ? narrationText + '\n' + innerText : innerText
-            innerText = ''
-          } else if (/^[^：:]+[：:]/.test(innerText) && !innerText.includes('的内心独白：') && !innerText.includes('的内心独白:')) {
-            dialogueText = dialogueText ? dialogueText + '\n' + innerText : innerText
-            innerText = ''
+          // "XX的内心独白：" → inner
+          else if (t.includes('的内心独白：') || t.includes('的内心独白:')) {
+            innerText = innerText ? innerText + '\n' + t : t
           }
-        }
-        if (dialogueText) {
-          if (dialogueText.startsWith('旁白：') || dialogueText.startsWith('旁白:')) {
-            narrationText = narrationText ? narrationText + '\n' + dialogueText : dialogueText
-            dialogueText = ''
-          } else if (dialogueText.includes('的内心独白：') || dialogueText.includes('的内心独白:')) {
-            innerText = innerText ? innerText + '\n' + dialogueText : dialogueText
-            dialogueText = ''
+          // "角色名：" → dialogue（但系统词如"警告""警报"等移到旁白）
+          else if (/^[^：:]{1,8}[：:]/.test(t)) {
+            const prefixName = t.match(/^([^：:]{1,8})[：:]/)?.[1] || ''
+            const isSystemWord = prefixName.endsWith('警告') || prefixName.endsWith('警报') || prefixName.endsWith('提示')
+              || prefixName.endsWith('通知') || prefixName.endsWith('广播') || prefixName.endsWith('播报')
+              || prefixName === '系统' || prefixName === '旁白' || prefixName === '画外音'
+            if (isSystemWord) {
+              narrationText = narrationText ? narrationText + '\n' + '旁白：' + t.replace(/^[^：:]+[：:]/, '') : '旁白：' + t.replace(/^[^：:]+[：:]/, '')
+            } else {
+              dialogueText = dialogueText ? dialogueText + '\n' + t : t
+            }
+          }
+          // 无前缀纯文本 → 看字段来源决定归属
+          else if (t === (shot as any).narration) {
+            narrationText = narrationText ? narrationText + '\n' + '旁白：' + t : '旁白：' + t
+          } else if (t === (shot as any).inner_monologue) {
+            innerText = innerText ? innerText + '\n' + t : t
+          } else {
+            dialogueText = dialogueText ? dialogueText + '\n' + t : t
           }
         }
         insertShot.run(
