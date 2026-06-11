@@ -837,7 +837,7 @@ async function saveToDatabase(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
     )
     const insertShot = db.prepare(
-      'INSERT INTO shots (id, chapter_id, shot_index, description, description_en, description_zh, dialogue, narration, inner_monologue, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO shots (id, chapter_id, shot_index, description, description_en, description_zh, dialogue, narration, inner_monologue, character_actions, shot_type, camera_movement, lighting_mood, first_frame_prompt, first_frame_prompt_zh, last_frame_prompt, last_frame_prompt_zh, video_prompt, video_prompt_zh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     const insertShotChar = db.prepare(
       'INSERT INTO shot_characters (shot_id, character_id) VALUES (?, ?)'
@@ -888,6 +888,7 @@ async function saveToDatabase(
           dialogueText,
           shot.narration || '',
           (shot as any).inner_monologue || '',
+          (shot as any).character_actions || '',
           shot.shot_type || '',
           shot.camera_movement || '',
           shot.lighting_mood || '',
