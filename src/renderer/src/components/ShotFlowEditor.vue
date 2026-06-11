@@ -141,6 +141,7 @@ function toFileUrl(p: string): string {
             <span v-else class="cell-empty">双击编辑</span>
           </div>
           <div v-if="shot.dialogue" class="dialogue-line">💬 {{ shot.dialogue.slice(0, 60) }}</div>
+          <div v-if="shot.inner_monologue" class="inner-monologue-line">🗣️ {{ shot.inner_monologue.slice(0, 60) }}</div>
           <div v-if="shot.narration" class="narration-line">📢 {{ shot.narration.slice(0, 60) }}</div>
           <div class="tag-bar">
             <span v-for="c in shot.characters" :key="c.id" class="tag tag-char">{{ c.name }}</span>
@@ -311,6 +312,7 @@ function toFileUrl(p: string): string {
 .cell-text:hover { background: #303060; border-radius: 2px; }
 .cell-empty { color: #666; font-style: italic; }
 .dialogue-line { color: #e0a040; font-size: 11px; margin-top: 2px; }
+.inner-monologue-line { color: #c0a0e0; font-size: 11px; margin-top: 2px; }
 .narration-line { color: #a0c0e0; font-size: 11px; margin-top: 1px; }
 .edit-cell { background: #303060; border-radius: 4px; padding: 2px; }
 .tag-bar { display: flex; flex-wrap: wrap; gap: 2px; }
