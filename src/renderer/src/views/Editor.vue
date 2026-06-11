@@ -1466,13 +1466,14 @@ async function handleVideoConcat(): Promise<void> {
 
 async function handleGenerateVoice(shotId: string): Promise<void> {
   const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
-  // 判断配音类型：对白 / 角色内心独白 / 系统旁白
-  const narration = shot?.narration?.trim() || ''
   const dialogue = shot?.dialogue?.trim() || ''
-  // 传原始文本给后端——后端自动检测多角色对白并按角色拆分配音
-  const rawText = dialogue || narration
+  const innerMonologue = (shot as any).inner_monologue?.trim() || ''
+  const narration = shot?.narration?.trim() || ''
+
+  // 优先级：对白 > 内心独白 > 旁白
+  const rawText = dialogue || innerMonologue || narration
   if (!rawText) {
-    ElMessage.warning('该分镜没有对白或旁白')
+    ElMessage.warning('该分镜没有对白、内心独白或旁白')
     return
   }
   let voicePreset = 'narrator'
@@ -1484,7 +1485,13 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
       ElMessage.warning('请先在角色详情中为该分镜的出场角色设置发音人')
       return
     }
-    voicePreset = charWithVoice.voice_preset  // 单角色时的默认发音人
+    voicePreset = charWithVoice.voice_preset
+  } else if (innerMonologue) {
+    // 内心独白格式 "角色名：独白内容" → 匹配角色发音人
+    const charMatch = projectData.value?.characters?.find((c: any) =>
+      innerMonologue.startsWith(c.name + '：') || innerMonologue.startsWith(c.name + ':')
+    )
+    if (charMatch?.voice_preset) voicePreset = charMatch.voice_preset
   } else if (narration) {
     const charMatch = projectData.value?.characters?.find((c: any) =>
       narration.startsWith(c.name + '：') || narration.startsWith(c.name + ':')
@@ -1518,8 +1525,9 @@ async function handleBatchGenerateVoices(): Promise<void> {
   for (const shot of shots) {
     if (!selectedShots.value.has(shot.id)) continue
     const dialogue2 = shot.dialogue?.trim() || ''
+    const inner2 = (shot as any).inner_monologue?.trim() || ''
     const narration2 = shot.narration?.trim() || ''
-    const text2 = dialogue2 || narration2  // 原始文本，后端处理多角色拆分
+    const text2 = dialogue2 || inner2 || narration2
     if (!text2) continue
     let voicePreset2 = 'narrator'
     if (dialogue2) {
@@ -1527,6 +1535,11 @@ async function handleBatchGenerateVoices(): Promise<void> {
       const charWithVoice2 = projectData.value?.characters?.find((c: any) => charIds2.includes(c.id) && c.voice_preset)
       if (!charWithVoice2) continue
       voicePreset2 = charWithVoice2.voice_preset
+    } else if (inner2) {
+      const charMatch2 = projectData.value?.characters?.find((c: any) =>
+        inner2.startsWith(c.name + '：') || inner2.startsWith(c.name + ':')
+      )
+      if (charMatch2?.voice_preset) voicePreset2 = charMatch2.voice_preset
     } else if (narration2) {
       const charMatch2 = projectData.value?.characters?.find((c: any) =>
         narration2.startsWith(c.name + '：') || narration2.startsWith(c.name + ':')
