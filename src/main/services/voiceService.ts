@@ -44,19 +44,27 @@ interface VoiceTurn {
   voicePreset: string
 }
 
-/** 解析原始对白为角色分句（在清洗前调用） */
+/** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
 function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>): VoiceTurn[] {
   const turns: VoiceTurn[] = []
-  // 匹配 "角色名：台词" 或 "角色名:台词"
-  const regex = /([^：:]+)[：:]\s*([^：:]*(?:[：:][^：:]*)*?)(?=[^：:]+[：:]|$)/g
+  // Step 1: 找到所有 "角色名：" 的位置（仅句首或标点后，用 lookbehind 不吞标点）
+  const namePattern = /(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g
+  const markers: Array<{ name: string; start: number; end: number }> = []
   let m: RegExpExecArray | null
-  while ((m = regex.exec(rawDialogue)) !== null) {
-    const name = m[1].trim()
-    const text = m[2].trim()
+  while ((m = namePattern.exec(rawDialogue)) !== null) {
+    markers.push({ name: m[1].trim(), start: m.index, end: m.index + m[0].length })
+  }
+  if (markers.length === 0) return turns
+
+  // Step 2: 按标记切分文本
+  for (let i = 0; i < markers.length; i++) {
+    const textStart = markers[i].end
+    const textEnd = i + 1 < markers.length ? markers[i + 1].start : rawDialogue.length
+    const rawText = rawDialogue.slice(textStart, textEnd).trim()
     // 清洗括号内表演提示
-    const cleaned = text.replace(/[（(][^）)]*[）)]/g, '').trim()
+    const cleaned = rawText.replace(/[（(][^）)]*[）)]/g, '').trim()
     if (!cleaned) continue
-    const voicePreset = charVoiceMap[name] || 'female'
+    const voicePreset = charVoiceMap[markers[i].name] || 'female'
     turns.push({ text: cleaned, voicePreset })
   }
   return turns
@@ -96,7 +104,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   const voiceName = VOICE_PRESETS[voicePreset] || VOICE_PRESETS['female']
 
   // 检查是否多角色：文本中是否有 "角色名：" 模式
-  const hasCharPrefix = /[^：:]+[：:]\s*[^：:]/.test(text)
+  const hasCharPrefix = /(?<=^|[。！？])\s*[^。！？：:]+[：:]/.test(text)
 
   if (!hasCharPrefix) {
     // 单角色 / 已清洗文本 → 直接生成
