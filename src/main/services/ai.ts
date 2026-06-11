@@ -444,31 +444,30 @@ function buildAssociations(shotsData: ShotData, extractData: ExtractData): Assoc
       // 场景匹配：优先用 AI 返回的 shot_scene（直接、准确）
       let matchedScene = (shot as any).shot_scene || ''
       if (matchedScene && !sceneNames.includes(matchedScene)) {
-        // AI 给的名字不在提取列表里 → 尝试模糊匹配到已有场景
+        // Step 2 可能润色了场景名 → 尝试模糊匹配
         const found = sceneNames.find(sn => sn.includes(matchedScene) || matchedScene.includes(sn))
-        if (found) matchedScene = found
+        if (found) {
+          matchedScene = found
+        } else {
+          // 模糊也匹配不上 → 保留 shot_scene 原值，后续 auto-create
+          console.log(`[assoc] shot c${ci}s${shot.shot_index}: shot_scene="${matchedScene}" not in sceneNames=[${sceneNames.join(', ')}] — keeping as-is`)
+        }
       }
-      if (!matchedScene || !sceneNames.includes(matchedScene)) {
-        // 回退：精确匹配 → 模糊匹配
+      if (!matchedScene) {
+        // 回退：精确匹配 → 模糊匹配 → 传播
         matchedScene = findNamesInText(searchText, sceneNames)[0] || ''
         if (!matchedScene) {
           for (const sn of sceneNames) {
             const keywords = sn.split(/[\s\-—，。、：:]+/).filter(k => k.length >= 2)
-            if (keywords.some(kw => searchText.includes(kw))) {
-              matchedScene = sn
-              break
-            }
+            if (keywords.some(kw => searchText.includes(kw))) { matchedScene = sn; break }
           }
         }
-      }
-      if (!matchedScene) {
-        // 传播上一镜头的场景
-        matchedScene = lastKnownScene
+        if (!matchedScene) { matchedScene = lastKnownScene }
       } else {
         lastKnownScene = matchedScene
       }
       if (!matchedScene) {
-        console.log(`[assoc] WARN: shot c${ci}s${shot.shot_index} no scene matched. sceneNames=[${sceneNames.join(', ')}] desc_zh="${(shot as any).description_zh?.slice(0, 60)}"`)
+        console.log(`[assoc] WARN: shot c${ci}s${shot.shot_index} no scene matched. sceneNames=[${sceneNames.join(', ')}]`)
       }
 
       // 道具匹配（精确 + 模糊）
@@ -867,7 +866,14 @@ async function saveToDatabase(
               insertShotChar.run(shotId, charId)
             }
           }
-          const sceneId = sceneIdMap.get((shotAssoc.scene_name || '').trim())
+          let sceneId = sceneIdMap.get((shotAssoc.scene_name || '').trim())
+          if (!sceneId && shotAssoc.scene_name?.trim()) {
+            // AI Step 2 可能润色了场景名 → 自动创建
+            const name = shotAssoc.scene_name.trim()
+            sceneId = randomUUID()
+            db.prepare('INSERT INTO scenes (id, project_id, name, description) VALUES (?, ?, ?, ?)').run(sceneId, projectId, name, '')
+            sceneIdMap.set(name, sceneId)
+          }
           if (sceneId) {
             insertShotScene.run(shotId, sceneId)
           }
