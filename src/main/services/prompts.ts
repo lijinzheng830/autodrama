@@ -144,9 +144,9 @@ export const EXTRACT_PROMPT = `从以下分镜结果中提取所有角色、场�
 严格返回以下 JSON。如果某类别无可提取内容，返回空数组 []，不要省略该字段。
 
 {
-  "characters": [{"name": "角色名", "description": "English detailed appearance description (80+ words, include hair color and eye color)", "description_zh": "中文详细外貌描述（至少 80 字）"}],
-  "scenes": [{"name": "场景名", "description": "English detailed scene description (60+ words)", "description_zh": "中文详细场景描述（至少 60 字）"}],
-  "props": [{"name": "道具名", "description": "English detailed prop description (40+ words)", "description_zh": "中文详细道具描述（至少 40 字）"}]
+  "characters": [{"name": "林小薇", "description": "A young woman in her early twenties, with a delicate oval face...", "description_zh": "二十岁出头的年轻女性，精致的鹅蛋脸..."}],
+  "scenes": [{"name": "演播厅", "description": "A medium-sized indoor studio with a stage at the center, warm golden spotlights...", "description_zh": "中型室内演播厅，中央有舞台，暖金色聚光灯..."}],
+  "props": [{"name": "话筒", "description": "A silver handheld microphone with the station logo, about 20cm long...", "description_zh": "银色手持话筒，带有电台标志，长约20厘米..."}]
 }`
 
 export const ASSOCIATE_PROMPT = `为每个分镜关联它实际出现的角色、场景和道具。
