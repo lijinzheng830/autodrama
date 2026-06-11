@@ -115,13 +115,16 @@ interface VoiceTurn {
 
 /** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
 function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, fallbackVoice: string): VoiceTurn[] {
+  // 非角色名的冒号前缀——"警告："、"系统：" 等不应触发多角色拆分
+  const NON_CHAR_PREFIXES = new Set(['警告', '系统', '警报', '注意', '提示', '通知', '广播', '紧急', '危险'])
   const turns: VoiceTurn[] = []
   // Step 1: 找到所有 "角色名：" 的位置（仅句首或标点后，用 lookbehind 不吞标点）
   const namePattern = /(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g
   const markers: Array<{ name: string; start: number; end: number }> = []
   let m: RegExpExecArray | null
   while ((m = namePattern.exec(rawDialogue)) !== null) {
-    markers.push({ name: m[1].trim(), start: m.index, end: m.index + m[0].length })
+    const name = m[1].trim()
+    if (!NON_CHAR_PREFIXES.has(name)) markers.push({ name, start: m.index, end: m.index + m[0].length })
   }
   if (markers.length === 0) return turns
 
@@ -239,7 +242,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
       execFileSync(findFfmpeg(), [
         '-f', 'concat', '-safe', '0', '-i', listPath,
         '-c', 'copy', '-y', outputPath
-      ], { timeout: 60000, stdio: 'pipe' })
+      ], { timeout: 120000, stdio: 'pipe' })
     } catch {
       // concat demuxer 失败时回退到 concat filter
       const inputs: string[] = []
@@ -252,7 +255,7 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
         ...inputs,
         '-filter_complex', `${filters.join('')}concat=n=${tempFiles.length}:v=0:a=1[out]`,
         '-map', '[out]', '-y', outputPath
-      ], { timeout: 60000, stdio: 'pipe' })
+      ], { timeout: 120000, stdio: 'pipe' })
     }
     // 清理
     for (const f of tempFiles) { try { unlinkSync(f) } catch {} }
