@@ -1045,13 +1045,17 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       }
       const prog = batchProgress.value[type] || { current: 0, total }
       batchProgress.value[type] = { current: Math.min(prog.current + 1, total), total }
-      // 间隔 1 秒，避免 API 限流
-      await new Promise((r) => setTimeout(r, 1000))
+      // 间隔 500ms（实测 Agnes 20并发无429限流，保守起见保留间隔）
+      await new Promise((r) => setTimeout(r, 500))
       await new Promise((r) => requestAnimationFrame(r))
     }
   }
 
-  const workerCount = Math.min(3, total)
+  // 并发策略基于实测：Agnes生图20并发零429，生视频10并发零429
+  // 安全上限：生图5并发、生视频3并发；间隔500ms避免超时
+  const isVideoItem = (item: any) => item.kind === 'video'
+  const hasVideos = taskItems.some(isVideoItem)
+  const workerCount = hasVideos ? Math.min(3, total) : Math.min(5, total)
   const workers: Promise<void>[] = []
   for (let i = 0; i < workerCount; i++) {
     workers.push(worker())
