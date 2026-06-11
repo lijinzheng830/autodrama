@@ -44,8 +44,13 @@ interface VoiceTurn {
   voicePreset: string
 }
 
+/** 清洗括号内表演提示 */
+function cleanBrackets(text: string): string {
+  return text.replace(/[（(][^）)]*[）)]/g, '').trim()
+}
+
 /** 解析原始对白为角色分句——用位置切分替代正则捕获，避免多角色名被吞 */
-function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>): VoiceTurn[] {
+function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, fallbackVoice: string): VoiceTurn[] {
   const turns: VoiceTurn[] = []
   // Step 1: 找到所有 "角色名：" 的位置（仅句首或标点后，用 lookbehind 不吞标点）
   const namePattern = /(?<=^|[。！？])\s*([^。！？：:]+)[：:]/g
@@ -64,7 +69,7 @@ function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>): 
     // 清洗括号内表演提示
     const cleaned = rawText.replace(/[（(][^）)]*[）)]/g, '').trim()
     if (!cleaned) continue
-    const voicePreset = charVoiceMap[markers[i].name] || 'female'
+    const voicePreset = charVoiceMap[markers[i].name] || fallbackVoice
     turns.push({ text: cleaned, voicePreset })
   }
   return turns
@@ -103,34 +108,35 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   const { EdgeTTS } = await import('node-edge-tts')
   const voiceName = VOICE_PRESETS[voicePreset] || VOICE_PRESETS['female']
 
+  const db = getDb()
+
   // 检查是否多角色：文本中是否有 "角色名：" 模式
   const hasCharPrefix = /(?<=^|[。！？])\s*[^。！？：:]+[：:]/.test(text)
 
   if (!hasCharPrefix) {
     // 单角色 / 已清洗文本 → 直接生成
     const outputPath = join(audioDir, `${shotId}.mp3`)
+    const cleanText = cleanBrackets(text)
     const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
-    await tts.ttsPromise(text, outputPath)
-    const db = getDb()
+    await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
   }
 
   // 多角色对白 → 按角色拆分生成 → FFmpeg 拼接
-  // 从 project 获取角色→配音映射
-  const db = getDb()
-  const chars = db.prepare('SELECT c.name, c.voice_preset FROM characters c JOIN shot_characters sc ON c.id = sc.character_id WHERE sc.shot_id = ?').all(shotId) as Array<{ name: string; voice_preset: string | null }>
+  // 查项目中所有角色（不限当前分镜关联），用名字匹配对白中的角色名
+  const allChars = db.prepare('SELECT name, voice_preset FROM characters WHERE project_id = (SELECT project_id FROM shots WHERE id = ?)').all(shotId) as Array<{ name: string; voice_preset: string | null }>
   const charVoiceMap: Record<string, string> = {}
-  for (const c of chars) {
+  for (const c of allChars) {
     if (c.voice_preset) charVoiceMap[c.name] = c.voice_preset
   }
-
-  const turns = parseTurns(text, charVoiceMap)
+  const turns = parseTurns(text, charVoiceMap, voicePreset || 'female')
   if (turns.length === 0) {
-    // 解析失败，回退到单语音
+    // 解析失败，回退到单语音（清洗后）
     const outputPath = join(audioDir, `${shotId}.mp3`)
+    const cleanText = cleanBrackets(text)
     const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
-    await tts.ttsPromise(text, outputPath)
+    await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
   }
