@@ -165,9 +165,10 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     } else if (type === 'scene') {
       finalPrompt = [
         `[Subject] ${description}`,
-        `[Composition] Single wide panoramic establishing shot — NOT a multi-panel layout. Show the complete spatial layout and lighting of the scene. Sharp foreground, softened background, spatial depth`,
+        `[Composition] Single wide panoramic establishing shot — NOT a multi-panel layout. Complete spatial layout and lighting. Sharp foreground, softened background, spatial depth through atmospheric haze.`,
+        `[Spatial Constraints — CRITICAL] 1) ALL objects share ONE unified perspective: all parallel lines (floor tiles, wall edges, table edges, furniture lines) converge to a SINGLE vanishing point at approximately 1.5m height (eye level). NO conflicting perspective angles. 2) Objects are proportionally scaled relative to each other: the largest furniture piece in the room is the vertical scale reference. NO object may appear larger than this dominant piece. Props and accessories must be realistically smaller than the furniture they sit on or stand next to. 3) The floor plane is a continuous flat surface: floor tile lines, wood plank seams, and carpet edges must follow consistent perspective toward the same vanishing point. 4) Ceiling height is approximately 2.5-3m standard room height — all wall-mounted objects (screens, lights, shelves) are positioned relative to this reference.`,
         `[Style] ${styleDesc}${finalEraPrompt ? ', ' + finalEraPrompt : ''}`,
-        `[Quality] ${aspectHint} aspect ratio, absolutely NO people, NO text, NO labels, NO split panels, photorealistic, 8K, high detail, no blur/cartoon/anime/illustration/flat lighting`
+        `[Quality] ${aspectHint} aspect ratio, absolutely NO people, NO text, NO labels, NO split panels, photorealistic, 8K, high detail, coherent perspective, realistic object scaling, no blur/cartoon/anime/illustration/flat lighting`
       ].join('\n')
     } else {
     // props 道具：模板替换变量
