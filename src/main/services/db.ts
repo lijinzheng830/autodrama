@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
+import { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } from './prompts'
 
 let db: Database.Database | null = null
 
@@ -318,8 +319,6 @@ export function initDatabase(): Database.Database {
 
     // 注入系统提示词（从 prompts.ts 读取，前端可见可编辑）
     try {
-      // 动态 require 避免循环依赖
-      const { STORYBOARD_PROMPT, EXTRACT_PROMPT, ASSOCIATE_PROMPT } = require('./prompts') as typeof import('./prompts')
       const systemPrompts = [
         { id: 'system-storyboard-parse', usage: 'script_parse', name: '系统·剧本解析（中文）', content: STORYBOARD_PROMPT },
         { id: 'system-extract-assets',   usage: 'script_parse', name: '系统·角色提取（中文）', content: EXTRACT_PROMPT },

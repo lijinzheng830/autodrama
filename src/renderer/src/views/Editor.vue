@@ -196,8 +196,14 @@ async function handleGenerateVideo(): Promise<void> {
   if (!detailData.value?.id || _videoGenerating) return
   _videoGenerating = true
   try {
-    await window.api.generateVideo({ projectId, shotId: detailData.value.id })
+    const result = await window.api.generateVideo({ projectId, shotId: detailData.value.id })
     ElMessage.success('视频生成任务已提交')
+    // 更新本地 shot 数据
+    if (result?.videoPaths?.length > 0) {
+      const shot = projectData.value?.shots?.find((s: any) => s.id === detailData.value.id)
+      if (shot) shot.video_path = result.videoPaths[0]
+      if (detailData.value) detailData.value.video_path = result.videoPaths[0]
+    }
     startBroadcastPolling()
   } catch (err: any) {
     ElMessage.error(err?.message || '视频生成失败')
@@ -1455,17 +1461,34 @@ async function handleVideoConcat(): Promise<void> {
 
 async function handleGenerateVoice(shotId: string): Promise<void> {
   const shot = projectData.value?.shots?.find((s: any) => s.id === shotId)
-  const text = shot?.dialogue?.trim() || shot?.narration?.trim()
+  // 判断配音类型：对白 / 角色内心独白 / 系统旁白
+  const narration = shot?.narration?.trim() || ''
+  const dialogue = shot?.dialogue?.trim() || ''
+  const text = dialogue || narration
   if (!text) {
     ElMessage.warning('该分镜没有对白或旁白')
     return
   }
+  let voicePreset = 'narrator'
 
-  // 从分镜关联的角色中找第一个有 voice_preset 的角色
-  const charWithVoice = shot.characters?.find((c: any) => c.voice_preset)
-  if (!charWithVoice) {
-    ElMessage.warning('请先在角色详情中为该分镜的出场角色设置发音人')
-    return
+  if (dialogue) {
+    // 对白：找关联角色第一个有 voice_preset 的
+    const charIds = shot.characters?.map((c: any) => c.id) || []
+    const charWithVoice = projectData.value?.characters?.find((c: any) => charIds.includes(c.id) && c.voice_preset)
+    if (!charWithVoice) {
+      ElMessage.warning('请先在角色详情中为该分镜的出场角色设置发音人')
+      return
+    }
+    voicePreset = charWithVoice.voice_preset
+  } else if (narration) {
+    // 旁白：检查是否以"角色名："开头 → 角色内心独白
+    const charMatch = projectData.value?.characters?.find((c: any) =>
+      narration.startsWith(c.name + '：') || narration.startsWith(c.name + ':')
+    )
+    if (charMatch?.voice_preset) {
+      voicePreset = charMatch.voice_preset
+    }
+    // 否则默认 narrator（系统旁白）
   }
 
   try {
@@ -1473,7 +1496,7 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
       projectId,
       shotId,
       text: text,
-      voicePreset: charWithVoice.voice_preset
+      voicePreset
     })
     shot.voice_path = audioPath
     ElMessage.success('配音已生成')
@@ -1493,11 +1516,23 @@ async function handleBatchGenerateVoices(): Promise<void> {
 
   for (const shot of shots) {
     if (!selectedShots.value.has(shot.id)) continue
-    const text = shot.dialogue?.trim() || shot.narration?.trim()
-    if (!text) continue
-    const charWithVoice = shot.characters?.find((c: any) => c.voice_preset)
-    if (!charWithVoice) continue
-    inputs.push({ projectId, shotId: shot.id, text, voicePreset: charWithVoice.voice_preset })
+    const dialogue2 = shot.dialogue?.trim() || ''
+    const narration2 = shot.narration?.trim() || ''
+    const text2 = dialogue2 || narration2
+    if (!text2) continue
+    let voicePreset2 = 'narrator'
+    if (dialogue2) {
+      const charIds2 = shot.characters?.map((c: any) => c.id) || []
+      const charWithVoice2 = projectData.value?.characters?.find((c: any) => charIds2.includes(c.id) && c.voice_preset)
+      if (!charWithVoice2) continue
+      voicePreset2 = charWithVoice2.voice_preset
+    } else if (narration2) {
+      const charMatch2 = projectData.value?.characters?.find((c: any) =>
+        narration2.startsWith(c.name + '：') || narration2.startsWith(c.name + ':')
+      )
+      if (charMatch2?.voice_preset) voicePreset2 = charMatch2.voice_preset
+    }
+    inputs.push({ projectId, shotId: shot.id, text: text2, voicePreset: voicePreset2 })
   }
 
   if (inputs.length === 0) {
@@ -2177,6 +2212,7 @@ onUnmounted(() => {
               @show-detail="(type: string, data: any) => showDetail(type, data)"
               @generate-image="(payload: any) => handleGenerateImage(payload.type, payload.assetId || payload.shotId)"
               @generate-video="(payload: any) => { if (payload.shotId) { showDetail('video', projectData?.shots?.find((s:any) => s.id === payload.shotId)); nextTick(() => handleGenerateVideo()); } }"
+              @voice-preset-changed="(characterId: string, preset: string) => { if (projectData) { const ch = projectData.characters?.find((c: any) => c.id === characterId); if (ch) ch.voice_preset = preset; for (const s of (projectData.shots || [])) { const sc = s.characters?.find((c: any) => c.id === characterId); if (sc) sc.voice_preset = preset; } } }"
             />
           </div>
 
@@ -2215,6 +2251,7 @@ onUnmounted(() => {
       :aspect-ratios="aspectRatios"
       :selected-style="selectedStyle"
       :selected-aspect-ratio="selectedAspectRatio"
+      :selected-shots="selectedShots"
       :provider-models="providerModels"
       :provider-channels="providerChannels"
       :text-provider-models="textProviderModels"

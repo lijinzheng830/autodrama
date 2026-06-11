@@ -663,6 +663,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
   const charImageAnchors: { name: string; refNum: number; description: string | null }[] = []
   const contextChars: string[] = []
   let contextScene = ''
+  let contextPropsDesc = ''
   try {
     // ① 角色图排最前面——确保模型优先识别角色人脸
     const shotChars = db.prepare(
@@ -680,7 +681,19 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       if (ch.description) contextChars.push(`${ch.name}: ${ch.description}`)
       else if (ch.name) contextChars.push(ch.name)
     }
-    // ② 场景图排在角色后面——做背景底板
+    // ② 道具图紧跟角色——确保模型优先看到道具外观
+    try {
+      const shotProps = db.prepare(
+        'SELECT p.name, p.description, p.reference_image FROM props p JOIN shot_props sp ON p.id = sp.prop_id WHERE sp.shot_id = ?'
+      ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
+      for (const pr of shotProps) {
+        if (pr.reference_image) {
+          try { if (existsSync(pr.reference_image)) refImages.push(pr.reference_image) } catch {}
+        }
+        if (pr.description) contextPropsDesc = contextPropsDesc ? `${contextPropsDesc}; ${pr.name}: ${pr.description}` : `${pr.name}: ${pr.description}`
+      }
+    } catch { /* ignore */ }
+    // ③ 场景图排在道具后面——做背景底板
     const shotScenes = db.prepare(
       'SELECT s.name, s.description, s.reference_image FROM scenes s JOIN shot_scenes ss ON s.id = ss.scene_id WHERE ss.shot_id = ?'
     ).all(shotId) as { name: string; description: string | null; reference_image: string | null }[]
@@ -691,7 +704,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       if (sc.description) contextScene = `${sc.name}: ${sc.description}`
       else if (sc.name && !contextScene) contextScene = sc.name
     }
-    // ③ 构图锚点（上一镜尾帧等）排最后——仅做构图参考，不影响人脸
+    // ④ 构图锚点（上一镜尾帧等）排最后——仅做构图参考，不影响人脸
     if (refImage) refImages.push(refImage)
   } catch { /* 关联查询失败则跳过 */ }
 
@@ -712,6 +725,8 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
         labels.push(`Image #${refNum}: = "${anchor.name}"${descSnippet} — THIS IS THE FACE ANCHOR for ${anchor.name}. Every instance of "${anchor.name}" in the generated image MUST have this exact face, hairstyle, hair color, eye color, and skin tone. Use this face. Do NOT swap it with another character.`)
       } else if (img.includes('scenes')) {
         labels.push(`Image #${refNum}: SCENE BACKGROUND — COPY this exact environment, architecture, lighting, colors. Characters are placed INTO this background.`)
+      } else if (img.includes('props')) {
+        labels.push(`Image #${refNum}: PROP REFERENCE — COPY this exact object appearance, shape, color, texture, and materials. The character should interact with THIS exact object.`)
       } else if (img === refImage || (refImage && i === refImages.length - 1)) {
         labels.push(`Image #${refNum}: COMPOSITION anchor — use ONLY for camera angle and framing. Do NOT copy character identity, position, or scale from this image.`)
       } else {
@@ -749,6 +764,7 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
       if (actions.length > 0) shotContextParts.push(`Actions: ${actions.map(a => `${a.character_name} ${a.action}`).join(', ')}`)
     } catch { /* JSON parse fail */ }
   }
+  if (contextPropsDesc) shotContextParts.push(`Props in scene: ${contextPropsDesc}`)
 
   const shotContext = shotContextParts.join('. ')
 
@@ -757,10 +773,10 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
     const st = detectShotType(shotPrompt) || extraFields?.shot_type || ''
     const cm = extraFields?.camera_movement || ''
     if (st.includes('大特写')) return 'Extreme close-up composition: a SINGLE DETAIL fills the entire frame — one eye, lips, a hand, an object. No face, no body, no environment visible. Extreme shallow depth of field. Macro photography style. The subject detail occupies 90%+ of the image area'
-    if (st.includes('特写')) return 'Close-up composition: single character FILLS the frame, face and upper body CENTERED, shallow depth of field blurring the background, character occupies 70%+ of the image area. The scene environment serves only as a soft out-of-focus backdrop. DO NOT show the full room, furniture, or distant background elements'
-    if (st.includes('近景')) return 'Medium close-up composition: character from chest up, positioned CENTER-FRONT, occupying 50-60% of frame height. Background softly visible but secondary. Character is the dominant visual element. Keep background elements minimal and close to the character'
-    if (st.includes('中景')) return 'Medium shot composition: character full body CENTERED in the frame, standing in the MIDDLE GROUND, occupying 40-50% of frame height. IGNORE the reference image character position — place the character at the CENTER of the composition. Environment clearly visible behind and around the character. Clear spatial separation between foreground character and background environment'
-    if (st.includes('全景')) return 'Full shot composition: character full body, positioned in the LOWER-MIDDLE third of the frame, occupying 25-35% of frame height. Expansive environment dominates the upper portion. Character clearly placed within the spatial context of the scene'
+    if (st.includes('特写')) return 'Close-up composition: single character FILLS the frame, face and upper body CENTERED, character occupies 70%+ of image area. Very shallow depth of field (f/1.8) — background is a soft blur of colors and light only. The character is sharply in focus while everything behind melts into bokeh. The environment is IMPLIED by the blurred light and color, not shown in detail.'
+    if (st.includes('近景')) return 'Medium close-up composition: character from chest up, CENTER-FRONT, occupying 50-60% of frame height. Shallow depth of field (f/2.0) — character is in sharp focus, background elements are recognizable but softly blurred. The character stands IN FRONT OF the environment — distinct foreground (character) and background (scene) separation. Environment visible as out-of-focus shapes and light.'
+    if (st.includes('中景')) return 'Medium shot composition: character from waist up, CENTERED in frame, occupying 40-50% of frame height. Lower body below waist is OUTSIDE the frame. NOT a full body shot. SPATIAL DEPTH (critical): The character stands ON the stage platform, IN FRONT OF the background elements. Three distinct depth layers required — FOREGROUND: the character, sharply focused; MIDGROUND: stage floor and nearby equipment (2-3 meters behind character), slightly softened; BACKGROUND: LED screen and distant stage elements (5+ meters behind), clearly out of focus. Shallow depth of field (f/2.8). The environment wraps AROUND and BEHIND the character — the character is INSIDE the scene, not pasted on top of it.'
+    if (st.includes('全景')) return 'Full shot composition: character full body visible, positioned in the LOWER-MIDDLE third of the frame, occupying 25-35% of frame height. SPATIAL DEPTH: The character stands inside the environment — not in front of a flat backdrop. The scene surrounds the character: floor extends from foreground to background, walls/architecture recede into distance, lighting creates atmospheric perspective. Moderate depth of field (f/4.0) — foreground sharp, distant background slightly soft. Environment dominates upper portion, character integrated into the space.'
     if (st.includes('远景') || st.includes('大远景')) return 'Wide/long shot composition: character appears as a small figure within the vast environment, occupying 10-20% of frame height. Environment is the primary visual element. Character placed according to rule of thirds'
     if (cm.includes('跟')) return 'Tracking shot composition: character in motion, positioned with lead room in the direction of movement. Dynamic framing with space ahead of the character'
     return 'Balanced composition: character positioned naturally within the scene, proportionate to the environment. Rule of thirds applied'
@@ -827,9 +843,14 @@ export async function generateShotImage(input: GenerateShotImageInput): Promise<
 
   // 4.6 角色-参考图映射 + 构图 + 唯一性
   const charMapNote = charImageAnchors.length > 0
-    ? `[IDENTITY ANCHORS] This image contains ${charImageAnchors.length} character(s): ${charNames.join(', ')}. Each character has a numbered reference image that shows their EXACT face:\n${charImageAnchors.map(c => `  Image #${c.refNum} → "${c.name}" — every instance of "${c.name}" MUST use the face from Image #${c.refNum}.`).join('\n')}\nCRITICAL: Do NOT swap faces between characters. 苏云's face comes from her anchor image. 叶尘's face comes from his anchor image. If you confuse them, the image is wrong.`
+    ? `[IDENTITY ANCHORS] This image contains ${charImageAnchors.length} character(s): ${charNames.join(', ')}. Each character has a numbered reference image that shows their EXACT face:\n${charImageAnchors.map(c => `  Image #${c.refNum} → "${c.name}" — every instance of "${c.name}" MUST use the face from Image #${c.refNum}.`).join('\n')}\nCRITICAL: Do NOT swap faces between characters. Each character's face comes ONLY from their own anchor image listed above. If ANY character uses the wrong face, the image is wrong.`
     : ''
-  shotFinalPrompt = `${charMapNote}\n[COMPOSITION] ${compositionGuide}. [CHARACTER COUNT] Exactly ONE instance of each named character — NO duplicates, NO clones, NO twin figures. Each character appears exactly ONCE. [VARIATION] Each generation should be UNIQUE in pose, expression, and camera angle.\n\n${shotFinalPrompt}`
+  const spatialIntegration = 'SPATIAL INTEGRATION (critical): The character is PHYSICALLY INSIDE the scene — NOT a cutout pasted on a background. Scene lighting MUST illuminate the character — warm stage lights cast onto skin and clothing creating highlights and shadows consistent with the environment. The character casts a soft shadow on the floor/surface they stand on. Atmospheric perspective: light rays, haze, or volumetric effects visible between foreground and background. The reference images are visual GUIDES, not layers — the output must be a single unified photograph where character and environment exist in the same 3D space.'
+  // 将用户指令提前，提高模型遵循度
+  const hasHandheld = /hold|holding|手持|拿着|握着|touching|holding/i.test(shotPrompt)
+  const propBoost = hasHandheld ? ' CRITICAL: The handheld object described above MUST match its reference image EXACTLY — same shape, color, material, and size. It is NOT a generic prop. The character MUST be physically holding or touching this specific object.' : ''
+  const userDirective = shotPrompt.trim() ? `[USER INSTRUCTION] ${shotPrompt.trim()} — The above is the director's specific instruction. All objects, poses, and actions described above MUST be present in the final image.${propBoost}` : ''
+  shotFinalPrompt = `${userDirective}\n${charMapNote}\n[COMPOSITION] ${compositionGuide}. ${spatialIntegration}. [CHARACTER COUNT] Exactly ONE instance of each named character — NO duplicates, NO clones, NO twin figures. Each character appears exactly ONCE. [VARIATION] Each generation should be UNIQUE in pose, expression, and camera angle.\n\n${shotFinalPrompt}`
 
   const { model, channel, apiKey } = resolveModelConfig(purposeKey, projectConfig, inputModel, inputChannel)
 

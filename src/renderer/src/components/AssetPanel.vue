@@ -21,6 +21,7 @@ const emit = defineEmits<{
   (e: 'show-detail', type: string, data: any): void
   (e: 'generate-image', payload: any): void
   (e: 'generate-video', payload: any): void
+  (e: 'voice-preset-changed', characterId: string, preset: string): void
 }>()
 
 const assetImages = ref<any[]>([])
@@ -199,6 +200,7 @@ async function onVoicePresetChange(characterId: string, preset: string): Promise
   try {
     await (window as any).api.updateCharacter(characterId, { voicePreset: preset })
     if (props.detailData) props.detailData.voice_preset = preset
+    emit('voice-preset-changed', characterId, preset)
     ElMessage.success(preset ? '发音人已设置' : '已取消配音')
   } catch { ElMessage.error('设置失败') }
 }

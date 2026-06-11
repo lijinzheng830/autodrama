@@ -15,6 +15,7 @@ const props = defineProps<{
   aspectRatios: any[]
   selectedStyle: string
   selectedAspectRatio: string
+  selectedShots: Set<string>
   // 模型列表 (AI解析 + 模型配置共享)
   providerModels: any[]
   providerChannels: any[]
@@ -337,7 +338,7 @@ const filteredRecords = computed(() => {
         </template>
         <template v-else>
           <span class="batch-stat-label">已选中</span>
-          <span class="batch-stat-value">{{ projectData?.shots?.filter((s: any) => s.video_path || s.first_frame_image_path)?.length || 0 }}</span>
+          <span class="batch-stat-value">{{ selectedShots?.size || 0 }}</span>
           <span class="batch-stat-label">个分镜</span>
         </template>
       </div>
@@ -369,8 +370,39 @@ const filteredRecords = computed(() => {
 
 <style scoped>
 .record-filters { display: flex; gap: 8px; margin-bottom: 12px; }
+/* ===== 解析对话框 ===== */
+.parse-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.parse-tab { padding: 6px 16px; font-size: 13px; color: #9ca3af; cursor: pointer; border-radius: 6px; transition: all .2s; }
+.parse-tab.active { color: #fff; background: rgba(167,139,250,.15); font-weight: 500; }
+.parse-tab.disabled { color: #555; cursor: not-allowed; }
+.parse-body { display: flex; flex-direction: column; gap: 12px; }
+.parse-section { display: flex; flex-direction: column; gap: 8px; }
+.parse-section.compact { gap: 6px; }
+.parse-section-header { display: flex; align-items: center; justify-content: space-between; }
+.parse-section-title { font-size: 13px; color: #999; font-weight: 500; }
 .parse-controls { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
 .parse-progress { margin-top: 16px; }
+.char-count { font-size: 12px; color: #9ca3af; }
+.char-count.warning { color: #f59e0b; }
+.template-preview { max-height: 120px; overflow-y: auto; margin-top: 8px; padding: 10px; background: rgba(255,255,255,.03); border-radius: 4px; font-size: 12px; color: #9ca3af; white-space: pre-wrap; }
+.style-grid.compact { display: flex; gap: 6px; overflow-x: auto; }
+.style-card.compact { cursor: pointer; border-radius: 6px; padding: 6px; text-align: center; min-width: 64px; border: 1px solid transparent; }
+.style-card.compact.active { border-color: #a78bfa; }
+.style-preview.compact { width: 48px; height: 48px; border-radius: 4px; margin: 0 auto 2px; }
+.style-name.compact { font-size: 10px; color: #9ca3af; }
+.ratio-group.compact { display: flex; gap: 6px; }
+.ratio-card.compact { cursor: pointer; border-radius: 6px; padding: 6px; text-align: center; min-width: 64px; border: 1px solid transparent; }
+.ratio-card.compact.active { border-color: #a78bfa; }
+.ratio-icon.compact { width: 48px; height: 32px; background: rgba(255,255,255,.06); border-radius: 4px; margin: 0 auto 2px; }
+.ratio-label { font-size: 11px; color: #9ca3af; }
+.progress-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: #ccc; }
+.progress-item.done { color: #67c23a; }
+.progress-item.running { color: #409eff; }
+.progress-item.error { color: #f56c6c; }
+.progress-icon { font-size: 16px; width: 24px; text-align: center; }
+.progress-text { flex: 1; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 2s linear infinite; }
 .step-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #ccc; }
 .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
 .step-dot.running { background: #409eff; animation: pulse 1.5s infinite; }

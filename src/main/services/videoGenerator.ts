@@ -67,7 +67,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     sceneDescForTpl = scenes.map(s => s.description ? `${s.name}: ${s.description}` : s.name).filter(Boolean).join('; ')
     if (sceneDescForTpl) ctxParts.push(`Scene: ${sceneDescForTpl}`)
   } catch {}
-  if (shot.dialogue) ctxParts.push(`Dialogue: ${shot.dialogue}`)
+  if (shot.dialogue) ctxParts.push(`Character speaking (audio track provided separately, no on-screen text)`)
+  if (shot.narration) ctxParts.push(`Off-screen narration (audio track provided separately, no on-screen text)`)
   if (shot.narration) ctxParts.push(`Narration (internal monologue/OFF-SCREEN — ALL characters keep mouths CLOSED): ${shot.narration}`)
   if (shot.shot_type) ctxParts.push(`Shot type: ${translateCnField(shot.shot_type)}`)
   if (shot.camera_movement) ctxParts.push(`Camera: ${translateCnField(shot.camera_movement)}`)
@@ -133,8 +134,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       }
     }
     if (rawNarration) {
-      const text = rawNarration.replace(/^[^：:]+[：:]\s*/, '').trim()
-      parts.push(`NARRATION (OFF-SCREEN voice, internal monologue): "${text}". ALL characters keep mouths CLOSED — no one speaks during narration.`)
+      parts.push(`NARRATION (OFF-SCREEN voice, audio only — no on-screen text). ALL characters keep mouths CLOSED — no one speaks during narration.`)
     }
     return parts.length > 0 ? `AUDIO INSTRUCTIONS: ${parts.join(' ')}` : ''
   })()
@@ -306,11 +306,18 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       const fileName = `${shotId}_video_${Date.now()}_${i}.mp4`
       const filePath = join(videoDir, fileName)
       console.log('[Video] Downloading:', url.slice(0, 100) + '...')
-      // 视频下载：不传 Auth（CDN直链不需要，加了对 Google Storage 会 401）
       const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 300000 })
-      console.log('[Video] Downloaded:', (resp.data.byteLength / 1024).toFixed(0), 'KB →', filePath)
-      writeFileSync(filePath, Buffer.from(resp.data))
-      console.log('[Video] Saved:', filePath)
+      const rawPath = join(videoDir, `${shotId}_raw_${Date.now()}_${i}.mp4`)
+      writeFileSync(rawPath, Buffer.from(resp.data))
+      console.log('[Video] Downloaded:', (resp.data.byteLength / 1024).toFixed(0), 'KB → transcoding...')
+      // FFmpeg 转码为标准 H.264+AAC（Electron/Chromium 兼容）
+      const ffmpeg = resolveFfmpegPath()
+      execFileSync(ffmpeg, [
+        '-i', rawPath, '-c:v', 'libx264', '-c:a', 'aac',
+        '-pix_fmt', 'yuv420p', '-y', filePath
+      ], { timeout: 300000, stdio: 'pipe' })
+      try { unlinkSync(rawPath) } catch {}
+      console.log('[Video] Transcoded:', filePath)
       videoPaths.push(filePath)
     }
 
@@ -436,7 +443,9 @@ async function callVideoGenerationAPI(
         }
         if (i === 0 || i % 6 === 0 || best.status === 'completed' || best.status === 'failed') console.log('[Agnes] poll', i, 'status:', best.status || 'no_status', 'progress:', best.progress)
         if (best.status === 'completed') {
-          url = best.remixed_from_video_id || ''
+          const rawUrl = best.remixed_from_video_id || best.url || best.video_url || ''
+          // 补全相对路径：如果返回的是纯 ID/文件名，拼接完整下载地址
+          url = rawUrl.startsWith('http') ? rawUrl : `${normalizedBaseURL}/videos/${rawUrl}/download`
           console.log('[Agnes] COMPLETED url:', url ? url.slice(0, 80) : 'MISSING!')
           if (url) break
         }

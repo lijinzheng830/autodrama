@@ -613,7 +613,7 @@ function buildShotAssocMaps(
   const shotChars = db
     .prepare(
       `
-      SELECT sc.shot_id, c.id, c.name, c.description, c.description_zh, c.reference_image, c.skin_images
+      SELECT sc.shot_id, c.id, c.name, c.description, c.description_zh, c.reference_image, c.skin_images, c.voice_preset
       FROM shot_characters sc
       JOIN characters c ON sc.character_id = c.id
       WHERE sc.shot_id IN (${placeholders})

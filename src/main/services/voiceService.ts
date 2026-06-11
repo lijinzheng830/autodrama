@@ -2,7 +2,7 @@
  * 配音服务 — Microsoft Edge TTS（免费、无需 API Key）
  * 为分镜对白生成 MP3 配音文件
  */
-import { mkdirSync, writeFileSync } from 'fs'
+import { mkdirSync } from 'fs'
 import { join } from 'path'
 import { getDb } from './db'
 import { getProject } from './project'
@@ -58,9 +58,9 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
 
   const outputPath = join(audioDir, `${shotId}.mp3`)
 
-  const { tts: ttsFn } = await import('edge-tts/out/index.js')
-  const buffer = await ttsFn(text, { voice: voiceName, rate: '+0%' })
-  writeFileSync(outputPath, buffer)
+  const { EdgeTTS } = await import('node-edge-tts')
+  const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
+  await tts.ttsPromise(text, outputPath)
 
   // 更新 shots 表
   const db = getDb()
