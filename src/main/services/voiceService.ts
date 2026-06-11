@@ -12,18 +12,40 @@ import { randomUUID } from 'crypto'
 
 // Edge TTS express-as 风格映射: 中文情绪词 → Edge TTS style
 const EMOTION_STYLE_MAP: Record<string, string> = {
+  // gentle 系
   '温柔': 'gentle', '轻柔': 'gentle', '软糯': 'gentle', '空灵': 'gentle',
-  '快乐': 'cheerful', '欢快': 'cheerful', '高兴': 'cheerful',
+  '微笑': 'gentle', '浅笑': 'gentle', '轻笑': 'gentle', '含笑': 'gentle',
+  '深情': 'gentle', '柔和': 'gentle', '温暖': 'gentle',
+  // cheerful 系
+  '快乐': 'cheerful', '欢快': 'cheerful', '高兴': 'cheerful', '开心': 'cheerful',
+  '大笑': 'cheerful', '笑': 'cheerful',
+  // sad 系
   '悲伤': 'sad', '忧郁': 'sad', '伤感': 'sad', '低落': 'sad',
-  '愤怒': 'angry', '生气': 'angry', '怒吼': 'angry',
-  '兴奋': 'excited', '激动': 'excited', '热烈': 'excited',
-  '恐惧': 'fearful', '害怕': 'fearful', '惊恐': 'terrified',
+  '叹息': 'sad', '叹气': 'sad', '苦笑': 'sad', '哭': 'sad', '流泪': 'sad', '抽泣': 'sad',
+  '无奈': 'sad', '沉重': 'sad', '难过': 'sad',
+  // angry 系
+  '愤怒': 'angry', '生气': 'angry', '怒吼': 'angry', '厉声': 'angry',
+  // excited 系
+  '兴奋': 'excited', '激动': 'excited', '热烈': 'excited', '惊喜': 'excited',
+  // fearful 系
+  '恐惧': 'fearful', '害怕': 'fearful', '惊恐': 'terrified', '紧张': 'fearful', '不安': 'fearful',
+  // disappointed
   '失望': 'disappointed', '失落': 'disappointed',
-  '低语': 'whispering', '轻声': 'whispering', '耳语': 'whispering',
+  // whispering
+  '低语': 'whispering', '轻声': 'whispering', '耳语': 'whispering', '喃喃': 'whispering',
+  // hopeful
   '希望': 'hopeful', '憧憬': 'hopeful',
+  // friendly
   '友好': 'friendly', '亲切': 'friendly',
+  // lyrical
   '抒情': 'lyrical', '诗意': 'lyrical',
-  '中立': 'neutral', '默认': 'neutral', '冷静': 'calm',
+  // calm / neutral
+  '冷静': 'calm', '平静': 'calm', '淡淡': 'calm', '淡淡地': 'calm',
+  '严肃': 'calm', '冷漠': 'calm', '冷淡': 'calm',
+  '坚定': 'calm', '坚决': 'calm',
+  '中立': 'neutral', '默认': 'neutral',
+  '疲惫': 'calm', '疲倦': 'calm',
+  '疑惑': 'calm', '困惑': 'calm',
 }
 
 /** 剥离前缀标签——TTS 只朗读内容，不读 "旁白：""林小薇的内心独白：" 等标签 */
