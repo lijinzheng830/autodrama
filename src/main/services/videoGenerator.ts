@@ -134,8 +134,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     }
     return parts.length > 0 ? parts.join(' ') : ''
   })()
-  // 禁止字幕——最高优先级约束
-  const noSubtitlesDirective = 'CRITICAL CONSTRAINT: Absolutely NO subtitles, NO captions, NO text overlays, NO on-screen text of any kind. The dialogue is voice-only, do NOT display it as text on the video. NO character names, NO lyrics, NO words on screen.'
+  // 禁止字幕——多层防火墙（Agnes视频模型训练数据含大量带字幕视频，单条指令不够）
+  const noSubtitlesDirective = 'ZERO TEXT POLICY (violation = failure): The output video must contain NO text of any kind — NO subtitles, NO captions, NO character names, NO dialogue text, NO lyrics, NO watermarks, NO labels, NO symbols, NO letters, NO numbers, NO on-screen overlays. The video frame must be PURE IMAGE ONLY — as if text rendering does not exist.'
   // 稳定画面
   const stabilityDirective = 'TECHNICAL: Stable camera movement, smooth cinematic motion, no camera shake, no jitter, steady tripod or gimbal-like stabilization, professional cinematography quality, high definition sharp details, no motion blur artifacts.'
   // 视频提示词中文 → 英文翻译
@@ -155,7 +155,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   })()
 
   // 用换行分隔比例指令和内容——视觉指令（不含台词文本）提到最前面
-  const finalPrompt = [visualDirective, `[COMPOSITION] ${compositionGuide}`, arDirective, stabilityDirective, noSubtitlesDirective, `Video description: ${translatedVideoPrompt}.`, shotContext, refGuidance, frameGuidance, `Style: ${finalStylePrompt}`].filter(Boolean).join('\n')
+  const tailGuard = 'FINAL CHECK: Verify zero text, zero subtitles, zero captions on every frame before output.'
+  const finalPrompt = [visualDirective, `[COMPOSITION] ${compositionGuide}`, arDirective, stabilityDirective, noSubtitlesDirective, `Video description: ${translatedVideoPrompt}.`, shotContext, refGuidance, frameGuidance, `Style: ${finalStylePrompt}`, tailGuard].filter(Boolean).join('\n')
 
   // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
   const videoRefImages: string[] = []
@@ -306,10 +307,10 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       const rawPath = join(videoDir, `${shotId}_raw_${Date.now()}_${i}.mp4`)
       writeFileSync(rawPath, Buffer.from(resp.data))
       console.log('[Video] Downloaded:', (resp.data.byteLength / 1024).toFixed(0), 'KB → transcoding...')
-      // FFmpeg 转码为标准 H.264+AAC（Electron/Chromium 兼容）
+      // FFmpeg 转码为标准 H.264（无音频轨）— 配音由 Edge TTS 独立生成，导出时注入
       const ffmpeg = resolveFfmpegPath()
       execFileSync(ffmpeg, [
-        '-i', rawPath, '-c:v', 'libx264', '-c:a', 'aac',
+        '-i', rawPath, '-c:v', 'libx264', '-an',
         '-pix_fmt', 'yuv420p', '-y', filePath
       ], { timeout: 300000, stdio: 'pipe' })
       try { unlinkSync(rawPath) } catch {}
