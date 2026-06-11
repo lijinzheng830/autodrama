@@ -1487,11 +1487,12 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
     }
     voicePreset = charWithVoice.voice_preset
   } else if (innerMonologue) {
-    // 内心独白格式 "角色名：独白内容" → 匹配角色发音人
+    // 内心独白格式 "角色名：独白内容" → 匹配角色发音人，否则用 inner-voice
     const charMatch = projectData.value?.characters?.find((c: any) =>
       innerMonologue.startsWith(c.name + '：') || innerMonologue.startsWith(c.name + ':')
     )
     if (charMatch?.voice_preset) voicePreset = charMatch.voice_preset
+    else voicePreset = 'inner-voice'
   } else if (narration) {
     const charMatch = projectData.value?.characters?.find((c: any) =>
       narration.startsWith(c.name + '：') || narration.startsWith(c.name + ':')
@@ -1540,6 +1541,7 @@ async function handleBatchGenerateVoices(): Promise<void> {
         inner2.startsWith(c.name + '：') || inner2.startsWith(c.name + ':')
       )
       if (charMatch2?.voice_preset) voicePreset2 = charMatch2.voice_preset
+      else voicePreset2 = 'inner-voice'
     } else if (narration2) {
       const charMatch2 = projectData.value?.characters?.find((c: any) =>
         narration2.startsWith(c.name + '：') || narration2.startsWith(c.name + ':')

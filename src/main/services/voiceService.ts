@@ -64,6 +64,8 @@ export const VOICE_PRESETS: Record<string, VoiceConfig> = {
   'male-bright':      { name: 'zh-CN-YunfanNeural' },
   'male-serious':     { name: 'zh-CN-YunfengNeural' },
   'male-teen':        { name: 'zh-CN-YunjieNeural' },
+  // 特殊
+  'inner-voice':      { name: 'zh-CN-XiaohanNeural', style: 'whispering' },
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
@@ -86,6 +88,8 @@ export function listVoicePresets(): { key: string; name: string; label: string }
     { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '阳光·男性（充满活力）' },
     { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '总裁·男性（严肃专业）' },
     { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '少年·男性（青春少年）' },
+    // 特殊
+    { key: 'inner-voice',      name: VOICE_PRESETS['inner-voice'].name,      label: '内心独白·女性（气声耳语）' },
   ]
 }
 
