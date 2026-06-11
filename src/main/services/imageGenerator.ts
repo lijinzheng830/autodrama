@@ -155,13 +155,13 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   if (!tplUsed) {
     if (type === 'character') {
       finalPrompt = [
-        `[Image-to-Image] Preserve the reference image's four-panel layout and white background, but REPLACE the character. Do NOT copy the reference character.`,
+        `[Image-to-Image] Preserve the reference image's three-panel layout (two-column, left column split top/bottom) and white background, but REPLACE the character. Do NOT copy the reference character.`,
         `[Subject] ${description}`,
-        `[Background] Pure white seamless background, thin gray lines separating four panels, uniform white gaps, panels equal size, NO overlap`,
+        `[Background] Pure white seamless background, thin gray lines separating three panels, uniform spacing, NO overlap`,
         `[Style] ${styleDesc}${finalEraPrompt ? ', ' + finalEraPrompt : ''}`,
         `[Lighting] Professional studio lighting, soft key light, even illumination, no harsh shadows`,
-        `[Composition] Four panels arranged horizontally left to right in a single row, thin gray vertical dividers, equal width, no overlap — Panel 1 (Far Left, Close-up): head and shoulders, facial features, expression, hair, accessories; Panel 2 (Mid-Left, Full Body Front): standing straight with realistic adult body proportions (7-8 head heights), natural shoulder width, defined waist, natural hip curve, full outfit and silhouette, feet grounded at panel bottom; Panel 3 (Mid-Right, 45-Degree): side profile showing natural spinal curve, waist-hip ratio, garment draping and clothing depth; Panel 4 (Far Right, Full Body Back): back view showing hair from behind, shoulder blade definition, natural back curve, clothing back design with consistent hem line`,
-        `[Quality] ${aspectHint} aspect ratio, PHOTOREALISTIC STYLE — absolutely NOT anime, NOT cartoon, NOT illustration, NOT cel-shaded, NOT 2D. Must look like a real photograph taken with a professional camera. Realistic adult anatomy with natural body proportions (NOT compressed or stubby), defined waist-hip curve (NOT flat/straight silhouette), identical clothing design across all 4 panels, consistent character identity, uniform studio lighting, equal panel spacing`
+        `[Composition] Two-column layout, equal width, thin gray vertical divider — Left column split top/bottom by thin gray horizontal divider: Top-Left (Upper Body Front, chest up): facing camera, facial features, expression, hair; Bottom-Left (45° Half-Body, waist up): body turned 45°, side face contour, upper body posture. Right column single tall panel (Full Body Front): standing upright, realistic adult proportions (7-8 head heights), natural shoulder width, defined waist, natural hip curve, feet grounded at bottom, complete outfit and silhouette. All three panels equal width, no overlap, uniform spacing`,
+        `[Quality] ${aspectHint} aspect ratio, PHOTOREALISTIC STYLE — absolutely NOT anime, NOT cartoon, NOT illustration, NOT cel-shaded, NOT 2D. Must look like a real photograph taken with a professional camera. Realistic adult anatomy with natural body proportions (NOT compressed or stubby), defined waist-hip curve (NOT flat/straight silhouette), identical clothing design across all 3 panels, consistent character identity, uniform studio lighting, equal panel spacing`
       ].join('\n')
     } else if (type === 'scene') {
       finalPrompt = [
