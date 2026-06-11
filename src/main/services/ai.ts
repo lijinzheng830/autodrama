@@ -347,6 +347,11 @@ function normalizeShotData(raw: any): ShotData {
             video_prompt: vPrompt,
             video_prompt_zh: vPromptZh
           }
+        }).map((s: any) => {
+          // 校验警告
+          if ((s.description_zh || '').length < 60) console.warn(`[parse] WARN shot #${s.shot_index}: description_zh ${(s.description_zh||'').length}字 < 60字最低要求`)
+          if ((s.description_en || '').split(/\s+/).length < 50) console.warn(`[parse] WARN shot #${s.shot_index}: description_en ${(s.description_en||'').split(/\s+/).length}词 < 50词最低要求`)
+          return s
         })
       }]
     }
