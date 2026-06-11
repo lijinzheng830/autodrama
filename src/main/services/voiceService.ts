@@ -10,26 +10,44 @@ import { getDb } from './db'
 import { getProject } from './project'
 import { randomUUID } from 'crypto'
 
-export const VOICE_PRESETS: Record<string, string> = {
-  'female-lead': 'zh-CN-XiaoxiaoNeural',
-  'male-lead':   'zh-CN-YunxiNeural',
-  'narrator':    'zh-CN-YunjianNeural',
-  'female':      'zh-CN-XiaoyiNeural',
-  'male':        'zh-CN-YunyangNeural',
-  'male-deep':   'zh-CN-YunxiaNeural',
-  'male-elder':  'zh-CN-YunyangNeural',
+interface VoiceConfig {
+  name: string
+  rate?: string     // e.g. '+10%' / '-20%' / 'default'
+  pitch?: string    // e.g. '+5Hz' / '-3Hz' / 'default'
+  volume?: string   // e.g. '+10%' / 'default'
+}
+
+export const VOICE_PRESETS: Record<string, VoiceConfig> = {
+  'female-lead': { name: 'zh-CN-XiaoxiaoNeural' },
+  'male-lead':   { name: 'zh-CN-YunxiNeural' },
+  'narrator':    { name: 'zh-CN-YunjianNeural' },
+  'female':      { name: 'zh-CN-XiaoyiNeural' },
+  'male':        { name: 'zh-CN-YunyangNeural' },
+  'male-deep':   { name: 'zh-CN-YunxiaNeural' },
+  'male-elder':  { name: 'zh-CN-YunyangNeural', rate: '-20%' },
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
   return [
-    { key: 'female-lead', name: VOICE_PRESETS['female-lead'], label: '女主·晓晓（温暖女声）' },
-    { key: 'male-lead',   name: VOICE_PRESETS['male-lead'],   label: '男主·云希（沉稳男声）' },
-    { key: 'narrator',    name: VOICE_PRESETS['narrator'],    label: '旁白·云健（成熟男声）' },
-    { key: 'female',      name: VOICE_PRESETS['female'],      label: '女配·晓依（年轻女声）' },
-    { key: 'male',        name: VOICE_PRESETS['male'],        label: '男配·云扬（洪亮男声）' },
-    { key: 'male-deep',   name: VOICE_PRESETS['male-deep'],   label: '反派·云夏（低沉男声）' },
-    { key: 'male-elder',  name: VOICE_PRESETS['male-elder'],  label: '老者·云扬降速（老成男声）' },
+    { key: 'female-lead', name: VOICE_PRESETS['female-lead'].name, label: '女主·晓晓（温暖女声）' },
+    { key: 'male-lead',   name: VOICE_PRESETS['male-lead'].name,   label: '男主·云希（沉稳男声）' },
+    { key: 'narrator',    name: VOICE_PRESETS['narrator'].name,    label: '旁白·云健（成熟男声）' },
+    { key: 'female',      name: VOICE_PRESETS['female'].name,      label: '女配·晓依（年轻女声）' },
+    { key: 'male',        name: VOICE_PRESETS['male'].name,        label: '男配·云扬（洪亮男声）' },
+    { key: 'male-deep',   name: VOICE_PRESETS['male-deep'].name,   label: '反派·云夏（低沉男声）' },
+    { key: 'male-elder',  name: VOICE_PRESETS['male-elder'].name,  label: '老者·云扬降速（老成男声）' },
   ]
+}
+
+/** 根据 preset key 获取 EdgeTTS 构造参数 */
+function getVoiceConfig(key: string): { voice: string; rate: string; pitch: string; volume: string } {
+  const cfg = VOICE_PRESETS[key] || VOICE_PRESETS['female']
+  return {
+    voice: cfg.name,
+    rate: cfg.rate || 'default',
+    pitch: cfg.pitch || 'default',
+    volume: cfg.volume || 'default',
+  }
 }
 
 export interface GenerateVoiceInput {
@@ -106,18 +124,21 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   mkdirSync(audioDir, { recursive: true })
 
   const { EdgeTTS } = await import('node-edge-tts')
-  const voiceName = VOICE_PRESETS[voicePreset] || VOICE_PRESETS['female']
-
   const db = getDb()
+  const fallbackCfg = getVoiceConfig(voicePreset || 'female')
+
+  console.log(`[voice] shot=${shotId.slice(0,8)} voicePreset=${voicePreset} voiceName=${fallbackCfg.voice} textLen=${text.length}`)
 
   // 检查是否多角色：文本中是否有 "角色名：" 模式
   const hasCharPrefix = /(?<=^|[。！？])\s*[^。！？：:]+[：:]/.test(text)
+  console.log(`[voice] hasCharPrefix=${hasCharPrefix} textFirst=${text.slice(0, 60)}`)
 
   if (!hasCharPrefix) {
     // 单角色 / 已清洗文本 → 直接生成
     const outputPath = join(audioDir, `${shotId}.mp3`)
     const cleanText = cleanBrackets(text)
-    const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
+    console.log(`[voice] single-voice → ${fallbackCfg.voice} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
@@ -130,12 +151,15 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   for (const c of allChars) {
     if (c.voice_preset) charVoiceMap[c.name] = c.voice_preset
   }
+  console.log(`[voice] charVoiceMap keys:`, Object.keys(charVoiceMap).join(', '))
   const turns = parseTurns(text, charVoiceMap, voicePreset || 'female')
+  console.log(`[voice] turns=${turns.length}:`, turns.map(t => `${t.voicePreset}→"${t.text.slice(0, 30)}"`).join(' | '))
   if (turns.length === 0) {
     // 解析失败，回退到单语音（清洗后）
     const outputPath = join(audioDir, `${shotId}.mp3`)
     const cleanText = cleanBrackets(text)
-    const tts = new EdgeTTS({ voice: voiceName, lang: 'zh-CN' })
+    console.log(`[voice] parseTurns返回0 → fallback single-voice`)
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume })
     await tts.ttsPromise(cleanText, outputPath)
     db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
     return outputPath
@@ -145,8 +169,8 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   const tempFiles: string[] = []
   for (const turn of turns) {
     const tmpPath = join(audioDir, `${shotId}_tmp_${randomUUID().slice(0, 8)}.mp3`)
-    const ttsVoice = VOICE_PRESETS[turn.voicePreset] || voiceName
-    const tts = new EdgeTTS({ voice: ttsVoice, lang: 'zh-CN' })
+    const cfg = getVoiceConfig(turn.voicePreset)
+    const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume })
     await tts.ttsPromise(turn.text, tmpPath)
     tempFiles.push(tmpPath)
   }
