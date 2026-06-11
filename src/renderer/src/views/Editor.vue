@@ -1465,7 +1465,15 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
   // 判断配音类型：对白 / 角色内心独白 / 系统旁白
   const narration = shot?.narration?.trim() || ''
   const dialogue = shot?.dialogue?.trim() || ''
-  const text = dialogue || narration
+  // 清洗文本：去掉角色名前缀（"林小薇："→""）和括号内表演提示（"（空灵温柔）"→""）
+  const cleanText = (raw: string): string => {
+    return raw
+      .replace(/[^：:]+[：:]/g, '')       // 去角色名："林小薇："→""
+      .replace(/[（(][^）)]*[）)]/g, '')   // 去括号："（空灵温柔）"→""
+      .replace(/\s+/g, ' ')               // 合并多余空格
+      .trim()
+  }
+  const text = cleanText(dialogue || narration)
   if (!text) {
     ElMessage.warning('该分镜没有对白或旁白')
     return
