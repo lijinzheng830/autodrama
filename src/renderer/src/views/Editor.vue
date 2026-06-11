@@ -1501,6 +1501,12 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
     }
     voicePreset = char.voice_preset
   }
+  // 无前缀兜底：旧数据或AI未遵循格式 → 用镜头关联角色发音人
+  else if (voicePreset === 'narrator') {
+    const charIds = shot.characters?.map((c: any) => c.id) || []
+    const firstChar = projectData.value?.characters?.find((c: any) => charIds.includes(c.id) && c.voice_preset)
+    if (firstChar?.voice_preset) voicePreset = firstChar.voice_preset
+  }
 
   try {
     const audioPath = await window.api.generateVoice({
