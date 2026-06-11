@@ -339,7 +339,7 @@ export function initDatabase(): Database.Database {
     // 模板版本升级：仅当官方模板版本号升级时才覆盖
     const tplVersionRow = db.prepare("SELECT value FROM settings WHERE key = 'template_data_version'").get() as { value: string } | undefined
     const currentTplVersion = parseInt(tplVersionRow?.value || '0', 10)
-    const TPL_DATA_VERSION = 13 // v13: 三字段前缀格式（角色名：/角色名的内心独白：/旁白：）
+    const TPL_DATA_VERSION = 14 // v14: STORYBOARD_PROMPT 示例值补前缀+DB强制刷新
     if (currentTplVersion < TPL_DATA_VERSION) {
       console.log(`[db] Template data upgrade: v${currentTplVersion} → v${TPL_DATA_VERSION}`)
       for (const item of registry) {
