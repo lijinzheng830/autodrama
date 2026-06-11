@@ -191,8 +191,9 @@ function toFileUrl(p: string): string {
 
         <!-- 配音 -->
         <div class="td col-voice">
-          <span v-if="shot.voice_path" style="color:#67c23a;font-size:14px">✅</span>
-          <el-button v-else text size="small" @click="emit('generate-voice', shot.id)">🎙️ 配音</el-button>
+          <el-button text size="small" @click="emit('generate-voice', shot.id)">
+            {{ shot.voice_path ? '🎙️ 重新配音' : '🎙️ 配音' }}
+          </el-button>
         </div>
 
         <!-- 首帧 -->
