@@ -1481,9 +1481,10 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
   }
   let voicePreset = 'narrator'
 
-  // 旁白：固定"旁白："
-  if (rawText.startsWith('旁白：')) {
-    voicePreset = 'narrator'
+  // 旁白：查项目中"旁白"角色的发音人，未设置则用 narrator
+  if (rawText.startsWith('旁白：') || rawText.startsWith('旁白:')) {
+    const nb = projectData.value?.characters?.find((c: any) => c.name === '旁白')
+    voicePreset = nb?.voice_preset || 'narrator'
   }
   // 内心独白："角色名的内心独白：" → 提取角色名
   else if (rawText.includes('的内心独白：') || rawText.includes('的内心独白:')) {
@@ -1540,8 +1541,9 @@ async function handleBatchGenerateVoices(): Promise<void> {
     if (!text2) continue
     let voicePreset2 = 'narrator'
     // 前缀路由——同个体配音逻辑
-    if (text2.startsWith('旁白：')) {
-      voicePreset2 = 'narrator'
+    if (text2.startsWith('旁白：') || text2.startsWith('旁白:')) {
+      const nb2 = projectData.value?.characters?.find((c: any) => c.name === '旁白')
+      voicePreset2 = nb2?.voice_preset || 'narrator'
     } else if (text2.includes('的内心独白：') || text2.includes('的内心独白:')) {
       const cn2 = text2.split('的内心独白')[0].trim()
       const c2 = projectData.value?.characters?.find((c: any) => c.name === cn2)

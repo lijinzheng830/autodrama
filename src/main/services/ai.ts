@@ -780,6 +780,18 @@ async function saveToDatabase(
       }
     }
 
+    // 4.5 自动创建"旁白"角色——用户可更换其发音人
+    const hasNarration = (shotsData.chapters || []).some((ch: any) =>
+      (ch.shots || []).some((s: any) => s.narration || '')
+    )
+    if (hasNarration && !charIdMap.has('旁白')) {
+      const nbId = randomUUID()
+      charIdMap.set('旁白', nbId)
+      db.prepare('INSERT INTO characters (id, project_id, name, description, description_zh) VALUES (?, ?, ?, ?, ?)').run(
+        nbId, projectId, '旁白', 'Narrator voice-over', '全知视角画外音旁白'
+      )
+    }
+
     // 5. 插入章节和分镜
     const insertChapter = db.prepare(
       'INSERT INTO chapters (id, project_id, chapter_index, title) VALUES (?, ?, ?, ?)'
