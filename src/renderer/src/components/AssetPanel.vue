@@ -339,10 +339,10 @@ async function onDeleteHImg(at: string, aid: string, iid: string): Promise<void>
       </div>
 
       <div v-if="String(detailType) === 'video'" class="detail-body">
-        <div class="detail-image-section"><video v-if="detailData?.video_path" :src="toFileUrl(detailData.video_path)" class="detail-main-image" @dblclick.stop="openFS(toFileUrl(detailData.video_path), undefined, true, $event)" @click.prevent /><div v-else class="detail-image-empty"><el-icon><VideoPlay /></el-icon><span>暂无视频</span></div></div>
+        <div class="detail-image-section"><video v-if="detailData?.video_path" :src="toFileUrl(detailData.video_path)" class="detail-main-image" controls @dblclick.stop="openFS(toFileUrl(detailData.video_path), undefined, true, $event)" /><div v-else class="detail-image-empty"><el-icon><VideoPlay /></el-icon><span>暂无视频</span></div></div>
         <div class="detail-field"><label>视频提示词</label><el-input :model-value="editVideoPrompt" @update:model-value="(v: string) => editVideoPrompt = v" @blur="handleVideoPromptSave" type="textarea" :rows="4" /></div>
         <div class="detail-generate"><el-button type="primary" :icon="VideoPlay" size="small" @click="emit('generate-video', { shotId: detailData?.id, projectId })">生成视频</el-button></div>
-        <div v-if="assetVideos.length > 0" class="history-grid"><div v-for="v in assetVideos" :key="v.id" class="history-item" :class="{ selected: v.is_selected }" @click="onSelectVideo(detailData?.id, v.id)"><video :src="toFileUrl(v.video_path)" /><el-button class="history-delete" size="small" circle :icon="Delete" @click.stop="onDeleteVideo(detailData?.id, v.id)" /></div></div>
+        <div v-if="assetVideos.length > 0" class="history-grid"><div v-for="v in assetVideos" :key="v.id" class="history-item" :class="{ selected: v.is_selected }" @click="onSelectVideo(detailData?.id, v.id)"><video :src="toFileUrl(v.video_path)" controls /><el-button class="history-delete" size="small" circle :icon="Delete" @click.stop="onDeleteVideo(detailData?.id, v.id)" /></div></div>
       </div>
 
       <div v-if="String(detailType) === 'voice'" class="detail-body"><div class="detail-placeholder">配音功能开发中</div></div>

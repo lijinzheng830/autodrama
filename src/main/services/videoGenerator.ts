@@ -316,6 +316,29 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       db.prepare(`INSERT INTO shot_videos (id,shot_id,video_path,is_selected,has_new_badge,created_at) VALUES (?,?,?,1,1,datetime('now','localtime'))`).run(randomUUID(), shotId, vp)
     }
     db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(videoPaths[0], shotId)
+
+    // 自动合成 Edge TTS 配音
+    const shotRow = db.prepare('SELECT voice_path FROM shots WHERE id = ?').get(shotId) as { voice_path: string | null } | undefined
+    if (shotRow?.voice_path && existsSync(shotRow.voice_path)) {
+      try {
+        const mergedPath = videoPaths[0].replace(/\.mp4$/i, '_merged.mp4')
+        const ffmpeg = resolveFfmpegPath()
+        // 遮盖字幕区域 (底部 15%) + 合并配音
+        execFileSync(ffmpeg, [
+          '-i', videoPaths[0],
+          '-i', shotRow.voice_path,
+          '-filter_complex', '[0:v]drawbox=y=ih*0.88:h=ih*0.12:color=black@1:t=fill[vo]',
+          '-map', '[vo]', '-map', '1:a:0',
+          '-c:v', 'libx264', '-c:a', 'aac',
+          '-pix_fmt', 'yuv420p', '-shortest', '-y', mergedPath
+        ], { timeout: 300000, stdio: 'pipe' })
+        db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(mergedPath, shotId)
+        console.log('[Video] Merged with voice:', mergedPath)
+      } catch (e) {
+        console.error('[Video] Audio merge failed, keeping original:', e)
+      }
+    }
+
     db.prepare(`UPDATE generation_tasks SET status='completed',output_path=?,updated_at=datetime('now','localtime') WHERE id=?`).run(videoPaths.join(','), taskId)
 
     return { taskId, videoPaths }

@@ -97,6 +97,8 @@ export const VOICE_PRESETS: Record<string, VoiceConfig> = {
   // 男声 — zh-CN-YunjianNeural（中年男音）
   'narrator':         { name: 'zh-CN-YunjianNeural' },
   'narrator-calm':    { name: 'zh-CN-YunjianNeural', pitch: '-10Hz' },
+  'narrator-fast':    { name: 'zh-CN-YunjianNeural', rate: '+10%' },
+  'narrator-faster':  { name: 'zh-CN-YunjianNeural', rate: '+20%' },
 
   // 男声 — zh-CN-YunyangNeural（正常男音）
   'male':             { name: 'zh-CN-YunyangNeural' },
@@ -128,6 +130,8 @@ export function listVoicePresets(): { key: string; name: string; label: string }
     { key: 'male-teen',        name: 'zh-CN-YunxiNeural',   label: '少年·男性（活泼）' },
     // 男声 — zh-CN-YunjianNeural（中年男音）
     { key: 'narrator',         name: 'zh-CN-YunjianNeural', label: '旁白·男性（成熟男声）' },
+    { key: 'narrator-fast',    name: 'zh-CN-YunjianNeural', label: '旁白·男性（语速+10%）' },
+    { key: 'narrator-faster',  name: 'zh-CN-YunjianNeural', label: '旁白·男性（语速+20%）' },
     { key: 'narrator-calm',    name: 'zh-CN-YunjianNeural', label: '沉稳旁白·男性（低沉）' },
     // 男声 — zh-CN-YunyangNeural（正常男音）
     { key: 'male',             name: 'zh-CN-YunyangNeural', label: '男配·男性（洪亮）' },
