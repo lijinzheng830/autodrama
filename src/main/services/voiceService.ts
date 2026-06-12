@@ -72,54 +72,70 @@ interface VoiceConfig {
   rate?: string
   pitch?: string
   volume?: string
-  style?: string   // Edge TTS express-as default style for this voice
 }
 
 export const VOICE_PRESETS: Record<string, VoiceConfig> = {
-  // 女声
+  // 女声 — zh-CN-XiaoxiaoNeural（女主音）
   'female-lead':      { name: 'zh-CN-XiaoxiaoNeural' },
+  'inner-voice':      { name: 'zh-CN-XiaoxiaoNeural' },
+  'female-gentle':    { name: 'zh-CN-XiaoxiaoNeural', pitch: '+10Hz' },
+  'female-narrative': { name: 'zh-CN-XiaoxiaoNeural', pitch: '-10Hz', rate: '+10%' },
+  'female-teen':      { name: 'zh-CN-XiaoxiaoNeural', pitch: '+15Hz', rate: '+10%' },
+  'female-cute':      { name: 'zh-CN-XiaoxiaoNeural', pitch: '+20Hz', rate: '+20%' },
+
+  // 女声 — zh-CN-XiaoyiNeural（萝莉音）
   'female':           { name: 'zh-CN-XiaoyiNeural' },
-  'female-child':     { name: 'zh-CN-XiaotongNeural' },
-  'female-teen':      { name: 'zh-CN-XiaoruiNeural' },
-  'female-gentle':    { name: 'zh-CN-XiaohanNeural' },
-  'female-crisp':     { name: 'zh-CN-XiaoshuangNeural' },
-  'female-narrative': { name: 'zh-CN-XiaoqiuNeural' },
-  'female-cute':      { name: 'zh-CN-XiaomengNeural' },
-  // 男声
+  'female-child':     { name: 'zh-CN-XiaoyiNeural', pitch: '+10Hz' },
+  'female-crisp':     { name: 'zh-CN-XiaoyiNeural', rate: '+10%' },
+
+  // 男声 — zh-CN-YunxiNeural（少年音）
   'male-lead':        { name: 'zh-CN-YunxiNeural' },
+  'male-warm':        { name: 'zh-CN-YunxiNeural', pitch: '-5Hz' },
+  'male-bright':      { name: 'zh-CN-YunxiNeural', pitch: '+5Hz', rate: '+10%' },
+  'male-teen':        { name: 'zh-CN-YunxiNeural', pitch: '+10Hz', rate: '+15%' },
+
+  // 男声 — zh-CN-YunjianNeural（中年男音）
   'narrator':         { name: 'zh-CN-YunjianNeural' },
+  'narrator-calm':    { name: 'zh-CN-YunjianNeural', pitch: '-10Hz' },
+
+  // 男声 — zh-CN-YunyangNeural（正常男音）
   'male':             { name: 'zh-CN-YunyangNeural' },
+  'male-serious':     { name: 'zh-CN-YunyangNeural', pitch: '-10Hz' },
+  'male-sly':         { name: 'zh-CN-YunyangNeural', pitch: '+10Hz' },
+
+  // 男声 — zh-CN-YunxiaNeural（正太音）
   'male-deep':        { name: 'zh-CN-YunxiaNeural' },
-  'male-warm':        { name: 'zh-CN-YunchenNeural' },
-  'male-bright':      { name: 'zh-CN-YunfanNeural' },
-  'male-serious':     { name: 'zh-CN-YunfengNeural' },
-  'male-teen':        { name: 'zh-CN-YunjieNeural' },
-  // 特殊
-  'inner-voice':      { name: 'zh-CN-XiaohanNeural', style: 'whispering' },
+  'male-young':       { name: 'zh-CN-YunxiaNeural', pitch: '+10Hz', rate: '+10%' },
 }
 
 export function listVoicePresets(): { key: string; name: string; label: string }[] {
   return [
-    // 女声
-    { key: 'female-lead',      name: VOICE_PRESETS['female-lead'].name,      label: '女主·女性（温暖知性）' },
-    { key: 'female',           name: VOICE_PRESETS['female'].name,           label: '女配·女性（年轻活力）' },
-    { key: 'female-child',     name: VOICE_PRESETS['female-child'].name,     label: '萝莉·女性（儿童声线）' },
-    { key: 'female-teen',      name: VOICE_PRESETS['female-teen'].name,      label: '少女·女性（明亮元气）' },
-    { key: 'female-gentle',    name: VOICE_PRESETS['female-gentle'].name,    label: '温柔·女性（软糯温柔）' },
-    { key: 'female-crisp',     name: VOICE_PRESETS['female-crisp'].name,     label: '爽朗·女性（干练利落）' },
-    { key: 'female-narrative', name: VOICE_PRESETS['female-narrative'].name, label: '叙述·女性（沉稳叙事）' },
-    { key: 'female-cute',      name: VOICE_PRESETS['female-cute'].name,      label: '萌系·女性（可爱甜腻）' },
-    // 男声
-    { key: 'male-lead',        name: VOICE_PRESETS['male-lead'].name,        label: '男主·男性（沉稳）' },
-    { key: 'narrator',         name: VOICE_PRESETS['narrator'].name,         label: '旁白·男性（成熟男声）' },
-    { key: 'male',             name: VOICE_PRESETS['male'].name,             label: '男配·男性（洪亮）' },
-    { key: 'male-deep',        name: VOICE_PRESETS['male-deep'].name,        label: '反派·男性（低沉）' },
-    { key: 'male-warm',        name: VOICE_PRESETS['male-warm'].name,        label: '暖男·男性（温和亲切）' },
-    { key: 'male-bright',      name: VOICE_PRESETS['male-bright'].name,      label: '阳光·男性（充满活力）' },
-    { key: 'male-serious',     name: VOICE_PRESETS['male-serious'].name,     label: '总裁·男性（严肃专业）' },
-    { key: 'male-teen',        name: VOICE_PRESETS['male-teen'].name,        label: '少年·男性（青春少年）' },
-    // 特殊
-    { key: 'inner-voice',      name: VOICE_PRESETS['inner-voice'].name,      label: '内心独白·女性（气声耳语）' },
+    // 女声 — zh-CN-XiaoxiaoNeural（女主音）
+    { key: 'female-lead',      name: 'zh-CN-XiaoxiaoNeural', label: '女主·女性（温暖知性）' },
+    { key: 'inner-voice',      name: 'zh-CN-XiaoxiaoNeural', label: '内心独白·女性（轻声）' },
+    { key: 'female-gentle',    name: 'zh-CN-XiaoxiaoNeural', label: '温柔·女性（软糯温柔）' },
+    { key: 'female-narrative', name: 'zh-CN-XiaoxiaoNeural', label: '叙述·女性（沉稳叙事）' },
+    { key: 'female-teen',      name: 'zh-CN-XiaoxiaoNeural', label: '少女·女性（明亮元气）' },
+    { key: 'female-cute',      name: 'zh-CN-XiaoxiaoNeural', label: '萌系·女性（活泼可爱）' },
+    // 女声 — zh-CN-XiaoyiNeural（萝莉音）
+    { key: 'female',           name: 'zh-CN-XiaoyiNeural',  label: '女配·女性（年轻活力）' },
+    { key: 'female-child',     name: 'zh-CN-XiaoyiNeural',  label: '萝莉·女性（儿童声线）' },
+    { key: 'female-crisp',     name: 'zh-CN-XiaoyiNeural',  label: '爽朗·女性（干练利落）' },
+    // 男声 — zh-CN-YunxiNeural（少年音）
+    { key: 'male-lead',        name: 'zh-CN-YunxiNeural',   label: '男主·男性（沉稳）' },
+    { key: 'male-warm',        name: 'zh-CN-YunxiNeural',   label: '温暖·男性（温柔男声）' },
+    { key: 'male-bright',      name: 'zh-CN-YunxiNeural',   label: '明亮·男性（阳光青年）' },
+    { key: 'male-teen',        name: 'zh-CN-YunxiNeural',   label: '少年·男性（活泼）' },
+    // 男声 — zh-CN-YunjianNeural（中年男音）
+    { key: 'narrator',         name: 'zh-CN-YunjianNeural', label: '旁白·男性（成熟男声）' },
+    { key: 'narrator-calm',    name: 'zh-CN-YunjianNeural', label: '沉稳旁白·男性（低沉）' },
+    // 男声 — zh-CN-YunyangNeural（正常男音）
+    { key: 'male',             name: 'zh-CN-YunyangNeural', label: '男配·男性（洪亮）' },
+    { key: 'male-serious',     name: 'zh-CN-YunyangNeural', label: '严肃·男性（沉稳）' },
+    { key: 'male-sly',         name: 'zh-CN-YunyangNeural', label: '奸诈·男性（阴险）' },
+    // 男声 — zh-CN-YunxiaNeural（正太音）
+    { key: 'male-deep',        name: 'zh-CN-YunxiaNeural',  label: '反派·男性（低沉）' },
+    { key: 'male-young',       name: 'zh-CN-YunxiaNeural',  label: '正太·男性（活泼）' },
   ]
 }
 
@@ -131,7 +147,7 @@ function getVoiceConfig(key: string): { voice: string; rate: string; pitch: stri
     rate: cfg.rate || 'default',
     pitch: cfg.pitch || 'default',
     volume: cfg.volume || 'default',
-    style: cfg.style || 'neutral',
+    style: 'neutral',
   }
 }
 
@@ -151,7 +167,7 @@ interface VoiceTurn {
 function parseTurns(rawDialogue: string, charVoiceMap: Record<string, string>, fallbackVoice: string): VoiceTurn[] {
   // 非角色名冒号前缀——后缀通配替代精确枚举
   const isNonCharName = (n: string): boolean => {
-    const exact = new Set(['系统', '旁白', '画外音', '机械音', '背景音', '紧急', '危险'])
+    const exact = new Set(['系统', '画外音', '机械音', '背景音', '紧急', '危险'])
     if (exact.has(n)) return true
     return n.endsWith('警告') || n.endsWith('提示') || n.endsWith('通知')
       || n.endsWith('广播') || n.endsWith('播报') || n.endsWith('公告')
@@ -224,14 +240,20 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   if (!hasCharPrefix) {
     // 单角色 / 已清洗文本 → 直接生成
     const outputPath = join(audioDir, `${shotId}.mp3`)
-    const { cleanText: emoText, style: emotionStyle } = extractEmotion(text)
+    const { cleanText: emoText } = extractEmotion(text)
     const cleanText = stripPrefix(emoText)
-    const finalStyle = emotionStyle || fallbackCfg.style || 'neutral'
-    console.log(`[voice] single-voice → ${fallbackCfg.voice} style=${finalStyle} rate=${fallbackCfg.rate} text="${cleanText.slice(0, 50)}"`)
-    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: finalStyle })
-    await tts.ttsPromise(cleanText, outputPath)
-    db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
-    return outputPath
+    console.log(`[voice] single-voice → ${fallbackCfg.voice} rate=${fallbackCfg.rate} pitch=${fallbackCfg.pitch} text="${cleanText.slice(0, 50)}"`)
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: 'neutral' })
+    try {
+      await tts.ttsPromise(cleanText, outputPath)
+      db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
+      return outputPath
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.error(`[voice] single-voice 失败 (${voicePreset}): ${errMsg}`)
+      const e = errMsg === 'Timed out' ? new Error(`shot ${shotId} TTS 超时`) : (err instanceof Error ? err : new Error(String(err)))
+      throw e
+    }
   }
 
   // 多角色对白 → 按角色拆分生成 → FFmpeg 拼接
@@ -247,65 +269,77 @@ export async function generateVoice(input: GenerateVoiceInput): Promise<string> 
   if (turns.length === 0) {
     // 解析失败，回退到单语音（清洗后）
     const outputPath = join(audioDir, `${shotId}.mp3`)
-    const { cleanText: emoText, style: emotionStyle } = extractEmotion(text)
+    const { cleanText: emoText } = extractEmotion(text)
     const cleanText = stripPrefix(emoText)
-    const finalStyle = emotionStyle || fallbackCfg.style || 'neutral'
-    console.log(`[voice] parseTurns返回0 → fallback style=${finalStyle}`)
-    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: finalStyle })
-    await tts.ttsPromise(cleanText, outputPath)
-    db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
-    return outputPath
+    console.log(`[voice] parseTurns返回0 → fallback rate=${fallbackCfg.rate} pitch=${fallbackCfg.pitch}`)
+    const tts = new EdgeTTS({ voice: fallbackCfg.voice, lang: 'zh-CN', rate: fallbackCfg.rate, pitch: fallbackCfg.pitch, volume: fallbackCfg.volume, timeout: 60000, style: 'neutral' })
+    try {
+      await tts.ttsPromise(cleanText, outputPath)
+      db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
+      return outputPath
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.error(`[voice] parseTurns-fallback 失败 (${voicePreset}): ${errMsg}`)
+      throw err
+    }
   }
 
-  // 逐句生成
+  // 逐句生成——单句 15s 超时，失败不阻断后续 turn
   const tempFiles: string[] = []
-  for (const turn of turns) {
+  for (const [i, turn] of turns.entries()) {
     const tmpPath = join(audioDir, `${shotId}_tmp_${randomUUID().slice(0, 8)}.mp3`)
     const cfg = getVoiceConfig(turn.voicePreset)
-    const { style: emoStyle } = extractEmotion(turn.text)
-    const style = emoStyle || cfg.style || 'neutral'
     const cleanTurnText = stripPrefix(turn.text)
-    const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume, timeout: 60000, style })
-    await tts.ttsPromise(cleanTurnText, tmpPath)
-    tempFiles.push(tmpPath)
+    const t0 = Date.now()
+    try {
+      const tts = new EdgeTTS({ voice: cfg.voice, lang: 'zh-CN', rate: cfg.rate, pitch: cfg.pitch, volume: cfg.volume, timeout: 60000, style: 'neutral' })
+      await tts.ttsPromise(cleanTurnText, tmpPath)
+      tempFiles.push(tmpPath)
+      console.log(`[voice] turn ${i + 1}/${turns.length} done in ${Date.now() - t0}ms`)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.error(`[voice] turn ${i + 1}/${turns.length} 失败 (${turn.voicePreset}): ${errMsg}`)
+    }
   }
+
+  if (tempFiles.length === 0) throw new Error(`shot ${shotId} 所有 turn 均生成失败`)
 
   // FFmpeg 拼接
   const outputPath = join(audioDir, `${shotId}.mp3`)
-  if (tempFiles.length === 1) {
-    const { renameSync } = require('fs') as typeof import('fs')
-    renameSync(tempFiles[0], outputPath)
-  } else {
-    // 构建 concat file list
-    const listPath = join(audioDir, `${shotId}_concat.txt`)
-    const lines = tempFiles.map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
-    writeFileSync(listPath, lines.join('\n'), 'utf8')
-    try {
-      execFileSync(findFfmpeg(), [
-        '-f', 'concat', '-safe', '0', '-i', listPath,
-        '-c', 'copy', '-y', outputPath
-      ], { timeout: 120000, stdio: 'pipe' })
-    } catch {
-      // concat demuxer 失败时回退到 concat filter
-      const inputs: string[] = []
-      const filters: string[] = []
-      for (let i = 0; i < tempFiles.length; i++) {
-        inputs.push('-i', tempFiles[i])
-        filters.push(`[${i}:a:0]`)
+  const listPath = join(audioDir, `${shotId}_concat.txt`)
+  try {
+    if (tempFiles.length === 1) {
+      const { renameSync } = require('fs') as typeof import('fs')
+      renameSync(tempFiles[0], outputPath)
+    } else {
+      const lines = tempFiles.map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
+      writeFileSync(listPath, lines.join('\n'), 'utf8')
+      try {
+        execFileSync(findFfmpeg(), [
+          '-f', 'concat', '-safe', '0', '-i', listPath,
+          '-c', 'copy', '-y', outputPath
+        ], { timeout: 120000, stdio: 'pipe' })
+      } catch {
+        // concat demuxer 失败时回退到 concat filter
+        const inputs: string[] = []
+        const filters: string[] = []
+        for (let i = 0; i < tempFiles.length; i++) {
+          inputs.push('-i', tempFiles[i])
+          filters.push(`[${i}:a:0]`)
+        }
+        execFileSync(findFfmpeg(), [
+          ...inputs,
+          '-filter_complex', `${filters.join('')}concat=n=${tempFiles.length}:v=0:a=1[out]`,
+          '-map', '[out]', '-y', outputPath
+        ], { timeout: 120000, stdio: 'pipe' })
       }
-      execFileSync(findFfmpeg(), [
-        ...inputs,
-        '-filter_complex', `${filters.join('')}concat=n=${tempFiles.length}:v=0:a=1[out]`,
-        '-map', '[out]', '-y', outputPath
-      ], { timeout: 120000, stdio: 'pipe' })
     }
-    // 清理
+    db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
+    return outputPath
+  } finally {
     for (const f of tempFiles) { try { unlinkSync(f) } catch {} }
     try { unlinkSync(listPath) } catch {}
   }
-
-  db.prepare('UPDATE shots SET voice_path = ? WHERE id = ?').run(outputPath, shotId)
-  return outputPath
 }
 
 /**
@@ -325,7 +359,8 @@ export async function batchGenerateVoices(
     if (r.status === 'fulfilled') {
       results[r.value.shotId] = r.value.path
     } else {
-      console.error('[voice] 失败:', r.reason?.message || r.reason)
+      const batchErr = r.reason instanceof Error ? r.reason.message : String(r.reason)
+      console.error('[voice] 失败:', batchErr)
     }
   }
   return results

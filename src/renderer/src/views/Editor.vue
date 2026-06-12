@@ -1473,48 +1473,49 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
   const innerMonologue = (shot as any).inner_monologue?.trim() || ''
   const narration = shot?.narration?.trim() || ''
 
-  // 三路并行配音：每种类型独立文本，全部传入后端（逐句解析+拼接）
-  const parts: string[] = [dialogue, innerMonologue, narration].filter(Boolean)
-  if (parts.length === 0) {
-    ElMessage.warning('该分镜没有对白、内心独白或旁白')
-    return
-  }
-  const rawText = parts.join('\n')
-  let voicePreset = 'narrator'
+  // DB 字段类型即真相源——不用前缀重新推断，避免残留字段污染
+  let text: string
+  let voicePreset: string
 
-  // 旁白：查项目中"旁白"角色的发音人，未设置则用 narrator
-  if (rawText.startsWith('旁白：') || rawText.startsWith('旁白:')) {
+  if (narration) {
+    text = narration
     const nb = projectData.value?.characters?.find((c: any) => c.name === '旁白')
     voicePreset = nb?.voice_preset || 'narrator'
-  }
-  // 内心独白："角色名的内心独白：" → 提取角色名
-  else if (rawText.includes('的内心独白：') || rawText.includes('的内心独白:')) {
-    const charName = rawText.split('的内心独白')[0].trim()
-    const char = projectData.value?.characters?.find((c: any) => c.name === charName)
-    voicePreset = char?.voice_preset || 'inner-voice'
-  }
-  // 对白："角色名："
-  else if (/^[^：:]+[：:]/.test(rawText)) {
-    const charName = rawText.match(/^([^：:]+)[：:]/)![1]
-    const char = projectData.value?.characters?.find((c: any) => c.name === charName)
-    if (!char?.voice_preset) {
-      ElMessage.warning(`请先为角色"${charName}"设置发音人`)
-      return
+  } else if (innerMonologue) {
+    text = innerMonologue
+    const m = innerMonologue.match(/^([^：:]+)\s*的内心独白[：:]/)
+    if (m) {
+      const char = projectData.value?.characters?.find((c: any) => c.name === m[1])
+      voicePreset = char?.voice_preset || 'inner-voice'
+    } else {
+      voicePreset = 'inner-voice'
     }
-    voicePreset = char.voice_preset
-  }
-  // 无前缀兜底：旧数据或AI未遵循格式 → 用镜头关联角色发音人
-  else if (voicePreset === 'narrator') {
-    const charIds = shot.characters?.map((c: any) => c.id) || []
-    const firstChar = projectData.value?.characters?.find((c: any) => charIds.includes(c.id) && c.voice_preset)
-    if (firstChar?.voice_preset) voicePreset = firstChar.voice_preset
+  } else if (dialogue) {
+    text = dialogue
+    const m = dialogue.match(/^([^：:]+)[：:]/)
+    if (m) {
+      const char = projectData.value?.characters?.find((c: any) => c.name === m[1])
+      if (!char?.voice_preset) {
+        ElMessage.warning(`请先为角色"${m[1]}"设置发音人`)
+        return
+      }
+      voicePreset = char.voice_preset
+    } else {
+      // 无前缀旧数据：用镜头关联角色发音人兜底
+      const charIds = shot.characters?.map((c: any) => c.id) || []
+      const firstChar = projectData.value?.characters?.find((c: any) => charIds.includes(c.id) && c.voice_preset)
+      voicePreset = firstChar?.voice_preset || 'female'
+    }
+  } else {
+    ElMessage.warning('该分镜没有对白、内心独白或旁白')
+    return
   }
 
   try {
     const audioPath = await window.api.generateVoice({
       projectId,
       shotId,
-      text: rawText,
+      text,
       voicePreset
     })
     shot.voice_path = audioPath
@@ -1538,23 +1539,41 @@ async function handleBatchGenerateVoices(): Promise<void> {
     const dialogue2 = shot.dialogue?.trim() || ''
     const inner2 = (shot as any).inner_monologue?.trim() || ''
     const narration2 = shot.narration?.trim() || ''
-    const text2 = dialogue2 || inner2 || narration2
-    if (!text2) continue
-    let voicePreset2 = 'narrator'
-    // 前缀路由——同个体配音逻辑
-    if (text2.startsWith('旁白：') || text2.startsWith('旁白:')) {
+
+    // DB 字段类型即真相源——同个体配音逻辑
+    let text2: string
+    let voicePreset2: string
+
+    if (narration2) {
+      text2 = narration2
       const nb2 = projectData.value?.characters?.find((c: any) => c.name === '旁白')
       voicePreset2 = nb2?.voice_preset || 'narrator'
-    } else if (text2.includes('的内心独白：') || text2.includes('的内心独白:')) {
-      const cn2 = text2.split('的内心独白')[0].trim()
-      const c2 = projectData.value?.characters?.find((c: any) => c.name === cn2)
-      voicePreset2 = c2?.voice_preset || 'inner-voice'
-    } else if (/^[^：:]+[：:]/.test(text2)) {
-      const cn2 = text2.match(/^([^：:]+)[：:]/)![1]
-      const c2 = projectData.value?.characters?.find((c: any) => c.name === cn2)
-      if (!c2?.voice_preset) continue
-      voicePreset2 = c2.voice_preset
+    } else if (inner2) {
+      text2 = inner2
+      const m2 = inner2.match(/^([^：:]+)\s*的内心独白[：:]/)
+      if (m2) {
+        const c2 = projectData.value?.characters?.find((c: any) => c.name === m2[1])
+        voicePreset2 = c2?.voice_preset || 'inner-voice'
+      } else {
+        voicePreset2 = 'inner-voice'
+      }
+    } else if (dialogue2) {
+      text2 = dialogue2
+      const m2 = dialogue2.match(/^([^：:]+)[：:]/)
+      if (m2) {
+        const c2 = projectData.value?.characters?.find((c: any) => c.name === m2[1])
+        if (!c2?.voice_preset) continue
+        voicePreset2 = c2.voice_preset
+      } else {
+        const charIds2 = shot.characters?.map((c: any) => c.id) || []
+        const firstChar2 = projectData.value?.characters?.find((c: any) => charIds2.includes(c.id) && c.voice_preset)
+        if (!firstChar2?.voice_preset) continue
+        voicePreset2 = firstChar2.voice_preset
+      }
+    } else {
+      continue
     }
+
     inputs.push({ projectId, shotId: shot.id, text: text2, voicePreset: voicePreset2 })
   }
 
