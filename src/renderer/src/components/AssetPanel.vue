@@ -11,6 +11,7 @@ const props = defineProps<{
   projectId: string; projectPath: string; projectData: any
   panelMode: 'resident' | 'detail'; residentTab: 'characters' | 'scenes' | 'props'
   detailType: string; detailData: any; searchKeyword: string
+  generatingVideo?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 
 const assetImages = ref<any[]>([])
 const assetVideos = ref<any[]>([])
+const merging = ref(false)
 const multiAngleAnchors = ref<Record<string, string> | null>(null)
 const missingAngles = computed(() => {
   if (!multiAngleAnchors.value) return []
@@ -122,9 +124,31 @@ async function onDeleteShotImg(sid: string, iid: string): Promise<void> {
 }
 async function onSelectVideo(sid: string, vid: string): Promise<void> {
   await (window as any).api.selectShotVideo(sid, vid)
+  await loadShotVideos(sid)
+  const selected = assetVideos.value.find((v: any) => v.is_selected)
+  if (props.detailData) props.detailData.video_path = selected?.video_path || ''
 }
 async function onDeleteVideo(sid: string, vid: string): Promise<void> {
-  await (window as any).api.deleteShotVideo(sid, vid); await loadShotVideos(sid)
+  await (window as any).api.deleteShotVideo(sid, vid)
+  await loadShotVideos(sid)
+  const selected = assetVideos.value.find((v: any) => v.is_selected)
+  if (props.detailData) props.detailData.video_path = selected?.video_path || ''
+}
+
+async function handleMergeAudio(): Promise<void> {
+  const sid = props.detailData?.id
+  if (!sid) return
+  merging.value = true
+  try {
+    const mergedPath = await (window as any).api.mergeVideoWithAudio(sid)
+    if (props.detailData) props.detailData.video_path = mergedPath
+    await loadShotVideos(sid)
+    ElMessage.success('配音已合成')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '合成失败')
+  } finally {
+    merging.value = false
+  }
 }
 
 watch(() => props.detailData, (data) => {
@@ -339,10 +363,10 @@ async function onDeleteHImg(at: string, aid: string, iid: string): Promise<void>
       </div>
 
       <div v-if="String(detailType) === 'video'" class="detail-body">
-        <div class="detail-image-section"><video v-if="detailData?.video_path" :src="toFileUrl(detailData.video_path)" class="detail-main-image" controls @dblclick.stop="openFS(toFileUrl(detailData.video_path), undefined, true, $event)" /><div v-else class="detail-image-empty"><el-icon><VideoPlay /></el-icon><span>暂无视频</span></div></div>
+        <div class="detail-image-section"><video v-if="detailData?.video_path" :src="toFileUrl(detailData.video_path)" class="detail-main-image" controls controlslist="nofullscreen" @dblclick.stop.prevent="openFS(toFileUrl(detailData.video_path), undefined, true, $event)" /><div v-else class="detail-image-empty"><el-icon><VideoPlay /></el-icon><span>暂无视频</span></div></div>
         <div class="detail-field"><label>视频提示词</label><el-input :model-value="editVideoPrompt" @update:model-value="(v: string) => editVideoPrompt = v" @blur="handleVideoPromptSave" type="textarea" :rows="4" /></div>
-        <div class="detail-generate"><el-button type="primary" :icon="VideoPlay" size="small" @click="emit('generate-video', { shotId: detailData?.id, projectId })">生成视频</el-button></div>
-        <div v-if="assetVideos.length > 0" class="history-grid"><div v-for="v in assetVideos" :key="v.id" class="history-item" :class="{ selected: v.is_selected }" @click="onSelectVideo(detailData?.id, v.id)"><video :src="toFileUrl(v.video_path)" controls /><el-button class="history-delete" size="small" circle :icon="Delete" @click.stop="onDeleteVideo(detailData?.id, v.id)" /></div></div>
+        <div class="detail-generate"><el-button type="primary" :icon="VideoPlay" size="small" :loading="props.generatingVideo" @click="emit('generate-video', { shotId: detailData?.id, projectId })">生成视频</el-button><el-button v-if="detailData?.video_path && detailData?.voice_path" type="success" size="small" :loading="merging" @click="handleMergeAudio">合成配音</el-button></div>
+        <div v-if="assetVideos.length > 0" class="history-grid"><div v-for="v in assetVideos" :key="v.id" class="history-item" :class="{ selected: v.is_selected }" @click="onSelectVideo(detailData?.id, v.id)"><video :src="toFileUrl(v.video_path)" /><el-button class="history-delete" size="small" circle :icon="Delete" @click.stop="onDeleteVideo(detailData?.id, v.id)" /></div></div>
       </div>
 
       <div v-if="String(detailType) === 'voice'" class="detail-body"><div class="detail-placeholder">配音功能开发中</div></div>
@@ -373,10 +397,11 @@ async function onDeleteHImg(at: string, aid: string, iid: string): Promise<void>
 .detail-placeholder{color:#666;text-align:center;padding:40px 0;font-size:14px}
 .detail-field label{display:block;font-size:12px;color:#999;margin-bottom:4px}
 .detail-generate{display:flex;gap:8px;align-items:center}
-.history-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
-.history-item{position:relative;cursor:pointer;border:2px solid transparent;border-radius:4px;overflow:hidden}
+.history-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.history-item{position:relative;cursor:pointer;border:2px solid transparent;border-radius:6px;overflow:hidden}
 .history-item.selected{border-color:#409eff}
-.history-item img,.history-item video{width:100%;aspect-ratio:1;object-fit:cover}
+.history-item img,.history-item video{width:100%;aspect-ratio:16/9;object-fit:cover}
+.history-item video{pointer-events:none}
 .history-delete{position:absolute;top:2px;right:2px;opacity:0;width:18px;height:18px;min-height:18px;background:#e03a3a;border-color:#e03a3a;color:#fff}
 .history-item:hover .history-delete{opacity:.9}
 .anchor-status{background:#1e1e38;border-radius:8px;padding:10px}

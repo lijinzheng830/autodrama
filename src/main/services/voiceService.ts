@@ -206,8 +206,9 @@ function findFfmpeg(): string {
   const { existsSync } = require('fs') as typeof import('fs')
   const { join: pJoin } = require('path') as typeof import('path')
   const candidates = [
-    pJoin(require('electron').app?.getPath('exe') || '', '..', 'resources', 'ffmpeg', 'ffmpeg.exe'),
     pJoin(__dirname, '..', '..', 'resources', 'ffmpeg', 'ffmpeg.exe'),
+    pJoin(__dirname, '..', '..', '..', 'resources', 'ffmpeg', 'ffmpeg.exe'),
+    pJoin(require('electron').app?.getPath('exe') || '', '..', 'resources', 'ffmpeg', 'ffmpeg.exe'),
     'ffmpeg', 'ffmpeg.exe',
   ]
   for (const c of candidates) {

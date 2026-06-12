@@ -53,7 +53,7 @@ const emit = defineEmits<{
   // 生成记录
   (e: 'update:genRecordVisible', v: boolean): void; (e: 'update:genRecordTab', v: string): void
   (e: 'update:genRecordStatusFilter', v: string): void; (e: 'update:genRecordTypeFilter', v: string): void
-  (e: 'gen-record-reload'): void; (e: 'gen-record-retry', record: any): void
+  (e: 'gen-record-reload'): void; (e: 'gen-record-retry', record: any): void; (e: 'gen-record-delete', taskId: string): void
   // AI 解析
   (e: 'update:parseDialogVisible', v: boolean): void; (e: 'update:parseScriptText', v: string): void
   (e: 'update:selectedTemplate', v: string): void; (e: 'update:selectedModel', v: string): void
@@ -212,7 +212,7 @@ const filteredRecords = computed(() => {
                 <el-tooltip v-if="r.error_message" :content="r.error_message" placement="top" :show-after="200">
                   <el-button text size="small">详情</el-button>
                 </el-tooltip>
-                <span v-else-if="r.status !== 'failed'" class="action-placeholder">—</span>
+                <el-button text size="small" type="danger" @click="emit('gen-record-delete', r.id)">删除</el-button>
               </td>
             </tr>
           </tbody>

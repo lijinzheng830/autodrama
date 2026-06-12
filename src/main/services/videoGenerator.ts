@@ -99,6 +99,8 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       ? 'MUST output a square 1:1 video (width:1024 height:1024).'
       : 'MUST output a horizontal 16:9 landscape widescreen video (width:1792 height:1024).'
 
+  const durationDirective = 'CRITICAL: MUST output EXACTLY a 10-second video. Duration must be exactly 10 seconds — not 8s, not 6s, not 3s. If the action or scene content is short, extend with natural pauses, slow camera moves, atmospheric lingering shots, or ambient environmental motion to fill the full 10 seconds.'
+
   // 有首帧图则提示视频从该构图开始
   let frameGuidance = ''
   if (shot.first_frame_image_path) {
@@ -149,7 +151,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
 
   // 用换行分隔比例指令和内容——视觉指令（不含台词文本）提到最前面
   const tailGuard = 'FINAL CHECK: Verify zero text, zero subtitles, zero captions on every frame before output.'
-  const finalPrompt = [visualDirective, `[COMPOSITION] ${compositionGuide}`, arDirective, stabilityDirective, noSubtitlesDirective, `Video description: ${translatedVideoPrompt}.`, shotContext, refGuidance, frameGuidance, `Style: ${finalStylePrompt}`, tailGuard].filter(Boolean).join('\n')
+  const finalPrompt = [visualDirective, `[COMPOSITION] ${compositionGuide}`, arDirective, durationDirective, stabilityDirective, noSubtitlesDirective, `Video description: ${translatedVideoPrompt}.`, shotContext, refGuidance, frameGuidance, `Style: ${finalStylePrompt}`, tailGuard].filter(Boolean).join('\n')
 
   // 收集参考图：首帧图 + 角色定妆照 + 场景图（相对路径用project.path拼接）
   const videoRefImages: string[] = []
@@ -186,9 +188,9 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
   const purposeConfig = projectConfig[purposeKey] || {}
   const videoOverrides = purposeConfig as any
   const videoParams = {
-    num_frames: videoOverrides?.num_frames,
-    frame_rate: videoOverrides?.frame_rate,
-    num_inference_steps: videoOverrides?.num_inference_steps
+    num_frames: videoOverrides?.num_frames || 241,
+    frame_rate: videoOverrides?.frame_rate || 24,
+    num_inference_steps: videoOverrides?.num_inference_steps || 100
   }
 
   let finalPromptWithTemplate = finalPrompt
@@ -308,6 +310,34 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
       ], { timeout: 300000, stdio: 'pipe' })
       try { unlinkSync(rawPath) } catch {}
       console.log('[Video] Transcoded:', filePath)
+
+      // 时长兜底：< 10 秒 → 冻结最后一帧补到 10 秒
+      try {
+        const ffprobe = resolveFfmpegPath('ffprobe')
+        const out = execFileSync(ffprobe, [
+          '-v', 'error', '-show_entries', 'format=duration',
+          '-of', 'default=noprint_wrappers=1:nokey=1', filePath
+        ], { timeout: 10000, encoding: 'utf8' })
+        const duration = parseFloat(out.trim())
+        console.log(`[Video] duration=${duration.toFixed(1)}s`)
+        if (duration > 0 && duration < 10) {
+          const padSec = 10 - duration
+          console.log(`[Video] padding to 10s, tpad=${padSec.toFixed(1)}s`)
+          const paddedPath = join(videoDir, `${shotId}_padded_${Date.now()}_${i}.mp4`)
+          execFileSync(ffmpeg, [
+            '-i', filePath,
+            '-vf', `tpad=stop_mode=clone:stop_duration=${padSec.toFixed(1)}`,
+            '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+            '-an', '-y', paddedPath
+          ], { timeout: 120000, stdio: 'pipe' })
+          try { unlinkSync(filePath) } catch {}
+          videoPaths.push(paddedPath)
+          console.log('[Video] Padded to 10s:', paddedPath)
+          continue
+        }
+      } catch (e) {
+        console.error('[Video] Duration padding failed (ffprobe missing?):', e)
+      }
       videoPaths.push(filePath)
     }
 
@@ -318,26 +348,7 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(videoPaths[0], shotId)
 
     // 自动合成 Edge TTS 配音
-    const shotRow = db.prepare('SELECT voice_path FROM shots WHERE id = ?').get(shotId) as { voice_path: string | null } | undefined
-    if (shotRow?.voice_path && existsSync(shotRow.voice_path)) {
-      try {
-        const mergedPath = videoPaths[0].replace(/\.mp4$/i, '_merged.mp4')
-        const ffmpeg = resolveFfmpegPath()
-        // 遮盖字幕区域 (底部 15%) + 合并配音
-        execFileSync(ffmpeg, [
-          '-i', videoPaths[0],
-          '-i', shotRow.voice_path,
-          '-filter_complex', '[0:v]drawbox=y=ih*0.88:h=ih*0.12:color=black@1:t=fill[vo]',
-          '-map', '[vo]', '-map', '1:a:0',
-          '-c:v', 'libx264', '-c:a', 'aac',
-          '-pix_fmt', 'yuv420p', '-shortest', '-y', mergedPath
-        ], { timeout: 300000, stdio: 'pipe' })
-        db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(mergedPath, shotId)
-        console.log('[Video] Merged with voice:', mergedPath)
-      } catch (e) {
-        console.error('[Video] Audio merge failed, keeping original:', e)
-      }
-    }
+    try { mergeVideoAudio(shotId) } catch (e) { console.error('[Video] Auto-merge failed:', e) }
 
     db.prepare(`UPDATE generation_tasks SET status='completed',output_path=?,updated_at=datetime('now','localtime') WHERE id=?`).run(videoPaths.join(','), taskId)
 
@@ -346,6 +357,28 @@ export async function generateShotVideo(input: GenerateVideoInput): Promise<{ ta
     db.prepare(`UPDATE generation_tasks SET status='failed',error_message=?,updated_at=datetime('now','localtime') WHERE id=?`).run(err?.message||'视频生成失败', taskId)
     throw err
   }
+}
+
+/** 手动/自动合成视频+配音：遮盖字幕区域(底部12%) + 合并Edge TTS音频 */
+export function mergeVideoAudio(shotId: string): string {
+  const db = getDb()
+  const shot = db.prepare('SELECT video_path, voice_path FROM shots WHERE id = ?').get(shotId) as { video_path: string | null; voice_path: string | null } | undefined
+  if (!shot?.video_path || !existsSync(shot.video_path)) throw new Error('视频文件不存在')
+  if (!shot?.voice_path || !existsSync(shot.voice_path)) throw new Error('配音文件不存在')
+
+  const mergedPath = shot.video_path.replace(/\.mp4$/i, '_merged.mp4')
+  const ffmpeg = resolveFfmpegPath()
+  execFileSync(ffmpeg, [
+    '-i', shot.video_path,
+    '-i', shot.voice_path,
+    '-filter_complex', '[1:a]apad[a];[0:v]drawbox=y=ih*0.88:h=ih*0.12:color=black@1:t=fill[vo]',
+    '-map', '[vo]', '-map', '[a]',
+    '-c:v', 'libx264', '-c:a', 'aac',
+    '-pix_fmt', 'yuv420p', '-shortest', '-y', mergedPath
+  ], { timeout: 300000, stdio: 'pipe' })
+  db.prepare(`UPDATE shots SET video_path=? WHERE id=?`).run(mergedPath, shotId)
+  console.log('[Video] Merged:', mergedPath)
+  return mergedPath
 }
 
 async function callVideoGenerationAPI(
@@ -535,9 +568,11 @@ export interface ExportProgress {
 
 function resolveFfmpegPath(tool: 'ffmpeg' | 'ffprobe' = 'ffmpeg'): string {
   const exe = tool === 'ffprobe' ? 'ffprobe.exe' : 'ffmpeg.exe'
+  // 项目本地优先（Electron 自带 ffmpeg.dll 不含 ffprobe.exe）
   const candidates = [
-    join(process.resourcesPath || '', 'ffmpeg', exe),
     join(__dirname, '..', '..', 'resources', 'ffmpeg', exe),
+    join(__dirname, '..', '..', '..', 'resources', 'ffmpeg', exe),
+    join(process.resourcesPath || '', 'ffmpeg', exe),
   ]
   for (const p of candidates) {
     if (existsSync(p)) return p
@@ -580,11 +615,20 @@ function formatsMatch(a: VideoFormat | null, b: VideoFormat | null): boolean {
   return a.codec === b.codec && a.width === b.width && a.height === b.height && Math.abs(a.fps - b.fps) < 0.1
 }
 
+function formatSrtTime(ms: number): string {
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  const ms2 = ms % 1000
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms2).padStart(3, '0')}`
+}
+
 export function concatVideos(
   videoPaths: string[],
   outputPath: string,
   onProgress?: (progress: ExportProgress) => void,
-  voicePaths?: string[]
+  voicePaths?: string[],
+  srtPath?: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     if (videoPaths.length === 0) return reject(new Error('没有可拼接的视频'))
@@ -612,7 +656,7 @@ export function concatVideos(
           // 单文件 + 有配音 → 注入音频
           execFileSync(ffmpeg, [
             '-i', videoPaths[0], '-i', voicePath,
-            '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
+            '-c:v', 'copy', '-c:a', 'aac', '-filter_complex', '[1:a]apad[a]', '-map', '0:v:0', '-map', '[a]',
             '-shortest', '-y', outputPath
           ], { timeout: 600000, stdio: 'pipe' })
         } else {
@@ -658,7 +702,7 @@ export function concatVideos(
           tempFiles.push(tempPath)
           execFileSync(ffmpeg, [
             '-i', sources[i], '-i', vp,
-            '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
+            '-c:v', 'copy', '-c:a', 'aac', '-filter_complex', '[1:a]apad[a]', '-map', '0:v:0', '-map', '[a]',
             '-shortest', '-y', tempPath
           ], { timeout: 600000, stdio: 'pipe' })
           sources[i] = tempPath
@@ -696,6 +740,24 @@ export function concatVideos(
       child.on('close', (code) => {
         cleanup()
         if (code === 0) {
+          if (srtPath && existsSync(srtPath)) {
+            try {
+              onProgress?.({ status: 'encoding', percent: 95, message: '烧录字幕...' })
+              const subOutput = outputPath.replace(/\.mp4$/i, '_sub.mp4')
+              const { renameSync } = require('fs') as typeof import('fs')
+              execFileSync(ffmpeg, [
+                '-i', outputPath,
+                '-vf', `subtitles=${srtPath.replace(/\\/g, '/')}:force_style='Alignment=2,MarginV=150'`,
+                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                '-c:a', 'copy',
+                '-y', subOutput
+              ], { timeout: 600000, stdio: 'pipe' })
+              renameSync(subOutput, outputPath)
+              try { unlinkSync(srtPath) } catch {}
+            } catch (e) {
+              console.error('[Export] Subtitle burn failed:', e)
+            }
+          }
           onProgress?.({ status: 'completed', percent: 100, message: '导出完成' })
           resolve(outputPath)
         } else {
@@ -729,11 +791,19 @@ export async function concatShots(
 
   const videoPaths: string[] = []
   const voicePaths: string[] = []
+  const subtitleEntries: Array<{ text: string; voicePath: string }> = []
   for (const sid of shotIds) {
-    const shot = db.prepare('SELECT video_path, voice_path FROM shots WHERE id = ?').get(sid) as { video_path: string | null; voice_path: string | null } | undefined
+    const shot = db.prepare('SELECT video_path, voice_path, dialogue, narration, inner_monologue FROM shots WHERE id = ?').get(sid) as { video_path: string | null; voice_path: string | null; dialogue: string | null; narration: string | null; inner_monologue: string | null } | undefined
     if (shot?.video_path && existsSync(shot.video_path)) {
       videoPaths.push(shot.video_path)
       voicePaths.push(shot.voice_path && existsSync(shot.voice_path) ? shot.voice_path : '')
+      // 字幕文本优先级 = 配音路由（narration > inner_monologue > dialogue）
+      const rawText = (shot.narration || shot.inner_monologue || shot.dialogue || '').trim()
+      const cleanText = rawText
+        .replace(/^旁白[：:]\s*/, '')
+        .replace(/^[^：:]+\s*的内心独白[：:]\s*/, '')
+        .replace(/^[^：:]+[：:]\s*/, '')
+      subtitleEntries.push({ text: cleanText, voicePath: shot.voice_path || '' })
     }
   }
 
@@ -742,6 +812,36 @@ export async function concatShots(
   const name = outputFileName || `export_${Date.now()}.mp4`
   const outputPath = join(project.path, 'exports', name)
 
-  const result = await concatVideos(videoPaths, outputPath, onProgress, voicePaths)
+  // 生成 SRT 字幕
+  let srtPath = ''
+  const hasSubtitles = subtitleEntries.some(e => e.text)
+  if (hasSubtitles) {
+    const srtLines: string[] = []
+    let timeOffset = 0
+    const ffprobe = resolveFfmpegPath('ffprobe')
+    for (let i = 0; i < subtitleEntries.length; i++) {
+      const entry = subtitleEntries[i]
+      let durationMs = 3000
+      if (entry.voicePath && existsSync(entry.voicePath)) {
+        try {
+          const out = execFileSync(ffprobe, [
+            '-v', 'error', '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1', entry.voicePath
+          ], { timeout: 5000, encoding: 'utf8' })
+          durationMs = Math.round(parseFloat(out.trim()) * 1000) || 3000
+        } catch {}
+      }
+      if (entry.text) {
+        srtLines.push(`${i + 1}\n${formatSrtTime(timeOffset)} --> ${formatSrtTime(timeOffset + durationMs)}\n${entry.text}\n`)
+      }
+      timeOffset += durationMs
+    }
+    if (srtLines.length > 0) {
+      srtPath = outputPath.replace(/\.mp4$/i, '.srt')
+      writeFileSync(srtPath, srtLines.join('\n'), 'utf8')
+    }
+  }
+
+  const result = await concatVideos(videoPaths, outputPath, onProgress, voicePaths, srtPath || undefined)
   return { outputPath: result, shotCount: videoPaths.length }
 }

@@ -197,13 +197,16 @@ async function handleGenerateVideo(): Promise<void> {
   _videoGenerating = true
   try {
     const result = await window.api.generateVideo({ projectId, shotId: detailData.value.id })
-    ElMessage.success('视频生成任务已提交')
-    // 更新本地 shot 数据
+    // 更新本地 shot 数据 — 创建新对象引用触发 AssetPanel watch 重载
     if (result?.videoPaths?.length > 0) {
       const shot = projectData.value?.shots?.find((s: any) => s.id === detailData.value.id)
       if (shot) shot.video_path = result.videoPaths[0]
-      if (detailData.value) detailData.value.video_path = result.videoPaths[0]
+      if (detailData.value) {
+        detailData.value = { ...detailData.value, video_path: result.videoPaths[0] }
+      }
+      await nextTick()
     }
+    ElMessage.success('视频已生成')
     await loadGenerationRecords()
     startBroadcastPolling()
   } catch (err: any) {
@@ -1048,17 +1051,16 @@ async function handleBatchSubmit(mode: 'all' | 'missing'): Promise<void> {
       }
       const prog = batchProgress.value[type] || { current: 0, total }
       batchProgress.value[type] = { current: Math.min(prog.current + 1, total), total }
-      // 间隔 500ms（实测 Agnes 20并发无429限流，保守起见保留间隔）
+      // 间隔 500ms（实测 Agnes 20并发无429限流）
       await new Promise((r) => setTimeout(r, 500))
-      await new Promise((r) => requestAnimationFrame(r))
     }
   }
 
   // 并发策略基于实测：Agnes生图20并发零429，生视频10并发零429
-  // 安全上限：生图5并发、生视频3并发；间隔500ms避免超时
+  // 安全上限：生图5并发、生视频5并发（Agnes实测支持）
   const isVideoItem = (item: any) => item.kind === 'video'
   const hasVideos = taskItems.some(isVideoItem)
-  const workerCount = hasVideos ? Math.min(3, total) : Math.min(5, total)
+  const workerCount = hasVideos ? Math.min(5, total) : Math.min(5, total)
   const workers: Promise<void>[] = []
   for (let i = 0; i < workerCount; i++) {
     workers.push(worker())
@@ -1341,6 +1343,17 @@ async function retryTask(record: any): Promise<void> {
     await loadGenerationRecords()
   } catch (err) {
     ElMessage.error('重试失败')
+    console.error(err)
+  }
+}
+
+async function deleteGenRecord(taskId: string): Promise<void> {
+  try {
+    await window.api.deleteGenerationTask(taskId)
+    ElMessage.success('已删除')
+    await loadGenerationRecords()
+  } catch (err) {
+    ElMessage.error('删除失败')
     console.error(err)
   }
 }
@@ -2247,6 +2260,7 @@ onUnmounted(() => {
               :detail-type="detailType"
               :detail-data="detailData"
               :search-keyword="searchKeyword"
+              :generating-video="_videoGenerating"
               @update:panel-mode="(v: 'resident' | 'detail') => panelMode = v"
               @update:resident-tab="(v: 'characters' | 'scenes' | 'props') => residentTab = v"
               @update:search-keyword="(v: string) => searchKeyword = v"
@@ -2339,6 +2353,7 @@ onUnmounted(() => {
       @update:gen-record-type-filter="(v) => genRecordTypeFilter = v"
       @gen-record-reload="loadGenerationRecords"
       @gen-record-retry="retryTask"
+      @gen-record-delete="deleteGenRecord"
       @batch-cancel="handleCancelBatch"
       @update:batch-dialog-visible="(v) => batchDialogVisible = v"
       @update:batch-count="(v) => batchCount = v"

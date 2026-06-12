@@ -170,6 +170,7 @@ export interface Api {
   batchCreateGenerationTasks: (input: { projectId: string; tasks: Array<{ shotId?: string; type: string; purpose: string; channel?: string; model?: string; inputParams?: string }> }) => Promise<{ ids: string[] }>
   cancelGenerationTasks: (projectId: string) => Promise<{ count: number }>
   getGenerationTasks: (projectId: string, filters?: { status?: string; purpose?: string; since?: number }) => Promise<unknown[]>
+  deleteGenerationTask: (taskId: string) => Promise<void>
   selectImage: (projectPath: string) => Promise<string | null>
   selectExportDirectory: (defaultPath?: string) => Promise<string | null>
   copyExportFile: (src: string, dest: string) => Promise<boolean>
@@ -195,6 +196,7 @@ export interface Api {
   generateImage: (input: GenerateImageInput) => Promise<{ taskId: string; imagePaths: string[] }>
   generateVideo: (input: { projectId: string; shotId: string; model?: string; channel?: string; taskId?: string }) => Promise<{ taskId: string; videoPaths: string[] }>
   getShotVideos: (shotId: string) => Promise<any[]>
+  mergeVideoWithAudio: (shotId: string) => Promise<string>
   selectShotVideo: (shotId: string, videoId: string) => Promise<void>
   deleteShotVideo: (shotId: string, videoId: string) => Promise<void>
   concatVideos: (projectId: string, shotIds: string[], outputName?: string) => Promise<{ outputPath: string; shotCount: number }>

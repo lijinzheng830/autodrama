@@ -102,6 +102,8 @@ const api = {
     ipcRenderer.invoke('generationTask:cancel', projectId),
   getGenerationTasks: (projectId: string, filters?: { status?: string; purpose?: string; since?: number }) =>
     ipcRenderer.invoke('generationTask:list', projectId, filters),
+  deleteGenerationTask: (taskId: string) =>
+    ipcRenderer.invoke('generationTask:delete', taskId),
   selectImage: (projectPath: string) => ipcRenderer.invoke('dialog:selectImage', projectPath),
   selectExportDirectory: (defaultPath?: string) =>
     ipcRenderer.invoke('export:selectDirectory', defaultPath),
@@ -145,6 +147,7 @@ const api = {
   generateVideo: (input: { projectId: string; shotId: string; model?: string; channel?: string; taskId?: string }) =>
     ipcRenderer.invoke('video:generate', input),
   getShotVideos: (shotId: string) => ipcRenderer.invoke('video:getShotVideos', shotId),
+  mergeVideoWithAudio: (shotId: string) => ipcRenderer.invoke('video:mergeWithAudio', shotId),
   selectShotVideo: (shotId: string, videoId: string) =>
     ipcRenderer.invoke('video:selectShotVideo', { shotId, videoId }),
   deleteShotVideo: (shotId: string, videoId: string) =>

@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
-import { initDatabase } from './services/db'
+import { initDatabase, getDb } from './services/db'
 import {
   createProject,
   getProjects,
@@ -74,7 +74,7 @@ import { encrypt, decrypt } from './utils/crypto'
 import { checkLicense } from './utils/license'
 import { generateImage, generateShotImage, generateAngle } from './services/imageGenerator'
 import { getAssetImages, selectAssetImage, deleteAssetImage, getShotImages, selectShotImage, deleteShotImage, deleteShotVideo, getShotVideos, selectShotVideo, createMultiAngle, getMultiAngle } from './services/characterAnchorService'
-import { generateShotVideo, concatShots } from './services/videoGenerator'
+import { generateShotVideo, concatShots, mergeVideoAudio } from './services/videoGenerator'
 import { generateVoice, batchGenerateVoices, listVoicePresets } from './services/voiceService'
 import { exportStoryboardPDF } from './services/pdfExport'
 import type { GenerateImageInput } from './types'
@@ -338,6 +338,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('generationTask:cancel', async (_, projectId: string) => {
     return cancelGenerationTasks(projectId)
+  })
+
+  ipcMain.handle('generationTask:delete', async (_, taskId: string) => {
+    getDb().prepare('DELETE FROM generation_tasks WHERE id = ?').run(taskId)
   })
 
   ipcMain.handle('dialog:selectImage', async (_, projectPath: string) => {
@@ -629,6 +633,10 @@ app.whenReady().then(() => {
     const proj = getProject(input.projectId)
     if (!proj) throw new Error('项目不存在')
     return generateShotVideo(input)
+  })
+
+  ipcMain.handle('video:mergeWithAudio', async (_, shotId: string) => {
+    return mergeVideoAudio(shotId)
   })
 
   ipcMain.handle('video:getShotVideos', async (_, shotId: string) => {
