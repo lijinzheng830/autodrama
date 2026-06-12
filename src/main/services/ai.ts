@@ -852,56 +852,60 @@ async function saveToDatabase(
         let narrationText = (shot as any).narration || ''
         let innerText = (shot as any).inner_monologue || ''
 
-        // 把所有非空文本汇合，按前缀重新分配
-        const allTexts: string[] = []
-        if (dialogueText) allTexts.push(dialogueText)
-        if (narrationText) allTexts.push(narrationText)
-        if (innerText) allTexts.push(innerText)
+        // 把所有非空文本汇合，先拆 \n 再按前缀逐句重新分配
+        // 关键：AI 可能把对白+旁白拼到一个字段里，必须拆行独立处理
+        const rawChunks: Array<{ text: string; fromField: string }> = []
+        if (dialogueText) rawChunks.push({ text: dialogueText, fromField: 'dialogue' })
+        if (narrationText) rawChunks.push({ text: narrationText, fromField: 'narration' })
+        if (innerText) rawChunks.push({ text: innerText, fromField: 'inner_monologue' })
         dialogueText = ''; narrationText = ''; innerText = ''
 
-        for (const t of allTexts) {
-          // "旁白：" → narration
-          if (t.startsWith('旁白：') || t.startsWith('旁白:')) {
-            narrationText = narrationText ? narrationText + '\n' + t : t
+        // 拆 \n → 逐句匹配
+        const sentences = rawChunks.flatMap(ch =>
+          ch.text.split('\n').filter((s: string) => s.trim()).map((s: string) => ({ text: s.trim(), fromField: ch.fromField }))
+        )
+
+        const classify = (t: string, fromField: string): string => {
+          if (t.startsWith('旁白：') || t.startsWith('旁白:')) return 'narration'
+          if (t.includes('的内心独白：') || t.includes('的内心独白:')) return 'inner'
+          // 冒号系统词
+          if (/^[^：:]{1,8}[：:]/.test(t)) {
+            const n = t.match(/^([^：:]{1,8})[：:]/)?.[1] || ''
+            if (n.endsWith('警告') || n.endsWith('警报') || n.endsWith('提示')
+              || n.endsWith('通知') || n.endsWith('广播') || n.endsWith('播報')
+              || n === '系統' || n === '旁白' || n === '画外音') return 'narration-forceprefix'
+            return 'dialogue'
           }
-          // "XX的内心独白：" → inner
-          else if (t.includes('的内心独白：') || t.includes('的内心独白:')) {
-            innerText = innerText ? innerText + '\n' + t : t
+          // 感叹号系统词
+          if (/^[^！：:]{1,8}[！]/.test(t)) {
+            const n = t.match(/^([^！：:]{1,8})[！]/)?.[1] || ''
+            if (n.endsWith('警告') || n.endsWith('警报') || n.endsWith('提示') || n.endsWith('注意')) return 'narration-forceprefix'
+            return 'dialogue'
           }
-          // "角色名：" → dialogue（但系统词如"警告""警报"等移到旁白）
-          else if (/^[^：:]{1,8}[：:]/.test(t)) {
-            const prefixName = t.match(/^([^：:]{1,8})[：:]/)?.[1] || ''
-            const isSystemWord = prefixName.endsWith('警告') || prefixName.endsWith('警报') || prefixName.endsWith('提示')
-              || prefixName.endsWith('通知') || prefixName.endsWith('广播') || prefixName.endsWith('播报')
-              || prefixName === '系统' || prefixName === '旁白' || prefixName === '画外音'
-            if (isSystemWord) {
-              narrationText = narrationText ? narrationText + '\n' + '旁白：' + t.replace(/^[^：:]+[：:]/, '') : '旁白：' + t.replace(/^[^：:]+[：:]/, '')
-            } else {
-              dialogueText = dialogueText ? dialogueText + '\n' + t : t
-            }
+          // 无前缀 → 根据来源字段决定
+          if (fromField === 'narration') {
+            if (/我|自己/.test(t) && t.length < 40 && /[……？！]/.test(t)) return 'inner'
+            return 'narration-forceprefix'
           }
-          // 系统词感叹号前缀（如"警报！"）→ 移入旁白
-          else if (/^[^！：:]{1,8}[！]/.test(t)) {
-            const sysName = t.match(/^([^！：:]{1,8})[！]/)?.[1] || ''
-            const sys = sysName.endsWith('警告') || sysName.endsWith('警报') || sysName.endsWith('提示') || sysName.endsWith('注意')
-            if (sys) {
-              narrationText = narrationText ? narrationText + '\n旁白：' + t.replace(/^[^！]+[！]\s*/, '') : '旁白：' + t.replace(/^[^！]+[！]\s*/, '')
-            } else {
-              dialogueText = dialogueText ? dialogueText + '\n' + t : t
-            }
-          }
-          // 无前缀纯文本 → 看字段来源决定归属
-          else if (t === (shot as any).narration) {
-            // 第一人称短文本+情绪标点 → 更可能是内心独白
-            if (/我|自己/.test(t) && t.length < 40 && /[……？！]/.test(t)) {
-              innerText = innerText ? innerText + '\n' + t : t
-            } else {
-              narrationText = narrationText ? narrationText + '\n' + '旁白：' + t : '旁白：' + t
-            }
-          } else if (t === (shot as any).inner_monologue) {
-            innerText = innerText ? innerText + '\n' + t : t
-          } else {
-            dialogueText = dialogueText ? dialogueText + '\n' + t : t
+          if (fromField === 'inner_monologue') return 'inner'
+          return 'dialogue'
+        }
+
+        for (const s of sentences) {
+          const cls = classify(s.text, s.fromField)
+          switch (cls) {
+            case 'narration':
+              narrationText = narrationText ? narrationText + '\n' + s.text : s.text
+              break
+            case 'narration-forceprefix':
+              narrationText = narrationText ? narrationText + '\n旁白：' + s.text : '旁白：' + s.text
+              break
+            case 'inner':
+              innerText = innerText ? innerText + '\n' + s.text : s.text
+              break
+            case 'dialogue':
+              dialogueText = dialogueText ? dialogueText + '\n' + s.text : s.text
+              break
           }
         }
         insertShot.run(

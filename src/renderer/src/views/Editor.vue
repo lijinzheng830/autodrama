@@ -1473,12 +1473,13 @@ async function handleGenerateVoice(shotId: string): Promise<void> {
   const innerMonologue = (shot as any).inner_monologue?.trim() || ''
   const narration = shot?.narration?.trim() || ''
 
-  // 前缀路由：三种唯一前缀 → 100% 确定性匹配
-  const rawText = dialogue || innerMonologue || narration
-  if (!rawText) {
+  // 三路并行配音：每种类型独立文本，全部传入后端（逐句解析+拼接）
+  const parts: string[] = [dialogue, innerMonologue, narration].filter(Boolean)
+  if (parts.length === 0) {
     ElMessage.warning('该分镜没有对白、内心独白或旁白')
     return
   }
+  const rawText = parts.join('\n')
   let voicePreset = 'narrator'
 
   // 旁白：查项目中"旁白"角色的发音人，未设置则用 narrator
