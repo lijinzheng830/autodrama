@@ -653,15 +653,37 @@ export function concatVideos(
       if (videoPaths.length === 1) {
         const voicePath = voicePaths?.[0]
         if (voicePath && existsSync(voicePath)) {
-          // 单文件 + 有配音 → 注入音频
+          // 单文件 + 有配音 → 注入音频（apad 补静音到视频长）
           execFileSync(ffmpeg, [
             '-i', videoPaths[0], '-i', voicePath,
-            '-c:v', 'copy', '-c:a', 'aac', '-filter_complex', '[1:a]apad[a]', '-map', '0:v:0', '-map', '[a]',
+            '-c:v', 'copy', '-c:a', 'aac', '-ar', '44100', '-ac', '2', '-filter_complex', '[1:a]apad[a]', '-map', '0:v:0', '-map', '[a]',
             '-shortest', '-y', outputPath
           ], { timeout: 600000, stdio: 'pipe' })
         } else {
-          const { copyFileSync } = require('fs') as typeof import('fs')
-          copyFileSync(videoPaths[0], outputPath)
+          // 无配音 → 补静音轨，保持和有声段流数量一致
+          execFileSync(ffmpeg, [
+            '-i', videoPaths[0], '-f', 'lavfi', '-i', 'anullsrc',
+            '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
+            '-shortest', '-y', outputPath
+          ], { timeout: 600000, stdio: 'pipe' })
+        }
+        // 嵌入软字幕轨道
+        if (srtPath && existsSync(srtPath)) {
+          try {
+            onProgress?.({ status: 'encoding', percent: 95, message: '嵌入字幕轨道...' })
+            const subOutput = outputPath.replace(/\.mp4$/i, '_sub.mp4')
+            const { renameSync } = require('fs') as typeof import('fs')
+            execFileSync(ffmpeg, [
+              '-i', outputPath,
+              '-i', srtPath,
+              '-c:v', 'copy', '-c:a', 'copy',
+              '-c:s', 'mov_text', '-metadata:s:s:0', 'language=chi',
+              '-map', '0', '-map', '1:s',
+              '-y', subOutput
+            ], { timeout: 600000, stdio: 'pipe' })
+            renameSync(subOutput, outputPath)
+            try { unlinkSync(srtPath) } catch {}
+          } catch (e) { console.error('[Export] Subtitle embed failed (single):', e) }
         }
         onProgress?.({ status: 'completed', percent: 100, message: '导出完成' })
         return resolve(outputPath)
@@ -693,20 +715,30 @@ export function concatVideos(
       }
 
       // 音频注入：为有配音的分镜注入音频轨
-      if (voicePaths?.some(p => p && existsSync(p))) {
+      const voiceCount = voicePaths?.filter(p => p && existsSync(p)).length || 0
+      console.log(`[Export] voice injection: ${voiceCount}/${sources.length} shots have voice_path`)
+      if (voiceCount > 0) {
         onProgress?.({ status: 'encoding', percent: 20, message: '正在注入配音...' })
-        for (let i = 0; i < sources.length; i++) {
-          const vp = voicePaths[i]
-          if (!vp || !existsSync(vp)) continue
-          const tempPath = join(tempDir, `voice_${i}.mp4`)
-          tempFiles.push(tempPath)
+      }
+      // 所有段统一补音轨：有配音→注入，无配音→静音轨（concat -c copy 要求流数量一致）
+      for (let i = 0; i < sources.length; i++) {
+        const vp = voicePaths[i]
+        const tempPath = join(tempDir, `voice_${i}.mp4`)
+        tempFiles.push(tempPath)
+        if (vp && existsSync(vp)) {
           execFileSync(ffmpeg, [
             '-i', sources[i], '-i', vp,
-            '-c:v', 'copy', '-c:a', 'aac', '-filter_complex', '[1:a]apad[a]', '-map', '0:v:0', '-map', '[a]',
+            '-c:v', 'copy', '-c:a', 'aac', '-ar', '44100', '-ac', '2', '-filter_complex', '[1:a]apad[a]', '-map', '0:v:0', '-map', '[a]',
             '-shortest', '-y', tempPath
           ], { timeout: 600000, stdio: 'pipe' })
-          sources[i] = tempPath
+        } else {
+          execFileSync(ffmpeg, [
+            '-i', sources[i], '-f', 'lavfi', '-i', 'anullsrc',
+            '-c:v', 'copy', '-c:a', 'aac', '-ar', '44100', '-ac', '2', '-map', '0:v:0', '-map', '1:a:0',
+            '-shortest', '-y', tempPath
+          ], { timeout: 600000, stdio: 'pipe' })
         }
+        sources[i] = tempPath
       }
 
       onProgress?.({ status: 'encoding', percent: 25, message: '正在合成视频...' })
@@ -720,8 +752,11 @@ export function concatVideos(
       // execFile 拼接
       const totalDuration = formats.reduce((sum, f) => sum + (f.format?.duration || 5), 0)
       const child = execFile(ffmpeg, [
-        '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', '-y', outputPath
-      ], { timeout: 1800000 }) // 30 分钟超时
+        '-f', 'concat', '-safe', '0', '-i', listPath,
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+        '-c:a', 'aac', '-ar', '44100', '-ac', '2',
+        '-pix_fmt', 'yuv420p', '-y', outputPath
+      ], { timeout: 1800000 })
 
       let lastPct = 25
       child.stderr?.on('data', (chunk: Buffer) => {
@@ -742,20 +777,22 @@ export function concatVideos(
         if (code === 0) {
           if (srtPath && existsSync(srtPath)) {
             try {
-              onProgress?.({ status: 'encoding', percent: 95, message: '烧录字幕...' })
+              onProgress?.({ status: 'encoding', percent: 95, message: '嵌入字幕轨道...' })
               const subOutput = outputPath.replace(/\.mp4$/i, '_sub.mp4')
               const { renameSync } = require('fs') as typeof import('fs')
+              // 用软字幕轨道（mov_text）避免 FFmpeg subtitles 滤镜中文路径:解析失败
               execFileSync(ffmpeg, [
                 '-i', outputPath,
-                '-vf', `subtitles=${srtPath.replace(/\\/g, '/')}:force_style='Alignment=2,MarginV=150'`,
-                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-                '-c:a', 'copy',
+                '-i', srtPath,
+                '-c:v', 'copy', '-c:a', 'copy',
+                '-c:s', 'mov_text', '-metadata:s:s:0', 'language=chi',
+                '-map', '0', '-map', '1:s',
                 '-y', subOutput
               ], { timeout: 600000, stdio: 'pipe' })
               renameSync(subOutput, outputPath)
               try { unlinkSync(srtPath) } catch {}
             } catch (e) {
-              console.error('[Export] Subtitle burn failed:', e)
+              console.error('[Export] Subtitle track embed failed:', e)
             }
           }
           onProgress?.({ status: 'completed', percent: 100, message: '导出完成' })
@@ -818,6 +855,7 @@ export async function concatShots(
   if (hasSubtitles) {
     const srtLines: string[] = []
     let timeOffset = 0
+    let subIdx = 1
     const ffprobe = resolveFfmpegPath('ffprobe')
     for (let i = 0; i < subtitleEntries.length; i++) {
       const entry = subtitleEntries[i]
@@ -832,13 +870,17 @@ export async function concatShots(
         } catch {}
       }
       if (entry.text) {
-        srtLines.push(`${i + 1}\n${formatSrtTime(timeOffset)} --> ${formatSrtTime(timeOffset + durationMs)}\n${entry.text}\n`)
+        srtLines.push(`${subIdx}\n${formatSrtTime(timeOffset)} --> ${formatSrtTime(timeOffset + durationMs)}\n${entry.text}\n`)
+        subIdx++
       }
       timeOffset += durationMs
     }
     if (srtLines.length > 0) {
       srtPath = outputPath.replace(/\.mp4$/i, '.srt')
       writeFileSync(srtPath, srtLines.join('\n'), 'utf8')
+      console.log(`[Export] SRT generated: ${srtLines.length} entries → ${srtPath}`)
+    } else {
+      console.log('[Export] SRT skipped: no subtitle text in selected shots')
     }
   }
 
