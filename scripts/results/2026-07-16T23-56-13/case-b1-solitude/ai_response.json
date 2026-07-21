@@ -1,0 +1,205 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "雨夜书房内，林宇独自面对冷咖啡与旧照片，最终熄灯隐入黑暗。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "林宇",
+          "appearance": "30岁左右，身形修长挺拔，黑色微卷短发略显凌乱，深灰色高领针织衫搭配黑色休闲西裤，左手无名指戴素圈银戒，坐在书桌前。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "林宇的书房",
+          "environment": "实拍介质，胡桃木书桌表面有细微划痕与哑光漆面质感，背景是顶天立地的深色书架与皮质单人沙发。主光源为书桌左上方45°暖黄台灯（色温2800K），窗外冷蓝色雨夜环境光作为补光。源感锁定为电影摄影机拍摄，具备浅景深虚化与低照度下的自然胶片颗粒感。"
+        }
+      ],
+      "props": [
+        "未点燃的香烟",
+        "陶瓷咖啡杯",
+        "旧照片",
+        "木质抽屉",
+        "复古台灯"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.8,
+        "scene_name": "林宇的书房",
+        "shot_description": "全景，雨夜书房内，暖黄台灯在深色胡桃木书桌上投下圆形光晕，窗外城市灯光被雨水模糊成散景，林宇静坐于皮质沙发中。",
+        "video_description": "镜头从书房门口全景固定机位开始，缓慢向内微推，交代房间布局与林宇的孤立站位。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在书桌与林宇的中景位置。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "复古台灯",
+          "深色胡桃木书桌"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 1.7,
+        "scene_name": "林宇的书房",
+        "shot_description": "中景，林宇向后靠在皮质椅背上，右手夹着未点燃的香烟，目光空洞地凝视天花板某处，肩颈线条紧绷。",
+        "video_description": "镜头聚焦林宇上半身中景，他身体微微后仰，右手食指与中指间夹着香烟保持静止，喉结轻微滑动。暖黄顶光勾勒出他侧脸的轮廓，背景书架逐渐虚化，画面明暗对比突出孤独氛围。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "未点燃的香烟"
+        ]
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "information",
+        "shot_type": "特写",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.2,
+        "scene_name": "林宇的书房",
+        "shot_description": "特写，深色胡桃木桌面上，冷掉的咖啡杯沿留有淡色唇印，林宇的手指入画将杯子拿起转动两圈后放回。",
+        "video_description": "镜头聚焦桌面咖啡杯特写，林宇的左手入画握住杯柄，指节微微用力将杯子顺时针转动两圈，随后平稳放回原处。暖黄台灯光线在陶瓷杯壁形成柔和高光，唇印清晰朝向画面外侧。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "陶瓷咖啡杯"
+        ]
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "左摇",
+        "duration": 2.0,
+        "scene_name": "林宇的书房",
+        "shot_description": "近景，林宇缓缓转头望向右侧窗户，雨水顺着玻璃蜿蜒流下，模糊了他倒映在窗面上的侧脸轮廓。",
+        "video_description": "镜头从林宇面部近景开始，缓慢向左摇动跟随他的视线转向窗户。冷蓝色雨夜光线透过玻璃映照在他脸上，水珠在玻璃表面快速滑落，他的倒影在雨痕中逐渐扭曲变形。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "action",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇的书房",
+        "shot_description": "特写，林宇拉开木质抽屉取出泛黄照片，指尖快速扫过画面后将其翻面扣在桌上，指节在背面轻敲两下。",
+        "video_description": "镜头固定于桌面抽屉区域特写，林宇的右手拉开抽屉取出照片，拇指与食指捏住边缘快速翻面扣下。暖黄台灯光线照亮照片背面，他的食指指节在木质桌面上轻叩两下，动作干脆利落。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "旧照片",
+          "木质抽屉"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "action",
+        "shot_type": "中景",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.7,
+        "scene_name": "林宇的书房",
+        "shot_description": "中景，林宇将香烟平放在书桌边缘，双手撑住椅面站起身，深灰色针织衫随着动作泛起细微褶皱。",
+        "video_description": "镜头从桌面香烟特写缓慢拉远至林宇全身中景，他右手将香烟平放于桌沿，双手手掌撑住皮质椅面发力站起。暖黄台灯光线跟随他的起身动作向上移动，照亮他挺拔的肩背线条。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "未点燃的香烟"
+        ]
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "action",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "林宇的书房",
+        "shot_description": "近景，林宇侧身探向书桌左侧，右手拇指按下复古台灯开关，暖黄光圈瞬间收缩熄灭。",
+        "video_description": "镜头固定于林宇上半身近景，他身体向右倾斜，右手伸出按下台灯底座开关。暖黄色光源迅速衰减，冷蓝色窗外雨夜光线逐渐占据画面主导，他的面部轮廓随之隐入暗部。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "复古台灯"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "林宇的书房",
+        "shot_description": "全景，书房彻底陷入黑暗，仅余窗外冷蓝色雨夜光线透过玻璃洒入，林宇的背影轮廓在暗处缓缓走向画面右侧边缘。",
+        "video_description": "镜头固定于书房全景机位，台灯熄灭后环境光骤降，冷蓝色雨夜光线从右侧窗户斜射入室内。林宇的深色剪影在暗部缓慢向右移动，逐渐走出画面可视范围，只留下空荡的书桌与摇曳的雨痕。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "林宇的书房",
+        "shot_description": "全景空镜，书房内无人物活动，冷蓝色雨夜光线透过玻璃在深色胡桃木书桌上投下静止光斑，画面完全定格。",
+        "video_description": "固定全景机位，人物已完全离开画面，只剩书桌与窗户在冷蓝色雨夜光线下静置。画面所有元素停止运动，雨滴在玻璃上形成静态水痕，作为下一章节的首帧锚点。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "深色胡桃木书桌"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,97 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "清晨客厅，林宇下达行程压缩指令，艾娃端咖啡回应。",
+      "time_period": "现代",
+      "characters": [
+        { "name": "林宇", "appearance": "25岁左右，瘦高体型宽肩窄腰，黑色短发三七分，黑色棉质衬衫扣到最上，左手腕银色机械表，前景坐姿。" },
+        { "name": "艾娃", "appearance": "20岁出头，纤细匀称体型，黑色长直发披肩，米白色针织家居裙，右眉尾浅褐色小痣，侧身站立。" }
+      ],
+      "scenes": [
+        { "name": "林宇家客厅", "environment": "实拍介质，哑光深灰微水泥墙面与胡桃木地板，中央磁悬浮咖啡桌配真皮沙发，左上方冷白色线性灯带主光源色温6500K。" }
+      ],
+      "props": ["全息面板", "智能手表", "咖啡杯"]
+    },
+    "shots": [
+      {
+        "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景，冷调线性灯带铺满客厅，磁悬浮咖啡桌居中，林宇坐于沙发，指尖敲击全息面板。",
+        "video_description": "镜头从门口全景固定机位开始缓慢向内微推，交代房间布局与沙发站位。冷蓝色灯光斜照进室内，在地面拉出长长阴影。镜头落幅在两人中景位置。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"], "prop_list": ["全息面板"],
+        "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" }
+      },
+      {
+        "shot_id": 2, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，林宇指尖停顿，黑色衬衫袖口微卷，智能手表屏幕常亮跳动心率，喉结微动。",
+        "video_description": "镜头聚焦林宇手部与面部特写，冷光打在他的颧骨与下颌线上，睫毛轻微颤动。画面明暗对比强烈。",
+        "dialogue": "林宇：把今天行程压缩到12小时，空档全部删掉。", "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": ["林宇"], "prop_list": ["智能手表"]
+      },
+      {
+        "shot_id": 3, "shot_type": "中景", "camera_movement": "右摇", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，艾娃从身侧走入画面，米白色针织家居裙，右眉尾小痣清晰，端着第二杯咖啡。",
+        "video_description": "艾娃双手端着咖啡杯平稳走入画面，步伐轻缓。镜头从林宇手部缓慢右摇至艾娃全身。咖啡液面微晃。",
+        "dialogue": "艾娃：早安，宇。", "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": ["艾娃"], "prop_list": ["咖啡杯"]
+      },
+      {
+        "shot_id": 4, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇缓缓转头看向艾娃，目光从屏幕移向右侧，眼神锐利。",
+        "video_description": "镜头聚焦林宇面部近景，他头部缓慢转向右侧，视线锁定艾娃方向。冷光打在他侧脸，喉结滚动。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 5, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，林宇喉结滚了滚，语气生硬开口，目光直视前方，下颌线条紧绷。",
+        "video_description": "镜头聚焦林宇下颌与喉结特写，嘴唇缓慢张开。冷光打在他的颧骨与下颌线上，唇部动作清晰自然。",
+        "dialogue": "林宇：……叫主人。", "narration": "",
+        "audio_track_id": "dialogue_3",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 6, "shot_type": "中景", "camera_movement": "缓慢拉远", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，艾娃微笑弧度标准，将咖啡放在桌上，平静汇报行程。",
+        "video_description": "艾娃右手将咖啡杯从身侧放到桌面中央。镜头从艾娃面部缓慢拉远至中景，身体微微前倾。左侧冷光勾勒出她的肩线。",
+        "dialogue": "艾娃：已取消晨跑与午餐约会，今日空档：0。", "narration": "",
+        "audio_track_id": "dialogue_4",
+        "character_list": ["艾娃"], "prop_list": ["咖啡杯"]
+      },
+      {
+        "shot_id": 7, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，林宇智能手表屏幕显示心率数字悄悄升高15%，指尖无意识收紧扣住沙发边缘。",
+        "video_description": "镜头聚焦智能手表屏幕特写，冷光打在表盘上，数字跳动。林宇手指微曲扣住沙发边缘。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"], "prop_list": ["智能手表"]
+      },
+      {
+        "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景，林宇保持坐姿未动，艾娃站在桌旁，冷调线性灯带铺满全屋，光影静止。",
+        "video_description": "镜头从手表特写缓慢拉远至全景，交代房间布局与两人站位。冷蓝色灯光斜照进室内，在地面拉出长长阴影。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇", "艾娃"]
+      },
+      {
+        "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景空镜，客厅只剩磁悬浮咖啡桌与两杯咖啡，冷光静止，无人物活动。",
+        "video_description": "固定全景机位，人物已离开画面，只剩桌面上的咖啡杯在冷光下静置。画面完全静止，所有元素定格不动。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": [], "prop_list": ["咖啡杯", "磁悬浮咖啡桌"],
+        "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" }
+      }
+    ]
+  }
+]

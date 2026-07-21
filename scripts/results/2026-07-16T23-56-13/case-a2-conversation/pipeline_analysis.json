@@ -1,0 +1,461 @@
+{
+  "timestamp": "2026-07-16T23:59:44.437Z",
+  "projectId": "65332cef-2a2a-409c-ba05-8a56e8cdc620",
+  "chapterCount": 6,
+  "compliance": {
+    "passed": true,
+    "score": 4,
+    "warnings": [],
+    "errors": [],
+    "rhythmWarnings": [
+      {
+        "type": "rhythm",
+        "level": "suggestion",
+        "message": "Chapter 1: 对白占比 62% > 60%，确认是否为对白驱动场景",
+        "detail": "审讯戏/对峙戏等对白驱动场景可忽略此建议"
+      }
+    ]
+  },
+  "purposeSource": {
+    "ai": 36,
+    "fallback_keyword": 0,
+    "fallback_index": 0,
+    "overflow_skeleton": null,
+    "total": 36,
+    "aiPercent": 100
+  },
+  "rhythmSummary": {
+    "stats": {
+      "lipSyncShots": 27,
+      "voiceOverShots": 1,
+      "visualShots": 26,
+      "totalShots": 54,
+      "dialogueRatio": 52
+    },
+    "warnings": [
+      {
+        "level": "suggestion",
+        "message": "Chapter 1: 对白占比 62% > 60%，确认是否为对白驱动场景"
+      }
+    ]
+  },
+  "shotPurposes": [
+    {
+      "chapter": "陈默开场分配任务…",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 3,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 4,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 5,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.6
+        },
+        {
+          "index": 6,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 7,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 8,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        }
+      ]
+    },
+    {
+      "chapter": "苏晴质疑工期并提…",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 4,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 6,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 7,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 8,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.3
+        }
+      ]
+    },
+    {
+      "chapter": "陈默拒绝砍功能，…",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 4,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 6,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 7,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 8,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.3
+        }
+      ]
+    },
+    {
+      "chapter": "苏晴协商素材交付…",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 4,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 13,
+          "duration": 2.2,
+          "expectedDialogue": 3.7
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 7,
+          "duration": 1.4
+        },
+        {
+          "index": 7,
+          "purpose": "action",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 8,
+          "purpose": "action",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        }
+      ]
+    },
+    {
+      "chapter": "林宇·续1",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 8,
+          "duration": 2,
+          "expectedDialogue": 2
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 7,
+          "duration": 2,
+          "expectedDialogue": 1.7
+        },
+        {
+          "index": 4,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "action",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 7,
+          "duration": 1.7,
+          "expectedDialogue": 1.7
+        },
+        {
+          "index": 7,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 5,
+          "duration": 1.2,
+          "expectedDialogue": 1
+        },
+        {
+          "index": 8,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.5
+        }
+      ]
+    },
+    {
+      "chapter": "林宇·续2",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 8,
+          "duration": 2,
+          "expectedDialogue": 2
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 6,
+          "duration": 2,
+          "expectedDialogue": 1.3
+        },
+        {
+          "index": 4,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "action",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 7,
+          "duration": 1.7,
+          "expectedDialogue": 1.7
+        },
+        {
+          "index": 7,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 5,
+          "duration": 1.2,
+          "expectedDialogue": 1
+        },
+        {
+          "index": 8,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.5
+        }
+      ]
+    }
+  ]
+}

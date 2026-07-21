@@ -1,0 +1,208 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "陈默与林宇在控制中心核对数据异常，锁定内部权限修改者，林宇奉命追查。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "陈默",
+          "appearance": "30岁左右，中等身材宽肩窄腰，黑色短发利落，深灰色高领毛衣外搭黑色战术夹克，左手腕佩戴黑色智能手环，前景站立。"
+        },
+        {
+          "name": "林宇",
+          "appearance": "28岁左右，瘦高体型，深棕色微卷短发，浅蓝色衬衫扣至领口，外穿深灰色西装外套，右手无名指戴素圈银戒，背景推门入画。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "控制中心",
+          "environment": "实拍介质，哑光金属墙面与防静电地板，中央弧形数据屏幕与控制台呈U型布局，左上方45°清晨自然窗光（色温5500K）与屏幕冷蓝光（色温6500K）交织，手机拍摄源感锁定（轻微自动曝光偏移+自然手持呼吸感）。"
+        }
+      ],
+      "props": [
+        "弧形数据屏幕",
+        "控制台",
+        "日志文件",
+        "玻璃门"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "控制中心",
+        "shot_description": "全景，清晨的控制中心内，巨大的弧形数据屏幕占据整面墙壁，冷蓝色光晕弥漫空间，陈默背对镜头站立，林宇从右侧玻璃门推门而入。",
+        "video_description": "镜头从控制中心门口全景固定机位开始，缓慢向内微推，交代弧形屏幕与两人站位。左侧高窗透入清晨自然光，与屏幕冷蓝光交织，空气中漂浮细微尘埃。镜头落幅在陈默背影与屏幕交界处。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默",
+          "林宇"
+        ],
+        "prop_list": [
+          "弧形数据屏幕",
+          "玻璃门"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "控制中心",
+        "shot_description": "中景，陈默转身面向林宇，眉头微蹙，目光直视对方，双手自然垂于身侧，背景屏幕数据流持续滚动。",
+        "video_description": "镜头聚焦陈默上半身中景，他身体向右转动九十度，目光锁定画面右侧林宇的位置。清晨侧光打亮他面部轮廓，屏幕冷蓝光在眼底形成反光。画面保持静止，突出对峙张力。",
+        "dialogue": "陈默：昨晚的数据异常，你看了吗？",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "action",
+        "shot_type": "近景",
+        "camera_movement": "右摇",
+        "duration": 1.8,
+        "scene_name": "控制中心",
+        "shot_description": "近景，林宇从画面右侧步入，步伐沉稳，目光与陈默交汇，右手自然摆动，背景屏幕光晕柔和。",
+        "video_description": "镜头从陈默肩部后方开始，向右平滑摇动跟随林宇入画。林宇迈步向前，右手自然摆动，步伐节奏平稳。屏幕冷蓝光与清晨侧光混合，照亮他深色外套的肩部线条。镜头落幅在林宇正面近景。",
+        "dialogue": "陈默：昨晚的数据异常，你看了吗？",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "控制中心",
+        "shot_description": "特写，陈默面部右侧，眼神锐利如刀，瞳孔微缩，下颌线紧绷，背景虚化为流动的数据光斑。",
+        "video_description": "镜头锁定陈默右脸特写，冷蓝光从左侧斜打，勾勒颧骨与下颌的锋利线条。他呼吸平稳，目光死死盯住画面左侧林宇的位置，睫毛轻微颤动。画面完全静止，强调压迫感。",
+        "dialogue": "林宇：看了。不是系统故障，是有人手动修改了权限设置。",
+        "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "缓慢推进",
+        "duration": 2.0,
+        "scene_name": "控制中心",
+        "shot_description": "近景，林宇站在控制台前，右手食指指向屏幕某处，左手持黑色文件夹，神情冷静。",
+        "video_description": "镜头从林宇胸部高度缓慢向前推进，他右手食指伸出，指尖准确点向屏幕中央的红色标记区域。屏幕冷蓝光映照在他面部，形成高对比度明暗。镜头落幅在林宇指尖与屏幕交界处。",
+        "dialogue": "林宇：看了。不是系统故障，是有人手动修改了权限设置。",
+        "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色文件夹",
+          "控制台"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "控制中心",
+        "shot_description": "中景，陈默身体微微前倾，双手交叉抱胸，目光如炬盯着林宇，背景屏幕数据流加速闪烁。",
+        "video_description": "镜头固定于陈默中景，他双臂交叉抱于胸前，身体重心前移，目光直视画面右侧。屏幕冷蓝光在背景中快速流动，形成动态模糊。画面保持静止，突出追问的压迫感。",
+        "dialogue": "陈默：谁有权限这么做？",
+        "narration": "",
+        "audio_track_id": "dialogue_3",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "控制中心",
+        "shot_description": "近景，林宇低头翻阅手中日志，指尖划过纸页，随后抬头直视陈默，神情凝重。",
+        "video_description": "镜头固定于林宇近景，他低头注视手中日志，右手拇指与食指捏住纸页边缘轻轻翻动。屏幕冷蓝光从上方打下，照亮他专注的眉眼。镜头落幅在他抬头瞬间，目光锁定画面左侧。",
+        "dialogue": "林宇：除了你和我，只有一个人。",
+        "narration": "",
+        "audio_track_id": "dialogue_4",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "日志文件"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "action",
+        "shot_type": "全景",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.5,
+        "scene_name": "控制中心",
+        "shot_description": "全景，林宇转身向右侧玻璃门走去，背影逐渐变小，陈默独自站在屏幕前，双手插兜。",
+        "video_description": "镜头从控制台位置缓慢向后拉远，林宇迈步走向右侧玻璃门，步伐稳健。陈默保持站立姿势，双手插入外套口袋。屏幕冷蓝光与清晨侧光交织，地面倒影拉长。镜头落幅在两人空间关系全景。",
+        "dialogue": "陈默：找到她。在事情扩散之前。",
+        "narration": "",
+        "audio_track_id": "dialogue_5",
+        "character_list": [
+          "林宇",
+          "陈默"
+        ],
+        "prop_list": [
+          "玻璃门"
+        ]
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "控制中心",
+        "shot_description": "全景空镜，控制中心内无人，弧形屏幕持续显示滚动数据，冷蓝色光晕笼罩整个空间，光影静止。",
+        "video_description": "固定全景机位，人物已完全离开画面。弧形屏幕上的数据流继续以恒定速度滚动，冷蓝色光晕均匀铺满空间。所有元素保持静止状态，仅屏幕数据微动，作为章节锁帧锚点。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "弧形数据屏幕"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  }
+]

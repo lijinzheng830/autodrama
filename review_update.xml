@@ -1,0 +1,152 @@
+<title>无限创意 — AI漫剧一站式创作平台代码审查报告</title>
+
+<h1>一、项目概览</h1>
+<p><b>项目名称</b>：无限创意 — AI漫剧一站式创作平台</p>
+<p><b>技术栈</b>：Electron 33 + Vue 3.5 + TypeScript 5.9 + Vite 7 + better-sqlite3</p>
+<p><b>版本</b>：1.0.0-alpha.4</p>
+<p><b>核心模块</b>：Seedance 分镜管线（9镜15秒九宫格规范）</p>
+
+<h1>二、架构与设计质量 ✅ 优秀</h1>
+
+<h2>2.1 模块化设计</h2>
+<p><b>seedance/</b> 目录职责分离清晰，采用流水线架构：</p>
+<pre><code>Raw AI JSON → parser → dialogue → duration → validator → ValidatedData</code></pre>
+<ul>
+<li><b>parser.ts</b>：脏数据清洗与标准化</li>
+<li><b>dialogue.ts</b>：对白拆分、溢出处理、voice_over 分配</li>
+<li><b>duration.ts</b>：时长引擎（三级压缩策略）</li>
+<li><b>validator.ts</b>：合规校验 + 影视节奏检测</li>
+<li><b>pipeline.ts</b>：统一编排入口 + trace 埋点</li>
+</ul>
+
+<h2>2.2 类型分层设计</h2>
+<p>数据生命周期类型化做得非常专业：</p>
+<ul>
+<li><b>Stage 0</b>: RawSeedanceShot（不可信脏数据）</li>
+<li><b>Stage 1</b>: NormalizedShot（标准化，字段可靠）</li>
+<li><b>Stage 2</b>: DialogueChapter（对白处理后）</li>
+<li><b>Stage 3</b>: TimelineChapter（时长分配后）</li>
+<li><b>Stage 4</b>: ValidatedSeedanceData（最终合规输出）</li>
+</ul>
+
+<h2>2.3 测试覆盖</h2>
+<p>冒烟测试覆盖 <b>8 个典型场景</b>：</p>
+<ul>
+<li>标准输入、长对白溢出、非法输入容错、多章节隔离</li>
+<li>同 track 冲突检测、对白密度节奏、溢流章骨架、dialogue_mode 全链路</li>
+</ul>
+
+<h1>三、核心模块深度分析</h1>
+
+<h2>3.1 时长引擎 (duration.ts) ✅ 设计精良</h2>
+<p><b>三级压缩策略</b>非常专业：</p>
+<ol>
+<li><b>第一轮</b>：压缩第9镜留白</li>
+<li><b>第二轮</b>：按优先级压缩无对白镜（全景&gt;中景&gt;特写）</li>
+<li><b>第三轮</b>：压缩对白镜的画面余量</li>
+<li><b>兜底</b>：比例缩放（保证对白不低于语速下限）</li>
+</ol>
+<p><b>audio_track 组时长兜底</b>机制完善，P0.9.9 修复了首镜跳过问题。</p>
+
+<h2>3.2 对白处理 (dialogue.ts) ⚠️ 类型安全待加强</h2>
+<ul>
+<li><b>语义切分</b>优先于硬切（splitBySemanticBoundary），保证断句自然</li>
+<li><b>J-cut 原则</b>：voice_over 优先分配到源镜之前的连续区间</li>
+<li><b>同 track 冲突检测</b>：AI 复用 ID 时自动重命名</li>
+</ul>
+<p>存在较多 <code>as any</code> 类型断言（已知债务，alpha 阶段可接受）。</p>
+
+<h2>3.3 合规校验 (validator.ts) ✅ 专业全面</h2>
+<p><b>12 项校验规则</b>：</p>
+<ul>
+<li>基础规则：镜数=9、总时长 14.0~14.9s、镜1定场无对白、镜9空镜</li>
+<li>内容规则：景别配比、单镜时长上下限、对白字数容量</li>
+<li>影视专业规则：运镜连贯性、轴线风险、景别跳变、角色一致性</li>
+<li><b>节奏检测（P0.9）</b>：连续对白上限、单镜密度、对白占比、视觉呼吸</li>
+</ul>
+
+<h2>3.4 一致性检查器 (consistencyChecker.ts) ✅ 思路巧妙</h2>
+<p>基于锚点词+邻近度的关键词匹配，轻量高效：</p>
+<ul>
+<li>检测发色、发长、瞳色三个维度</li>
+<li>同色系模糊匹配（黑/深/墨视为同一家族）</li>
+</ul>
+
+<h1>四、问题清单（经逐条核查）</h1>
+
+<h2>🔴 真实存在问题（2条）</h2>
+
+<h3>1. Pipeline 无 try-catch 错误边界</h3>
+<p><b>位置</b>：pipeline.ts 第 30-71 行</p>
+<p><b>优先级</b>：中</p>
+<p><b>问题</b>：四阶段处理（parser/dialogue/duration/validator）无统一 try-catch 包裹，任一步异常都会直接抛出，trace 无法记录失败阶段。</p>
+<p><b>建议</b>：每步 try-catch + trace.error 记录失败阶段与堆栈。</p>
+
+<h3>2. voice_over 在旧格式路径下不区分 mode</h3>
+<p><b>位置</b>：duration.ts 第 50-51 行</p>
+<p><b>优先级</b>：低</p>
+<p><b>问题</b>：仅在有 audio_track_id 时走 baseDuration 跳过对白时长扩展；但无 track 的旧格式兼容路径下，voice_over 对白仍会触发 Math.max(base, dialogueDuration) 导致镜头被不必要拉长。</p>
+<p><b>影响</b>：仅限无 audio_track_id 的 legacy 路径，新格式 AI 输出均带 track_id，实际影响面小。</p>
+
+<h2>🟡 审查误报（2条，已核实代码实现）</h2>
+
+<h3>1. AI 调用缺少重试机制 — 已实现</h3>
+<p><b>位置</b>：ai.ts 第 181 行附近</p>
+<p><b>实际代码</b>：for 循环 attempt 0-2，共 3 次重试，包含指数退避 1000 * Math.pow(2, attempt)。</p>
+<p><b>结论</b>：审查漏读，代码已具备 3 次重试 + 指数退避机制。</p>
+
+<h3>2. voice_over 镜头时长被错误拉长 — 主路径已正确处理</h3>
+<p><b>位置</b>：duration.ts 第 46-48 行</p>
+<p><b>实际代码</b>：hasAudioTrack 的镜头直接使用 baseDuration，不走对白时长扩展逻辑。有 audio_track_id 的 voice_over 镜头不会被对白字数拉长。</p>
+<p><b>结论</b>：主路径（带 audio_track_id）正确无误；仅旧格式兼容路径存在上述第 2 条的小问题。</p>
+
+<h2>🟢 不予采纳（4条，原因说明）</h2>
+
+<h3>1. 汉字正则过宽 [一-鿿]</h3>
+<p><b>不予采纳原因</b>：生僻字、人名用字也在 CJK 扩展区，收窄范围会导致漏字。对白统计需要覆盖所有可能出现的汉字。</p>
+
+<h3>2. 重复 reduce 计算</h3>
+<p><b>不予采纳原因</b>：单章仅 9 镜 × N 章，reduce 计算成本可忽略，属于过度优化，牺牲可读性换微小收益不值得。</p>
+
+<h3>3. schema_version 迁移管理</h3>
+<p><b>不予采纳原因</b>：项目处于 alpha 阶段，现有迁移脚本足够应对内部迭代，引入版本号管理为时尚早。</p>
+
+<h3>4. any 类型过多</h3>
+<p><b>不予采纳原因</b>：已知技术债务，不在本次审查范围。dialogue 模块动态添加字段较多，补充中间类型工作量较大，可后续迭代统一治理。</p>
+
+<h1>五、安全与稳定性</h1>
+
+<h2>5.1 SQL 注入风险 ✅ 安全</h2>
+<p>所有查询使用 better-sqlite3 的参数化查询，无字符串拼接风险。</p>
+
+<h2>5.2 文件路径校验 ✅ 有防护</h2>
+<p>pathValidator.ts 路径校验模块存在，防止目录遍历攻击。</p>
+
+<h2>5.3 异常容错</h2>
+<ul>
+<li>非法 JSON 输入使用 jsonrepair 修复</li>
+<li>character_actions 解析失败静默降级</li>
+<li>模板文件加载有多路径 fallback</li>
+<li>AI 调用有 3 次指数退避重试（已核实）</li>
+</ul>
+
+<h1>六、总体评价</h1>
+
+<p><b>代码质量评分：8.5/10（核查后维持原判）</b></p>
+
+<h3>优势</h3>
+<ul>
+<li>核心管线架构设计专业，影视行业知识融入到位</li>
+<li>类型分层意识强，数据生命周期清晰</li>
+<li>测试驱动开发，fixture 覆盖全面</li>
+<li>边界条件考虑充分（溢出、冲突、降级、兜底）</li>
+<li>AI 重试、voice_over 时长等关键细节均已有正确实现</li>
+</ul>
+
+<h3>改进空间（均不紧急）</h3>
+<ul>
+<li>Pipeline 增加统一错误边界 + trace 错误记录</li>
+<li>旧格式兼容路径下 voice_over 时长区分（影响面极小）</li>
+</ul>
+
+<p><b>结论</b>：工程质量很高的 alpha 阶段项目。两条真实问题优先级均不高，不影响核心功能运行，可按迭代计划排期优化。</p>

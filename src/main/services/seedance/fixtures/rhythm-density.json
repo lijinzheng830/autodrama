@@ -1,0 +1,93 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "对白密度测试——单镜对白大幅超过镜时长",
+      "time_period": "现代",
+      "characters": [
+        { "name": "林宇", "appearance": "30岁，瘦高体型，深灰西装。" }
+      ],
+      "scenes": [
+        { "name": "办公室", "environment": "实拍介质，灰白色墙面配冷白荧光灯。" }
+      ],
+      "props": ["手机"]
+    },
+    "shots": [
+      {
+        "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "全景，冷白灯光下办公室，林宇坐在桌前。",
+        "video_description": "固定全景机位交代办公室环境，冷白荧光灯照亮桌面与人物。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"],
+        "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" }
+      },
+      {
+        "shot_id": 2, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "特写，林宇下颌紧绷，眼神锐利看向对面。",
+        "video_description": "镜头聚焦林宇右侧面部特写，冷光打在他的颧骨与下颌线上，喉结微动准备开口。",
+        "dialogue": "林宇：任务完成了但代价比预期高你需要知道全部真相。", "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 3, "shot_type": "中景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "中景，林宇靠回椅背，手指轻敲桌面。",
+        "video_description": "林宇靠回椅背手指轻敲桌面。固定中景构图。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 4, "shot_type": "中景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "中景，林宇站起身走向窗边。",
+        "video_description": "林宇起身缓步走向窗边。固定中景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 5, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "近景，林宇望窗外，沉默。",
+        "video_description": "林宇望向窗外沉默。固定近景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 6, "shot_type": "中景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "中景，窗外城市景色。",
+        "video_description": "窗外城市景色中景。固定机位。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": []
+      },
+      {
+        "shot_id": 7, "shot_type": "中景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "中景，林宇转身回到桌边。",
+        "video_description": "林宇转身回到桌边中景。固定机位。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "全景，林宇收拾桌面文件。",
+        "video_description": "林宇收拾桌面文件全景。固定机位。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "办公室",
+        "shot_description": "全景，办公室空镜。",
+        "video_description": "固定全景，人物离开只剩空办公室与冷光。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": [], "prop_list": [],
+        "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" }
+      }
+    ]
+  }
+]

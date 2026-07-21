@@ -1,0 +1,5 @@
+{
+  "chinese": "任务：图生图，根据下方文字描述生成新道具。参考图仅提供展示角度和光照方案——不得复制参考图中的道具。\n\n[图生图指令] 保留参考图的展示角度和白色背景，但将道具替换为下方描述的道具。\n\n[主体] {{prop_description}}\n[背景] 纯白无缝背景\n[风格] {{style_name}}，{{era_zh}}\n[光照] 专业演播室布光\n[构图] 道具居中，45度俯视角度，占画面60-70%\n[质量要求] 禁止出现人物，纯白背景",
+
+  "english": "Task: Image-to-image. Create a new prop based on the text description. Reference image provides viewing angle and lighting ONLY — do not copy the reference prop.\n\n[Image-to-Image] Preserve the reference image's viewing angle and white background, but REPLACE the prop with the one described below.\n\n[Subject] {{prop_prompt}}\n[Background] Pure white seamless background\n[Style] {{style_prompt}}, {{era}}\n[Lighting] Professional studio lighting\n[Composition] Centered prop, 45-degree overhead angle, 60-70% of frame\n[Quality] No people, pure white background"
+}

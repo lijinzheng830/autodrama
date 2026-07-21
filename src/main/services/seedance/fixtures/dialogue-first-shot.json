@@ -1,0 +1,94 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "P0.9.9 Duration Group Collection Fix — shot2+shot3 共享 dialogue_1，16字对白需5.3s",
+      "time_period": "现代",
+      "characters": [
+        { "name": "林宇", "appearance": "28岁，瘦高体型宽肩窄腰，黑色短发三七分，黑色棉质衬衫，左手腕银色智能手表，前景坐姿。" }
+      ],
+      "scenes": [
+        { "name": "林宇家客厅", "environment": "实拍介质，哑光微水泥墙面，磁悬浮咖啡桌居中，左上方冷白线性灯带色温5600K。" }
+      ],
+      "props": ["全息面板", "咖啡杯"]
+    },
+    "shots": [
+      {
+        "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景，冷调线性灯带铺满客厅，磁悬浮咖啡桌居中，林宇坐于沙发，指尖在全息面板上快速敲击。",
+        "video_description": "镜头从门口全景固定机位开始缓慢向内微推，交代房间布局。冷蓝色灯光铺满空间，画面落幅在咖啡桌全景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"], "prop_list": ["全息面板"],
+        "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" }
+      },
+      {
+        "shot_id": 2, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇指尖停顿在全息面板上方，嘴唇微动下达语音指令，屏幕数据流快速滚动。",
+        "video_description": "镜头聚焦林宇面部近景，他嘴唇微动下达指令。冷蓝色屏幕光映照他专注的侧脸。画面落幅在林宇近景。",
+        "dialogue": "林宇：把今天行程压缩到12小时，空档全部删掉。", "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 3, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，全息面板上数据流滑动，林宇指尖轻触确认键，智能手表屏幕心率数字微跳。",
+        "video_description": "镜头固定于全息面板特写，数据流快速滑动，林宇指尖轻触确认键。智能手表心率数字从72跳至83。画面落幅在手表屏幕。",
+        "dialogue": "林宇：把今天行程压缩到12小时，空档全部删掉。", "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": ["林宇"], "prop_list": ["智能手表"]
+      },
+      {
+        "shot_id": 4, "shot_type": "中景", "camera_movement": "缓慢拉远", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，林宇靠回沙发靠背，双手交叠于膝上，冷光在他面部投下清晰阴影。",
+        "video_description": "镜头缓慢拉远至中景，林宇靠回沙发靠背，双手交叠于膝上。冷光在他面部投下清晰阴影。画面落幅在林宇中景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 5, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，咖啡杯表面涟漪微动，杯底裂纹在冷光下清晰可见。",
+        "video_description": "镜头固定于咖啡杯特写，液面微晃涟漪扩散。杯底裂纹在冷光下清晰可见。画面落幅在杯底裂纹。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": [], "prop_list": ["咖啡杯"]
+      },
+      {
+        "shot_id": 6, "shot_type": "中景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，林宇余光瞥向抽屉方向，视线停留半秒后迅速收回，喉结轻微滚动。",
+        "video_description": "镜头固定于林宇中景，他余光瞥向抽屉方向，视线停留半秒后迅速收回。喉结轻微滚动。画面落幅在林宇中景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 7, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇右手端起咖啡杯轻抿一口，杯底裂纹在唇边若隐若现，表情平静。",
+        "video_description": "镜头固定于林宇近景，他右手端起咖啡杯轻抿一口。杯底裂纹在唇边若隐若现。画面落幅在林宇面部。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"], "prop_list": ["咖啡杯"]
+      },
+      {
+        "shot_id": 8, "shot_type": "全景", "camera_movement": "缓慢拉远", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景，林宇起身离开沙发，背影走向客厅深处，冷光勾勒出他单薄的肩膀线条。",
+        "video_description": "镜头缓慢拉远至全景，林宇起身离开沙发，背影走向客厅深处。冷光勾勒出他单薄的肩膀线条。画面落幅在客厅全景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景空镜，磁悬浮咖啡桌静置中央，裂纹咖啡杯在冷光下无变化，画面完全静止。",
+        "video_description": "磁悬浮咖啡桌静置中央，裂纹咖啡杯在冷光下无变化。镜头固定机位，画面完全静止。画面落幅在咖啡桌全景。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": [], "prop_list": ["咖啡杯"],
+        "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" }
+      }
+    ]
+  }
+]

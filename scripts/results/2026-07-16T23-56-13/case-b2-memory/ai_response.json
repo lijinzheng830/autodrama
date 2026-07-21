@@ -1,0 +1,207 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "苏晴在天台聆听旧MP3中的钢琴曲，感受晚风与城市烟火，最终留下播放器独自离开。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "苏晴",
+          "appearance": "20岁左右，纤细体型窄肩细腰，黑色齐肩短发微卷，浅灰色宽松针织开衫内搭白色棉质T恤，深蓝色直筒牛仔裤，左手腕佩戴细银链，坐于天台边缘。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "老城区天台",
+          "environment": "实拍介质，粗糙混凝土表面带风化裂纹与青苔痕迹，中央横拉两根生锈铁丝晾衣绳悬挂白色棉质床单，背景为密集错落的红砖旧屋与水泥烟囱，主光源为右上方45°暖橙色夕阳（色温3500K）逐渐过渡至冷蓝色暮光，手机拍摄源感锁定轻微自动曝光偏移与自然手持呼吸感。"
+        }
+      ],
+      "props": [
+        "旧式MP3播放器",
+        "白色床单",
+        "耳机"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.8,
+        "scene_name": "老城区天台",
+        "shot_description": "全景，黄昏时分的老城区天台，白色床单在晾衣绳上随风起伏，苏晴独自坐在边缘水泥护栏上，双腿悬空，背景是渐变的橙红色天空与远处低矮的旧屋轮廓。",
+        "video_description": "苏晴坐在天台边缘水泥护栏上双手握持旧式MP3播放器 → 镜头从晾衣绳全景缓慢向内推进至人物中景 → 落幅定格在她低头注视屏幕的侧影，暖橙色夕阳余晖从右后方斜射，在混凝土墙面投下长影。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "旧式MP3播放器",
+          "白色床单"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "action",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "老城区天台",
+        "shot_description": "近景，苏晴将耳机戴入双耳，拇指按下MP3播放键，屏幕微光亮起，钢琴旋律隐约溢出。",
+        "video_description": "苏晴右手将白色耳机线绕至耳后左手拇指轻触MP3中央播放键 → 镜头保持固定机位聚焦手部与面部下半部分 → 落幅在耳机贴合耳廓的瞬间，暖黄顶光与冷蓝屏幕光交织，勾勒出她专注的侧脸轮廓。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "旧式MP3播放器",
+          "耳机"
+        ]
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "information",
+        "shot_type": "中景",
+        "camera_movement": "右摇",
+        "duration": 1.6,
+        "scene_name": "老城区天台",
+        "shot_description": "中景，一阵晚风骤然掀起晾衣绳上的白色床单，露出下方错落的老城区屋顶，远处烟囱吐出白烟，鸽群盘旋掠过天际。",
+        "video_description": "白色床单被强风猛然掀起向上翻卷 → 镜头随布料飘动向右平滑摇摄 → 落幅展现远处旧城屋顶与烟囱，暖橙色天光逐渐转为冷灰调，白烟与鸽群在逆光中形成剪影。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "白色床单"
+        ]
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "老城区天台",
+        "shot_description": "特写，苏晴缓缓闭上双眼，晚风将额前碎发吹至脸颊，她并未抬手拨开，任由发丝轻贴皮肤。",
+        "video_description": "苏晴睫毛微垂闭合双眼侧脸迎向微风额前黑色碎发被气流吹拂至右颊 → 镜头固定于面部右侧特写 → 落幅在发丝静止贴肤的瞬间，环境光转为柔和的暮色蓝调，面部阴影自然过渡。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "information",
+        "shot_type": "大特写",
+        "camera_movement": "缓慢推进",
+        "duration": 1.2,
+        "scene_name": "老城区天台",
+        "shot_description": "大特写，苏晴的拇指指腹轻轻抚过MP3屏幕表面，一道从左上角贯穿至右下角的裂痕清晰可见。",
+        "video_description": "拇指指腹沿MP3屏幕表面缓慢横向移动指尖掠过屏幕中央的斜向裂痕 → 镜头从设备上方缓慢垂直推进至屏幕特写 → 落幅在裂痕纹理处，冷蓝色屏幕光映照在指关节上，背景虚化为暗调。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "旧式MP3播放器"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "老城区天台",
+        "shot_description": "近景，苏晴拔下右耳耳机，低头望向楼下巷子，嘴角极轻微地向上牵动，眼神依旧平静。",
+        "video_description": "苏晴右手捏住右耳耳机插头轻轻拔出视线自然下垂 → 镜头保持固定机位聚焦面部表情变化 → 落幅在嘴角微扬与平静眼神的对比处，暮色环境光均匀覆盖面部，无强烈明暗对比。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "耳机"
+        ]
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "action",
+        "shot_type": "中景",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.6,
+        "scene_name": "老城区天台",
+        "shot_description": "中景，苏晴将MP3平稳放置在护栏边缘，双手撑住水泥面站起，低头轻拍裤腿上的灰尘。",
+        "video_description": "苏晴右手将MP3推至护栏边缘后松手双手掌心向下撑住水泥护栏站直身体 → 镜头从人物腰部高度缓慢向后拉远 → 落幅在全身站立姿态，暖橙色天光从侧后方照射，裤腿灰尘在逆光中微微扬起。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "旧式MP3播放器"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "跟随",
+        "duration": 1.5,
+        "scene_name": "老城区天台",
+        "shot_description": "全景，苏晴转身背对镜头向天台门走去，白色床单在风中继续起伏，MP3静置在护栏上。",
+        "video_description": "苏晴转身迈步向画面左侧天台出口走去步伐平稳 → 镜头从护栏位置向左平移跟随人物移动 → 落幅在人物背影即将走出画面边缘，环境光进一步转暗，床单起伏幅度减缓。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "白色床单",
+          "旧式MP3播放器"
+        ]
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "老城区天台",
+        "shot_description": "全景空镜，天台上已无苏晴身影，旧式MP3独自留在护栏边缘，屏幕蓝光逐渐熄灭，晚风继续吹动床单。",
+        "video_description": "承接第8镜机位与暮色光影画面中无人物活动仅见旧式MP3静置在护栏边缘 → 镜头保持绝对静止 → 落幅在MP3屏幕光线完全暗下的瞬间，晚风继续吹动床单但幅度减缓，所有动态元素逐渐归于静止。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "旧式MP3播放器",
+          "白色床单"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  }
+]

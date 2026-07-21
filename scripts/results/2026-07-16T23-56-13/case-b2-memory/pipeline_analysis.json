@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-07-17T00:01:49.794Z",
+  "projectId": "bc8992be-26cd-4558-a5a0-8d72596bfaeb",
+  "chapterCount": 1,
+  "compliance": {
+    "passed": true,
+    "score": 4,
+    "warnings": [],
+    "errors": [],
+    "rhythmWarnings": []
+  },
+  "purposeSource": {
+    "ai": 9,
+    "fallback_keyword": 0,
+    "fallback_index": 0,
+    "total": 9,
+    "aiPercent": 100
+  },
+  "rhythmSummary": {
+    "stats": {
+      "lipSyncShots": 0,
+      "voiceOverShots": 0,
+      "visualShots": 9,
+      "totalShots": 9,
+      "dialogueRatio": 0
+    },
+    "warnings": []
+  },
+  "shotPurposes": [
+    {
+      "chapter": "苏晴在天台聆听旧…",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "action",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 3,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 4,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 5,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 7,
+          "purpose": "action",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 8,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.5
+        }
+      ]
+    }
+  ]
+}

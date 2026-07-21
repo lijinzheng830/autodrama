@@ -1,0 +1,99 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "审讯室对峙——连续长对白、短时长、无空镜——用于测试节奏检测",
+      "time_period": "现代",
+      "characters": [
+        { "name": "林宇", "appearance": "30岁，瘦高体型，黑色短发，深灰西装，领口微松，表情冷硬。" },
+        { "name": "陈默", "appearance": "45岁，中等体型，灰白短发，黑色皮夹克，下颌有道旧疤，右手指节粗大。" }
+      ],
+      "scenes": [
+        { "name": "审讯室", "environment": "实拍介质，灰色混凝土墙面，中央不锈钢桌配两把金属椅，顶光冷白荧光灯管色温5000K，监控摄像头红灯闪烁。" }
+      ],
+      "props": ["不锈钢桌", "文件袋", "金属椅"]
+    },
+    "shots": [
+      {
+        "shot_id": 1, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "全景，冷白荧光灯照亮灰墙审讯室，不锈钢桌两侧各坐一人。",
+        "video_description": "镜头从门口全景固定机位开始，交代审讯室布局与两人站位。冷白荧光灯在灰墙上投射硬影。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇", "陈默"], "prop_list": ["不锈钢桌"],
+        "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" }
+      },
+      {
+        "shot_id": 2, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "近景，林宇上身前倾，手肘压在不锈钢桌上，目光直视对面的陈默。",
+        "video_description": "镜头聚焦林宇上半身近景，他身体前倾双手交叠于桌面。顶光在他眼眶下投出阴影。",
+        "dialogue": "林宇：这份证据足够毁掉你所有计划，你以为删了服务器记录就没人知道吗？",
+        "narration": "", "audio_track_id": "dialogue_1",
+        "character_list": ["林宇"], "prop_list": ["不锈钢桌"]
+      },
+      {
+        "shot_id": 3, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "近景，陈默嘴角微抬，右手食指敲击桌面，发出规律的金属回响。",
+        "video_description": "镜头聚焦陈默面部近景，他嘴角微抬似笑非笑，右手食指缓慢敲击不锈钢桌面。荧光灯管轻微闪烁。",
+        "dialogue": "陈默：年轻人，你以为你看到的就是全部吗？这个案子比你想象的复杂得多。",
+        "narration": "", "audio_track_id": "dialogue_2",
+        "character_list": ["陈默"], "prop_list": ["不锈钢桌"]
+      },
+      {
+        "shot_id": 4, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "近景，林宇从文件袋中抽出照片推向桌子中央，指尖用力指节发白。",
+        "video_description": "镜头从陈默缓慢左摇至林宇近景，他右手将照片从文件袋抽出推向桌面中央。冷光打在他的颧骨上。",
+        "dialogue": "林宇：那你解释一下，为什么你的指纹出现在被害人的保险箱上？",
+        "narration": "", "audio_track_id": "dialogue_3",
+        "character_list": ["林宇"], "prop_list": ["文件袋"]
+      },
+      {
+        "shot_id": 5, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "近景，陈默敲击桌面的手指突然停下，目光穿过林宇看向他身后的单向玻璃。",
+        "video_description": "镜头聚焦陈默面部与手部近景，他手指停在桌面上方半空，视线越过林宇看向单向玻璃反光。呼吸声加重。",
+        "dialogue": "陈默：因为那天晚上我也在那里。但不是你以为的那种方式。想听故事吗？",
+        "narration": "", "audio_track_id": "dialogue_4",
+        "character_list": ["陈默"], "prop_list": ["不锈钢桌"]
+      },
+      {
+        "shot_id": 6, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "近景，林宇缓缓靠回椅背，右手指尖无意识转动左腕手表，沉默等待。",
+        "video_description": "林宇缓慢靠回金属椅背，指尖转动左腕手表。冷光在他眉骨下形成暗影，嘴唇抿成一条线。",
+        "dialogue": "林宇：说吧。但记住——你说每句话都在被记录，每句话都可能成为呈堂证供。",
+        "narration": "", "audio_track_id": "dialogue_5",
+        "character_list": ["林宇"], "prop_list": ["金属椅"]
+      },
+      {
+        "shot_id": 7, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "近景，陈默深吸一口气，双手平放在不锈钢桌面，指节因用力而泛白。",
+        "video_description": "陈默双掌平放于不锈钢桌面，深吸气时锁骨微微抬起。冷白灯光在金属桌面反射到他的下巴上。",
+        "dialogue": "陈默：三个月前，你搭档死的那天晚上，我在现场看到了真正的凶手。但我不能说。",
+        "narration": "", "audio_track_id": "dialogue_6",
+        "character_list": ["陈默"], "prop_list": ["不锈钢桌"]
+      },
+      {
+        "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "全景，审讯室内两人静止对峙，顶光闪烁一下恢复稳定，单向玻璃倒映出两人轮廓。",
+        "video_description": "固定全景机位，两人军静止对坐。顶光管闪烁一次后恢复稳定，单向玻璃倒映出两人的轮廓。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇", "陈默"], "prop_list": ["不锈钢桌", "金属椅"]
+      },
+      {
+        "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "审讯室",
+        "shot_description": "全景空镜，审讯室只剩不锈钢桌与文件袋，荧光灯管稳定发光，红点摄像持续录制。",
+        "video_description": "固定全景机位，人物已离开画面，只剩桌上照片与文件袋在冷光下静置。画面完全静止，所有元素定格不动。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": [], "prop_list": ["不锈钢桌", "文件袋"],
+        "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" }
+      }
+    ]
+  }
+]

@@ -1,0 +1,586 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "林宇质问隐瞒时长，艾娃反驳其逃避沟通，冲突初现。",
+      "time_period": "现代/近未来",
+      "characters": [
+        {
+          "name": "林宇",
+          "appearance": "32岁，肩宽背直，黑色短发微乱，深灰色高领针织衫，左手腕佩戴哑光黑智能表，右眉骨有一道浅淡旧疤，位于画面左侧前景。"
+        },
+        {
+          "name": "艾娃",
+          "appearance": "29岁，身形修长，栗色长发低束马尾，米白色垂感丝绸衬衫，腰间系细皮带，耳垂佩戴极简银质圆环，位于画面右侧中景。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "林宇家客厅",
+          "environment": "实拍介质，哑光微水泥墙面带细微颗粒纹理，中央摆放深灰布艺沙发与胡桃木茶几，左侧落地窗配半透纱帘。主光源为左上方45°冷蓝色窗光（色温4500K），右侧辅以低照度暖黄落地灯。源感锁定为商业摄影风格，画面干净无手持抖动，高光边缘锐利。"
+        }
+      ],
+      "props": [
+        "黑色平板终端",
+        "深灰布艺沙发",
+        "胡桃木茶几"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景，深夜客厅内冷光渗入，林宇坐于沙发左侧紧盯平板，艾娃立于右侧双臂交叉，空间压抑。",
+        "video_description": "镜头从客厅门口全景固定机位开始，缓慢向内微推，交代房间布局与两人站位。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在两人中景位置。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇",
+          "艾娃"
+        ],
+        "prop_list": [
+          "黑色平板终端",
+          "深灰布艺沙发"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇身体前倾，手指用力捏紧平板边缘，眼神锐利直视前方，冷光勾勒面部轮廓。",
+        "video_description": "镜头聚焦林宇上半身，他双手紧握黑色平板终端，指节因用力泛白，喉结微动准备开口。左侧冷蓝色窗光打亮右脸颊，左脸隐入阴影。镜头保持固定，落幅在平板屏幕与林宇下颌交界处。",
+        "dialogue": "林宇：你到底瞒了我多久？三个月，整整三个月！",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色平板终端"
+        ]
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "缓慢推近",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇眉头紧锁，语气加重，平板屏幕红光映照在他紧绷的下颚线上。",
+        "video_description": "镜头从林宇近景缓慢推近至面部特写，他肩膀微沉，目光死死锁定对面，嘴唇开合吐出重音。冷蓝色窗光随镜头推进逐渐覆盖面部，屏幕红光在瞳孔中反射。镜头落幅在林宇双眼与平板屏幕之间。",
+        "dialogue": "林宇：你到底瞒了我多久？三个月，整整三个月！",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色平板终端"
+        ]
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，艾娃双臂交叉抱胸，眼神冷硬，微微摇头，冷光从侧面照亮她紧绷的肩线。",
+        "video_description": "镜头固定于艾娃中景，她双臂交叉置于胸前，肩膀微不可察地后缩，目光避开林宇视线后重新锁定。右侧暖黄落地灯光晕柔和过渡至左侧冷蓝光，画面明暗交界线清晰。镜头落幅在艾娃交叉的双臂与冷硬侧脸。",
+        "dialogue": "林宇：你到底瞒了我多久？三个月，整整三个月！",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，艾娃眼神直视，语气平静但带刺，丝绸衬衫领口微敞，冷光勾勒面部轮廓。",
+        "video_description": "镜头聚焦艾娃上半身近景，她松开交叉的双臂，右手食指微抬指向林宇方向，嘴唇清晰开合。左侧冷蓝色窗光打亮左脸，右侧暖光在右颊形成柔和过渡。镜头保持固定，落幅在艾娃直视的双眼与微抬的手指。",
+        "dialogue": "艾娃：我没有瞒你。是你不愿意看。每次我试图告诉你，你都用工作当借口。",
+        "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "缓慢拉远",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，艾娃肩膀微动，目光游移后重新锁定林宇，语气加重，冷光与暖光交织。",
+        "video_description": "镜头从艾娃近景缓慢拉远至胸部以上中近景，她身体微微后仰，右手握拳轻抵沙发扶手，呼吸节奏加快。冷蓝色窗光随镜头拉远逐渐占据画面左侧三分之二，暖黄光退至右侧边缘。镜头落幅在艾娃紧绷的肩线与直视的目光。",
+        "dialogue": "艾娃：我没有瞒你。是你不愿意看。每次我试图告诉你，你都用工作当借口。",
+        "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，林宇喉结滚动，眉头紧锁，视线低垂，冷光在颧骨投下锐利阴影。",
+        "video_description": "镜头固定于林宇面部特写，他下颌肌肉微颤，喉结上下滚动一次，目光从平板屏幕移向地面。左侧冷蓝色窗光强化面部立体感，右侧阴影加深。镜头落幅在林宇紧锁的眉头与微颤的下颌线。",
+        "dialogue": "艾娃：我没有瞒你。是你不愿意看。每次我试图告诉你，你都用工作当借口。",
+        "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "action",
+        "shot_type": "中景",
+        "camera_movement": "跟随",
+        "duration": 1.5,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，林宇突然站起，将平板重重摔在沙发上，身体前倾，冷光映照愤怒轮廓。",
+        "video_description": "镜头跟随林宇起身动作，他从沙发左侧站起，右手将黑色平板终端用力抛向深灰布艺沙发，身体顺势前倾。冷蓝色窗光随动作快速扫过面部，平板落地瞬间屏幕红光闪烁。镜头落幅在沙发上的平板与林宇前倾的躯干。",
+        "dialogue": "林宇：那现在呢？账户空了，投资没了，你才想起来跟我说？",
+        "narration": "",
+        "audio_track_id": "dialogue_3",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色平板终端",
+          "深灰布艺沙发"
+        ]
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景空镜，客厅只剩沙发上的平板终端，冷光静止，无人物活动。",
+        "video_description": "固定全景机位，人物已离开画面，只剩深灰沙发上的黑色平板终端在冷光下静置。画面完全静止，所有元素定格不动，作为下一章节的首帧锚点。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "黑色平板终端",
+          "深灰布艺沙发"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  },
+  {
+    "chapter_info": {
+      "chapter_id": 2,
+      "chapter_summary": "艾娃反击林宇的逃避，林宇摔平板后沉默，信任危机爆发。",
+      "time_period": "现代/近未来",
+      "characters": [
+        {
+          "name": "林宇",
+          "appearance": "32岁，肩宽背直，黑色短发微乱，深灰色高领针织衫，左手腕佩戴哑光黑智能表，右眉骨有一道浅淡旧疤，位于画面左侧中景。"
+        },
+        {
+          "name": "艾娃",
+          "appearance": "29岁，身形修长，栗色长发低束马尾，米白色垂感丝绸衬衫，腰间系细皮带，耳垂佩戴极简银质圆环，位于画面右侧前景。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "林宇家客厅",
+          "environment": "实拍介质，哑光微水泥墙面带细微颗粒纹理，中央摆放深灰布艺沙发与胡桃木茶几，左侧落地窗配半透纱帘。主光源为左上方45°冷蓝色窗光（色温4500K），右侧辅以低照度暖黄落地灯。源感锁定为商业摄影风格，画面干净无手持抖动，高光边缘锐利。"
+        }
+      ],
+      "props": [
+        "黑色平板终端",
+        "深灰布艺沙发",
+        "胡桃木茶几"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.5,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景承接上章，深夜客厅冷光静止，平板静置沙发，艾娃背对站立，空间凝固。",
+        "video_description": "镜头从沙发全景固定机位开始，缓慢向外微拉，交代房间布局与艾娃背影。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在艾娃背影与客厅全景交界处。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "艾娃"
+        ],
+        "prop_list": [
+          "黑色平板终端",
+          "深灰布艺沙发"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，艾娃转身冷笑，眼神锐利，丝绸衬衫随动作微扬，冷光勾勒面部轮廓。",
+        "video_description": "镜头固定于艾娃中景，她缓缓转身面向林宇，嘴角微不可察地上扬形成冷笑，目光如刀。左侧冷蓝色窗光打亮左脸，右侧暖黄光在右颊形成柔和过渡。镜头保持固定，落幅在艾娃冷笑的面部与微扬的衣领。",
+        "dialogue": "艾娃：我说了你会听吗？你从来不听！你只相信你那个全息面板上的数字。",
+        "narration": "",
+        "audio_track_id": "dialogue_4",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "缓慢推近",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，艾娃手指微蜷，语气加重，冷光与暖光交织，眼神直视前方。",
+        "video_description": "镜头从艾娃中景缓慢推近至面部近景，她右手手指微蜷成半握状，肩膀微不可察地前倾，嘴唇清晰开合。冷蓝色窗光随镜头推进逐渐覆盖面部，暖黄光退至边缘。镜头落幅在艾娃直视的双眼与微蜷的手指。",
+        "dialogue": "艾娃：我说了你会听吗？你从来不听！你只相信你那个全息面板上的数字。",
+        "narration": "",
+        "audio_track_id": "dialogue_4",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，林宇沉默，视线低垂，呼吸微促，冷光在颧骨投下锐利阴影。",
+        "video_description": "镜头固定于林宇面部特写，他下颌肌肉微颤，喉结上下滚动一次，目光从艾娃方向移向地面。左侧冷蓝色窗光强化面部立体感，右侧阴影加深。镜头落幅在林宇低垂的视线与微颤的下颌线。",
+        "dialogue": "艾娃：我说了你会听吗？你从来不听！你只相信你那个全息面板上的数字。",
+        "narration": "",
+        "audio_track_id": "dialogue_4",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇声音低下来，眼神复杂，深灰针织衫领口微敞，冷光勾勒面部轮廓。",
+        "video_description": "镜头聚焦林宇上半身近景，他肩膀微沉，右手自然垂落，嘴唇缓慢开合吐出低语。左侧冷蓝色窗光打亮右脸颊，左脸隐入阴影。镜头保持固定，落幅在林宇复杂的眼神与微沉的肩膀。",
+        "dialogue": "林宇：这不是数字的问题！是信任的问题。你背着我做了所有决定。",
+        "narration": "",
+        "audio_track_id": "dialogue_5",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "缓慢拉远",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇目光直视艾娃背影，语气沉重，冷光与暖光交织，空间压抑。",
+        "video_description": "镜头从林宇近景缓慢拉远至胸部以上中近景，他身体微微后仰，目光死死锁定艾娃背影，呼吸节奏放缓。冷蓝色窗光随镜头拉远逐渐占据画面左侧三分之二，暖黄光退至右侧边缘。镜头落幅在林宇直视的目光与紧绷的肩线。",
+        "dialogue": "林宇：这不是数字的问题！是信任的问题。你背着我做了所有决定。",
+        "narration": "",
+        "audio_track_id": "dialogue_5",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，艾娃肩膀微僵，眼眶微红，丝绸衬衫随呼吸微起伏，冷光映照侧脸。",
+        "video_description": "镜头固定于艾娃中景，她背部肌肉微不可察地绷紧，肩膀僵硬停顿半秒，眼眶泛起微红。左侧冷蓝色窗光打亮左脸，右侧暖黄光在右颊形成柔和过渡。镜头保持固定，落幅在艾娃微僵的肩线与泛红的眼眶。",
+        "dialogue": "林宇：这不是数字的问题！是信任的问题。你背着我做了所有决定。",
+        "narration": "",
+        "audio_track_id": "dialogue_5",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，艾娃转过头，眼神脆弱但坚定，冷光在泪光中折射，丝绸衬衫领口微敞。",
+        "video_description": "镜头固定于艾娃面部特写，她缓缓转头面向林宇，睫毛微颤，眼眶微红但目光直视，嘴唇微启准备开口。左侧冷蓝色窗光强化面部立体感，右侧阴影加深。镜头落幅在艾娃脆弱却坚定的双眼与微启的唇。",
+        "dialogue": "艾娃：信任？你每天早上七点出门晚上十一点回来，我们之间的对话不超过三句。你跟我谈信任？",
+        "narration": "",
+        "audio_track_id": "dialogue_6",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景空镜，客厅冷光静止，沙发与茶几轮廓清晰，无人物活动。",
+        "video_description": "固定全景机位，人物已离开画面，只剩深灰沙发与胡桃木茶几在冷光下静置。画面完全静止，所有元素定格不动，作为下一章节的首帧锚点。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "深灰布艺沙发",
+          "胡桃木茶几"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  },
+  {
+    "chapter_info": {
+      "chapter_id": 3,
+      "chapter_summary": "林宇追问独自扛下的后果，艾娃承认尝试，情感收束。",
+      "time_period": "现代/近未来",
+      "characters": [
+        {
+          "name": "林宇",
+          "appearance": "32岁，肩宽背直，黑色短发微乱，深灰色高领针织衫，左手腕佩戴哑光黑智能表，右眉骨有一道浅淡旧疤，位于画面左侧中景。"
+        },
+        {
+          "name": "艾娃",
+          "appearance": "29岁，身形修长，栗色长发低束马尾，米白色垂感丝绸衬衫，腰间系细皮带，耳垂佩戴极简银质圆环，位于画面右侧前景。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "林宇家客厅",
+          "environment": "实拍介质，哑光微水泥墙面带细微颗粒纹理，中央摆放深灰布艺沙发与胡桃木茶几，左侧落地窗配半透纱帘。主光源为左上方45°冷蓝色窗光（色温4500K），右侧辅以低照度暖黄落地灯。源感锁定为商业摄影风格，画面干净无手持抖动，高光边缘锐利。"
+        }
+      ],
+      "props": [
+        "黑色平板终端",
+        "深灰布艺沙发",
+        "胡桃木茶几"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景承接上章，深夜客厅冷光静止，林宇立于沙发旁，艾娃背对，空间凝固。",
+        "video_description": "镜头从客厅门口全景固定机位开始，缓慢向内微推，交代房间布局与两人站位。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在两人中景位置。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇",
+          "艾娃"
+        ],
+        "prop_list": [
+          "黑色平板终端",
+          "深灰布艺沙发"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇低头沉默，声音低哑，深灰针织衫领口微敞，冷光勾勒面部轮廓。",
+        "video_description": "镜头聚焦林宇上半身近景，他视线低垂，肩膀微沉，嘴唇缓慢开合吐出低语。左侧冷蓝色窗光打亮右脸颊，左脸隐入阴影。镜头保持固定，落幅在林宇低垂的视线与微沉的肩膀。",
+        "dialogue": "林宇：所以你就自己扛？你觉得这样能解决问题？",
+        "narration": "",
+        "audio_track_id": "dialogue_7",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "缓慢推近",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，林宇眉头微蹙，语气加重，冷光与暖光交织，眼神直视前方。",
+        "video_description": "镜头从林宇近景缓慢推近至面部特写，他眉头微不可察地蹙起，目光从地面移向艾娃背影，嘴唇清晰开合。冷蓝色窗光随镜头推进逐渐覆盖面部，暖黄光退至边缘。镜头落幅在林宇微蹙的眉头与直视的目光。",
+        "dialogue": "林宇：所以你就自己扛？你觉得这样能解决问题？",
+        "narration": "",
+        "audio_track_id": "dialogue_7",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，艾娃眼眶微红，睫毛微颤，冷光在泪光中折射，丝绸衬衫领口微敞。",
+        "video_description": "镜头固定于艾娃面部特写，她背部肌肉微不可察地绷紧，肩膀僵硬停顿半秒，眼眶泛起微红。左侧冷蓝色窗光强化面部立体感，右侧阴影加深。镜头落幅在艾娃泛红的眼眶与微颤的睫毛。",
+        "dialogue": "林宇：所以你就自己扛？你觉得这样能解决问题？",
+        "narration": "",
+        "audio_track_id": "dialogue_7",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "特写，艾娃转过头，眼神脆弱但坚定，冷光在泪光中折射，丝绸衬衫领口微敞。",
+        "video_description": "镜头固定于艾娃面部特写，她缓缓转头面向林宇，睫毛微颤，眼眶微红但目光直视，嘴唇微启准备开口。左侧冷蓝色窗光强化面部立体感，右侧阴影加深。镜头落幅在艾娃脆弱却坚定的双眼与微启的唇。",
+        "dialogue": "艾娃：我不知道能不能解决问题。但至少，我试过。",
+        "narration": "",
+        "audio_track_id": "dialogue_8",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "缓慢拉远",
+        "duration": 2.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "近景，艾娃肩膀微松，语气微颤，冷光与暖光交织，眼神直视前方。",
+        "video_description": "镜头从艾娃特写缓慢拉远至面部近景，她肩膀微不可察地放松，右手自然垂落，嘴唇缓慢开合吐出低语。冷蓝色窗光随镜头拉远逐渐占据画面左侧三分之二，暖黄光退至右侧边缘。镜头落幅在艾娃微松的肩线与直视的目光。",
+        "dialogue": "艾娃：我不知道能不能解决问题。但至少，我试过。",
+        "narration": "",
+        "audio_track_id": "dialogue_8",
+        "character_list": [
+          "艾娃"
+        ]
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "固定",
+        "duration": 1.2,
+        "scene_name": "林宇家客厅",
+        "shot_description": "中景，林宇背影微僵，呼吸放缓，冷光映照沙发轮廓，空间凝固。",
+        "video_description": "镜头固定于林宇中景背影，他身体微微后仰，肩膀僵硬停顿半秒，呼吸节奏放缓。左侧冷蓝色窗光打亮左肩，右侧暖黄光在右肩形成柔和过渡。镜头保持固定，落幅在林宇微僵的肩线与静止的背影。",
+        "dialogue": "艾娃：我不知道能不能解决问题。但至少，我试过。",
+        "narration": "",
+        "audio_track_id": "dialogue_8",
+        "character_list": [
+          "林宇"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景，客厅冷光静止，沙发与茶几轮廓清晰，无人物活动，氛围收束。",
+        "video_description": "镜头固定于客厅全景，人物已离开画面，只剩深灰沙发与胡桃木茶几在冷光下静置。画面完全静止，所有元素定格不动，作为下一章节的首帧锚点。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "深灰布艺沙发",
+          "胡桃木茶几"
+        ]
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "林宇家客厅",
+        "shot_description": "全景空镜，客厅冷光静止，沙发与茶几轮廓清晰，无人物活动。",
+        "video_description": "固定全景机位，人物已离开画面，只剩深灰沙发与胡桃木茶几在冷光下静置。画面完全静止，所有元素定格不动，作为下一章节的首帧锚点。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "深灰布艺沙发",
+          "胡桃木茶几"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  }
+]

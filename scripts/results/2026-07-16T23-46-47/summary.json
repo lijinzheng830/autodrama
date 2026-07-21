@@ -1,0 +1,47 @@
+[
+  {
+    "id": "case-a1-argument",
+    "type": "dialogue-driven",
+    "name": "Case A1: 争吵对话",
+    "success": false,
+    "error": "FOREIGN KEY constraint failed",
+    "timingMs": 89121,
+    "metrics": null
+  },
+  {
+    "id": "case-a2-conversation",
+    "type": "dialogue-driven",
+    "name": "Case A2: 多角色交流",
+    "success": false,
+    "error": "FOREIGN KEY constraint failed",
+    "timingMs": 64049,
+    "metrics": null
+  },
+  {
+    "id": "case-b1-solitude",
+    "type": "visual-driven",
+    "name": "Case B1: 独处氛围",
+    "success": false,
+    "error": "FOREIGN KEY constraint failed",
+    "timingMs": 61738,
+    "metrics": null
+  },
+  {
+    "id": "case-b2-memory",
+    "type": "visual-driven",
+    "name": "Case B2: 回忆闪回",
+    "success": false,
+    "error": "FOREIGN KEY constraint failed",
+    "timingMs": 57424,
+    "metrics": null
+  },
+  {
+    "id": "case-c1-mixed",
+    "type": "mixed",
+    "name": "Case C1: 混合场景（命令-反应-独处）",
+    "success": false,
+    "error": "FOREIGN KEY constraint failed",
+    "timingMs": 91286,
+    "metrics": null
+  }
+]

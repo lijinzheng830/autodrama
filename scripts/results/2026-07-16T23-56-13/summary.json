@@ -1,0 +1,146 @@
+[
+  {
+    "id": "case-a1-argument",
+    "type": "dialogue-driven",
+    "name": "Case A1: 争吵对话",
+    "success": true,
+    "timingMs": 94840,
+    "metrics": {
+      "chapterCount": 8,
+      "totalShots": 27,
+      "purposeAI": 27,
+      "purposeFallback": 0,
+      "aiPurposePercent": 100,
+      "overflowCount": 5,
+      "r1RenameCount": 0,
+      "voiceOverSources": {
+        "aiGenerated": 0,
+        "pipelineGenerated": 6
+      },
+      "rhythmWarnings": 5,
+      "complianceWarnings": [
+        "audio_track \"dialogue_7\" 对白17字 > 组容量16字（3镜合计）"
+      ],
+      "lipSyncShots": 34,
+      "voiceOverShots": 6,
+      "visualShots": 32,
+      "dialogueRatio": 49,
+      "aiChapterCount": 3,
+      "overflowChapterCount": 5
+    }
+  },
+  {
+    "id": "case-a2-conversation",
+    "type": "dialogue-driven",
+    "name": "Case A2: 多角色交流",
+    "success": true,
+    "timingMs": 112914,
+    "metrics": {
+      "chapterCount": 6,
+      "totalShots": 36,
+      "purposeAI": 36,
+      "purposeFallback": 0,
+      "aiPurposePercent": 100,
+      "overflowCount": 2,
+      "r1RenameCount": 0,
+      "voiceOverSources": {
+        "aiGenerated": 0,
+        "pipelineGenerated": 1
+      },
+      "rhythmWarnings": 1,
+      "complianceWarnings": [],
+      "lipSyncShots": 27,
+      "voiceOverShots": 1,
+      "visualShots": 26,
+      "dialogueRatio": 52,
+      "aiChapterCount": 4,
+      "overflowChapterCount": 2
+    }
+  },
+  {
+    "id": "case-b1-solitude",
+    "type": "visual-driven",
+    "name": "Case B1: 独处氛围",
+    "success": true,
+    "timingMs": 58801,
+    "metrics": {
+      "chapterCount": 1,
+      "totalShots": 9,
+      "purposeAI": 9,
+      "purposeFallback": 0,
+      "aiPurposePercent": 100,
+      "overflowCount": 0,
+      "r1RenameCount": 0,
+      "voiceOverSources": {
+        "aiGenerated": 0,
+        "pipelineGenerated": 0
+      },
+      "rhythmWarnings": 0,
+      "complianceWarnings": [],
+      "lipSyncShots": 0,
+      "voiceOverShots": 0,
+      "visualShots": 9,
+      "dialogueRatio": 0,
+      "aiChapterCount": 1,
+      "overflowChapterCount": 0
+    }
+  },
+  {
+    "id": "case-b2-memory",
+    "type": "visual-driven",
+    "name": "Case B2: 回忆闪回",
+    "success": true,
+    "timingMs": 60497,
+    "metrics": {
+      "chapterCount": 1,
+      "totalShots": 9,
+      "purposeAI": 9,
+      "purposeFallback": 0,
+      "aiPurposePercent": 100,
+      "overflowCount": 0,
+      "r1RenameCount": 0,
+      "voiceOverSources": {
+        "aiGenerated": 0,
+        "pipelineGenerated": 0
+      },
+      "rhythmWarnings": 0,
+      "complianceWarnings": [],
+      "lipSyncShots": 0,
+      "voiceOverShots": 0,
+      "visualShots": 9,
+      "dialogueRatio": 0,
+      "aiChapterCount": 1,
+      "overflowChapterCount": 0
+    }
+  },
+  {
+    "id": "case-c1-mixed",
+    "type": "mixed",
+    "name": "Case C1: 混合场景（命令-反应-独处）",
+    "success": true,
+    "timingMs": 85189,
+    "metrics": {
+      "chapterCount": 3,
+      "totalShots": 9,
+      "purposeAI": 9,
+      "purposeFallback": 0,
+      "aiPurposePercent": 100,
+      "overflowCount": 2,
+      "r1RenameCount": 0,
+      "voiceOverSources": {
+        "aiGenerated": 0,
+        "pipelineGenerated": 0
+      },
+      "rhythmWarnings": 2,
+      "complianceWarnings": [
+        "镜#2 对白7字 > 镜容量6字（近景 2s）"
+      ],
+      "lipSyncShots": 15,
+      "voiceOverShots": 0,
+      "visualShots": 12,
+      "dialogueRatio": 59,
+      "aiChapterCount": 1,
+      "overflowChapterCount": 2
+    }
+  }
+]

@@ -1,0 +1,96 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "法庭对峙，检察官陈默发表长篇指控，辩护律师林宇激烈反驳。",
+      "time_period": "现代",
+      "characters": [
+        { "name": "陈默", "appearance": "35岁左右，中等体型，深灰色西装，金丝眼镜，短发梳理整齐，检察官席站立。" },
+        { "name": "林宇", "appearance": "30岁，瘦高体型，黑色西装，不戴眼镜，短发微乱，辩护席站立。" }
+      ],
+      "scenes": [
+        { "name": "法庭", "environment": "实拍介质，深色木质护墙板，法官席居中高悬，两侧律师席对列，顶光从穹顶玻璃洒下，色温4500K。" }
+      ],
+      "props": ["案卷", "法槌"]
+    },
+    "shots": [
+      {
+        "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "全景，庄严的法庭内，深色木质护墙板，法官席居中高悬，控辩双方相对而立。",
+        "video_description": "镜头从法庭大门全景缓慢推进到中央过道，交代空间布局与控辩双方站位。穹顶自然光洒在中央过道上。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["陈默", "林宇"], "prop_list": ["法槌"],
+        "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" }
+      },
+      {
+        "shot_id": 2, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "近景，陈默双手撑在检方席桌面，金丝眼镜后目光锐利。",
+        "video_description": "镜头聚焦陈默上半身近景，他双手撑在桌面，身体前倾。穹顶光从他身后照来形成轮廓光。",
+        "dialogue": "陈默：审判长，本案证据链完整——被告在案发当晚进入被害人住所，全程被监控录像记录，现场提取到被告指纹共计三处，分别位于门把手、客厅茶几边缘和被害人手机屏幕。",
+        "narration": "", "audio_track_id": "dialogue_1",
+        "character_list": ["陈默"]
+      },
+      {
+        "shot_id": 3, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "特写，林宇嘴角微扬，手指轻轻敲击案卷封面，神情自若。",
+        "video_description": "镜头聚焦林宇面部特写，他嘴角微扬似笑非笑，手指轻轻敲击案卷封面。侧光勾勒出他下颚的锋利线条。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇"], "prop_list": ["案卷"]
+      },
+      {
+        "shot_id": 4, "shot_type": "近景", "camera_movement": "缓慢拉远", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "近景，陈默翻开案卷，继续宣读，语气愈发严厉。",
+        "video_description": "陈默翻开案卷，右手食指划过案卷内页文字。镜头从面部近景缓慢拉远至半身，穹顶光从上方垂直打下。",
+        "dialogue": "陈默：不仅如此，案发后被告试图删除监控录像的行为被系统日志完整记录，手机云端的备份同步也被技术部门恢复。此外我们还找到了案发前三日被告在网络论坛发布的威胁言论截图。",
+        "narration": "", "audio_track_id": "dialogue_1",
+        "character_list": ["陈默"], "prop_list": ["案卷"]
+      },
+      {
+        "shot_id": 5, "shot_type": "中景", "camera_movement": "左摇", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "中景，林宇缓缓站起身，西装下摆自然垂落，全场目光聚焦。",
+        "video_description": "镜头从陈默方向缓慢左摇至林宇。林宇缓缓站起身，黑色西装下摆自然垂落，陪审团成员纷纷侧目。穹顶光在他身后拉出长长的影子。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["林宇", "陈默"]
+      },
+      {
+        "shot_id": 6, "shot_type": "近景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "近景，林宇双手交叠于身前，目光平静扫过陪审团，声音沉稳而有力。",
+        "video_description": "镜头固定机位聚焦林宇上半身近景。他双手交叠于身前，目光平静扫过陪审席。穹顶光正面打在他脸上。",
+        "dialogue": "林宇：审判长，检方提供的监控录像确实记录了有人进入被害人住所——但录像中的人戴着口罩和棒球帽，身高和体型与我当事人存在显著差异。而检方所说的三处指纹——请问这些指纹是在什么材质的表面上提取的？保存了多长时间？有没有被其他物体覆盖过？",
+        "narration": "", "audio_track_id": "dialogue_2",
+        "character_list": ["林宇"]
+      },
+      {
+        "shot_id": 7, "shot_type": "特写", "camera_movement": "固定", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "特写，陈默眼神微动，金丝眼镜片反光一闪。",
+        "video_description": "镜头聚焦陈默眼部特写，金丝眼镜片反射穹顶光线闪了一下。他喉结微动，但没有立即开口。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["陈默"]
+      },
+      {
+        "shot_id": 8, "shot_type": "全景", "camera_movement": "缓慢拉远", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "全景，法庭陷入短暂沉默，法官席上传来一声法槌轻敲。",
+        "video_description": "镜头从林宇近景缓慢拉远至法庭全景。全场陷入短暂沉默，只听见穹顶通风系统的微弱嗡嗡声。法官举起法槌轻敲了一声。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": ["陈默", "林宇"], "prop_list": ["法槌"]
+      },
+      {
+        "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0,
+        "scene_name": "法庭",
+        "shot_description": "全景空镜，法庭木质护墙板在午后的光线中显出沉静纹理，法槌静置，尘埃在光柱中缓慢飘浮。",
+        "video_description": "固定全景机位，人物已离开画面，只剩法槌在法官席上静置。穹顶光柱中尘埃缓慢飘浮。画面完全静止，所有元素定格不动。",
+        "dialogue": "", "narration": "", "audio_track_id": "",
+        "character_list": [], "prop_list": ["法槌"],
+        "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" }
+      }
+    ]
+  }
+]

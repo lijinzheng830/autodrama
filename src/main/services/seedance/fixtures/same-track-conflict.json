@@ -1,0 +1,18 @@
+[
+  {
+    "chapter_info": { "chapter_id": 1, "chapter_summary": "AI 错误复用 dialogue_1 在同章内标注两个不同对白。", "time_period": "现代",
+      "characters": [{ "name": "林宇", "appearance": "25岁，瘦高体型。" }],
+      "scenes": [{ "name": "客厅", "environment": "冷调线性灯带。" }], "props": [] },
+    "shots": [
+      { "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0, "scene_name": "客厅", "shot_description": "定场。", "video_description": "镜头缓慢推进。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"], "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" } },
+      { "shot_id": 2, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "林宇下令。", "video_description": "镜头固定特写林宇面部。", "dialogue": "林宇：把今天行程压缩到12小时，空档全部删掉。", "narration": "", "audio_track_id": "dialogue_1", "character_list": ["林宇"] },
+      { "shot_id": 3, "shot_type": "中景", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "林宇停顿。", "video_description": "镜头固定中景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 4, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "林宇转问。", "video_description": "镜头固定近景。", "dialogue": "林宇：早安，今天有什么安排？", "narration": "", "audio_track_id": "dialogue_1", "character_list": ["林宇"] },
+      { "shot_id": 5, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "手表屏幕。", "video_description": "镜头聚焦手表。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 6, "shot_type": "中景", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "林宇等待。", "video_description": "镜头固定中景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 7, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "林宇起身。", "video_description": "镜头固定近景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "全景过渡。", "video_description": "镜头固定全景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "客厅", "shot_description": "空镜。", "video_description": "固定全景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": [], "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" } }
+    ]
+  }
+]

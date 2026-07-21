@@ -1,0 +1,820 @@
+[
+  {
+    "chapter_info": {
+      "chapter_id": 1,
+      "chapter_summary": "陈默开场分配任务，林宇汇报技术方案与并行需求。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "陈默",
+          "appearance": "40岁左右，宽肩窄腰体型，黑色短发梳理整齐，深灰色修身西装搭配白色衬衫，左手腕佩戴银色机械表，主位站立。"
+        },
+        {
+          "name": "林宇",
+          "appearance": "28岁左右，清瘦体型，黑色短发微卷，黑色高领针织衫，黑框眼镜，右手握黑色签字笔，左侧落座。"
+        },
+        {
+          "name": "苏晴",
+          "appearance": "26岁左右，匀称体型，深棕色低马尾，米色针织开衫内搭白色T恤，左手托腮，右侧落座。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "公司会议室",
+          "environment": "现代简约风格会议室，哑光白墙与胡桃木长条会议桌，顶部投影幕布显示合同草案，顶部4000K柔光筒灯均匀照射，商业摄影质感（干净反射+零手持运动）。"
+        }
+      ],
+      "props": [
+        "合同草案投影",
+        "黑色签字笔",
+        "白色马克杯"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，现代公司会议室，胡桃木长桌旁三人落座，顶部投影幕布亮着合同草案。缓慢推进。光影：顶部4000K柔光均匀洒落，桌面泛起哑光质感。",
+        "video_description": "镜头从门口全景固定机位开始，缓慢向内微推，交代房间布局与三人站位。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在三人中景位置。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默",
+          "林宇",
+          "苏晴"
+        ],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，陈默双手撑在会议桌边缘，目光沉稳地扫视左右两侧。固定。光影：冷白光勾勒其西装肩线，面部明暗对比清晰。",
+        "video_description": "陈默双手撑在会议桌边缘，身体微微前倾。镜头固定机位，落幅在陈默上半身近景，冷白光勾勒其西装肩线。",
+        "dialogue": "陈默：今天叫你们来，是想讨论一下新项目的分工。林宇，你先说。",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.3,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，林宇身体微微前倾，右手握笔在黑色笔记本上快速书写。固定。光影：侧窗自然光与顶光交织，笔尖在纸面留下深色墨迹。",
+        "video_description": "林宇身体微微前倾，右手握笔在黑色笔记本上快速书写。镜头固定机位，落幅在林宇上半身近景，侧窗自然光与顶光交织。",
+        "dialogue": "陈默：今天叫你们来，是想讨论一下新项目的分工。林宇，你先说。",
+        "narration": "",
+        "audio_track_id": "dialogue_1",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色签字笔"
+        ]
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "information",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，林宇右手握笔，笔尖在纸上快速划出两条平行时间轴。固定。光影：桌面暖黄台灯局部补光，纸面纹理与墨迹清晰可见。",
+        "video_description": "林宇右手握笔，笔尖在纸上快速划出两条平行时间轴。镜头固定机位，落幅在纸面特写，桌面暖黄台灯局部补光。",
+        "dialogue": "林宇：技术方案我已经梳理完了，核心模块需要六周。但如果要赶在十月上线，前端和后端必须并行。",
+        "narration": "",
+        "audio_track_id": "dialogue_2",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色签字笔"
+        ]
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "左摇",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，苏晴放下托腮的左手，眉头微蹙，视线转向左侧林宇。左摇。光影：环境光柔和过渡，针织开衫褶皱在侧光下呈现立体感。",
+        "video_description": "苏晴放下托腮的左手，眉头微蹙，视线转向左侧林宇。镜头缓慢左摇，落幅在苏晴中景，环境光柔和过渡。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，苏晴双手交叠置于桌面，身体前倾，目光直视前方。固定。光影：正面柔光均匀照亮面部，眼神专注且带有审视意味。",
+        "video_description": "苏晴双手交叠置于桌面，身体前倾，目光直视前方。镜头固定机位，落幅在苏晴上半身近景，正面柔光均匀照亮面部。",
+        "dialogue": "苏晴：六周太长了。市场窗口只有八周，我们还需要两周做推广预热。能不能压缩到四周？",
+        "narration": "",
+        "audio_track_id": "dialogue_3",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "右摇",
+        "duration": 1.0,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，林宇微微点头，右手食指轻叩桌面两下表示认可。右摇。光影：侧光随镜头移动掠过桌面，笔记本边缘反光微动。",
+        "video_description": "林宇微微点头，右手食指轻叩桌面两下表示认可。镜头缓慢右摇，落幅在林宇中景，侧光随镜头移动掠过桌面。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.8,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，林宇抬起左手，食指与中指并拢向前比划，嘴唇开合。缓慢推进。光影：顶光聚焦于面部与手势，背景投影幕布虚化。",
+        "video_description": "林宇抬起左手，食指与中指并拢向前比划，嘴唇开合。镜头缓慢推进，落幅在林宇上半身近景，顶光聚焦于面部与手势。",
+        "dialogue": "林宇：四周的话，只能砍掉两个非核心功能。数据分析模块和用户画像可以先上简化版。",
+        "narration": "",
+        "audio_track_id": "dialogue_4",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，会议室长桌空镜，投影幕布静止显示合同草案，无人物。固定。光影：顶部4000K柔光完全静止，桌面与幕布光影定格。",
+        "video_description": "镜头固定机位，画面完全静止，仅保留胡桃木长桌与投影幕布。顶部4000K柔光完全静止，桌面与幕布光影定格，承接上一镜构图。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  },
+  {
+    "chapter_info": {
+      "chapter_id": 2,
+      "chapter_summary": "苏晴质疑工期并提出压缩方案，林宇给出砍功能建议。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "陈默",
+          "appearance": "40岁左右，宽肩窄腰体型，黑色短发梳理整齐，深灰色修身西装搭配白色衬衫，左手腕佩戴银色机械表，主位落座。"
+        },
+        {
+          "name": "林宇",
+          "appearance": "28岁左右，清瘦体型，黑色短发微卷，黑色高领针织衫，黑框眼镜，右手握黑色签字笔，左侧落座。"
+        },
+        {
+          "name": "苏晴",
+          "appearance": "26岁左右，匀称体型，深棕色低马尾，米色针织开衫内搭白色T恤，左手托腮，右侧落座。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "公司会议室",
+          "environment": "现代简约风格会议室，哑光白墙与胡桃木长条会议桌，顶部投影幕布显示合同草案，顶部4000K柔光筒灯均匀照射，商业摄影质感（干净反射+零手持运动）。"
+        }
+      ],
+      "props": [
+        "合同草案投影",
+        "黑色签字笔",
+        "白色马克杯"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，现代公司会议室，胡桃木长桌旁三人落座，顶部投影幕布亮着合同草案。缓慢拉远。光影：顶部4000K柔光均匀洒落，桌面泛起哑光质感。",
+        "video_description": "镜头从三人中景开始，缓慢向外拉远，交代会议室整体空间。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在会议室全景。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默",
+          "林宇",
+          "苏晴"
+        ],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，苏晴双手撑在会议桌边缘，身体前倾，目光直视对面。固定。光影：正面柔光勾勒面部轮廓，针织开衫领口微敞。",
+        "video_description": "苏晴双手撑在会议桌边缘，身体前倾，目光直视对面。镜头固定机位，落幅在苏晴上半身近景，正面柔光勾勒面部轮廓。",
+        "dialogue": "苏晴：六周太长了。市场窗口只有八周，我们还需要两周做推广预热。能不能压缩到四周？",
+        "narration": "",
+        "audio_track_id": "dialogue_5",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，苏晴面部，嘴唇微张正在说话，眼神专注且带有催促意味。固定。光影：侧光打在颧骨处，眼白反光清晰。",
+        "video_description": "苏晴面部，嘴唇微张正在说话，眼神专注且带有催促意味。镜头固定机位，落幅在苏晴面部特写，侧光打在颧骨处。",
+        "dialogue": "苏晴：六周太长了。市场窗口只有八周，我们还需要两周做推广预热。能不能压缩到四周？",
+        "narration": "",
+        "audio_track_id": "dialogue_5",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，林宇松开交握的双手，身体向后靠向椅背，目光转向苏晴。缓慢推进。光影：环境光随镜头移动掠过桌面，椅背阴影拉长。",
+        "video_description": "林宇松开交握的双手，身体向后靠向椅背，目光转向苏晴。镜头缓慢推进，落幅在林宇中景，环境光随镜头移动掠过桌面。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，林宇右手抬起，掌心向下做切割手势，嘴唇开合。固定。光影：顶光聚焦于手部与面部，背景虚化。",
+        "video_description": "林宇右手抬起，掌心向下做切割手势，嘴唇开合。镜头固定机位，落幅在林宇上半身近景，顶光聚焦于手部与面部。",
+        "dialogue": "林宇：四周的话，只能砍掉两个非核心功能。数据分析模块和用户画像可以先上简化版。",
+        "narration": "",
+        "audio_track_id": "dialogue_6",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "information",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，林宇右手食指与中指并拢，向下压切桌面边缘。固定。光影：桌面暖黄台灯局部补光，指尖关节微红。",
+        "video_description": "林宇右手食指与中指并拢，向下压切桌面边缘。镜头固定机位，落幅在桌面特写，桌面暖黄台灯局部补光。",
+        "dialogue": "林宇：四周的话，只能砍掉两个非核心功能。数据分析模块和用户画像可以先上简化版。",
+        "narration": "",
+        "audio_track_id": "dialogue_6",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "右摇",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，陈默眉头紧锁，目光从林宇移向苏晴，右手轻敲桌面。右摇。光影：冷白光扫过西装面料，面部阴影加深。",
+        "video_description": "陈默眉头紧锁，目光从林宇移向苏晴，右手轻敲桌面。镜头缓慢右摇，落幅在陈默中景，冷白光扫过西装面料。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "emotion",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，陈默双手交叉抱胸，身体微微后仰，目光审视。固定。光影：顶光均匀照亮面部，眼神锐利。",
+        "video_description": "陈默双手交叉抱胸，身体微微后仰，目光审视。镜头固定机位，落幅在陈默上半身近景，顶光均匀照亮面部。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，会议室空镜，投影幕布静止显示合同草案，无人物。固定。光影：顶部4000K柔光完全静止，桌面与幕布光影定格。",
+        "video_description": "镜头固定机位，画面完全静止，仅保留胡桃木长桌与投影幕布。顶部4000K柔光完全静止，桌面与幕布光影定格，承接上一镜构图。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  },
+  {
+    "chapter_info": {
+      "chapter_id": 3,
+      "chapter_summary": "陈默拒绝砍功能，苏晴提出Demo方案，林宇确认周五交付但需素材。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "陈默",
+          "appearance": "40岁左右，宽肩窄腰体型，黑色短发梳理整齐，深灰色修身西装搭配白色衬衫，左手腕佩戴银色机械表，主位落座。"
+        },
+        {
+          "name": "林宇",
+          "appearance": "28岁左右，清瘦体型，黑色短发微卷，黑色高领针织衫，黑框眼镜，右手握黑色签字笔，左侧落座。"
+        },
+        {
+          "name": "苏晴",
+          "appearance": "26岁左右，匀称体型，深棕色低马尾，米色针织开衫内搭白色T恤，左手托腮，右侧落座。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "公司会议室",
+          "environment": "现代简约风格会议室，哑光白墙与胡桃木长条会议桌，顶部投影幕布显示合同草案，顶部4000K柔光筒灯均匀照射，商业摄影质感（干净反射+零手持运动）。"
+        }
+      ],
+      "props": [
+        "合同草案投影",
+        "黑色签字笔",
+        "白色马克杯"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，现代公司会议室，胡桃木长桌旁三人落座，顶部投影幕布亮着合同草案。缓慢推进。光影：顶部4000K柔光均匀洒落，桌面泛起哑光质感。",
+        "video_description": "镜头从门口全景固定机位开始，缓慢向内微推，交代房间布局与三人站位。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在三人中景位置。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默",
+          "林宇",
+          "苏晴"
+        ],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.8,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，陈默松开抱胸的双手，身体前倾，双手撑桌，语气坚决。固定。光影：冷白光勾勒面部轮廓，西装领口微敞。",
+        "video_description": "陈默松开抱胸的双手，身体前倾，双手撑桌，语气坚决。镜头固定机位，落幅在陈默上半身近景，冷白光勾勒面部轮廓。",
+        "dialogue": "陈默：砍功能我不同意。我们答应投资人的是完整产品，不是半成品。苏晴，市场那边能不能调整节奏？",
+        "narration": "",
+        "audio_track_id": "dialogue_7",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，陈默面部，嘴唇微张正在说话，眼神坚定直视前方。固定。光影：顶光打在眉骨处，眼白反光清晰。",
+        "video_description": "陈默面部，嘴唇微张正在说话，眼神坚定直视前方。镜头固定机位，落幅在陈默面部特写，顶光打在眉骨处。",
+        "dialogue": "陈默：砍功能我不同意。我们答应投资人的是完整产品，不是半成品。苏晴，市场那边能不能调整节奏？",
+        "narration": "",
+        "audio_track_id": "dialogue_7",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "左摇",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，苏晴微微点头，右手拿起桌上的白色马克杯，目光转向陈默。左摇。光影：环境光随镜头移动掠过桌面，杯身反光微动。",
+        "video_description": "苏晴微微点头，右手拿起桌上的白色马克杯，目光转向陈默。镜头缓慢左摇，落幅在苏晴中景，环境光随镜头移动掠过桌面。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "白色马克杯"
+        ]
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，苏晴双手握住马克杯，身体前倾，目光直视对面。固定。光影：正面柔光均匀照亮面部，针织开衫褶皱清晰。",
+        "video_description": "苏晴双手握住马克杯，身体前倾，目光直视对面。镜头固定机位，落幅在苏晴上半身近景，正面柔光均匀照亮面部。",
+        "dialogue": "苏晴：可以先做一轮预热，用Demo演示核心功能。正式发布推迟两周。但前提是——Demo必须在下周五之前出来。",
+        "narration": "",
+        "audio_track_id": "dialogue_8",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "白色马克杯"
+        ]
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "information",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，苏晴右手拇指与食指摩挲马克杯陶瓷杯沿。固定。光影：桌面暖黄台灯局部补光，指尖关节微红。",
+        "video_description": "苏晴右手拇指与食指摩挲马克杯陶瓷杯沿。镜头固定机位，落幅在桌面特写，桌面暖黄台灯局部补光。",
+        "dialogue": "苏晴：可以先做一轮预热，用Demo演示核心功能。正式发布推迟两周。但前提是——Demo必须在下周五之前出来。",
+        "narration": "",
+        "audio_track_id": "dialogue_8",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "白色马克杯"
+        ]
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "右摇",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，林宇身体前倾，右手握笔在笔记本上快速记录，目光专注。右摇。光影：侧光扫过笔记本纸面，笔尖留下深色墨迹。",
+        "video_description": "林宇身体前倾，右手握笔在笔记本上快速记录，目光专注。镜头缓慢右摇，落幅在林宇中景，侧光扫过笔记本纸面。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": [
+          "黑色签字笔"
+        ]
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "缓慢推进",
+        "duration": 2.0,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，林宇抬起左手，食指指向苏晴方向，嘴唇开合。缓慢推进。光影：顶光聚焦于面部与手势，背景虚化。",
+        "video_description": "林宇抬起左手，食指指向苏晴方向，嘴唇开合。镜头缓慢推进，落幅在林宇上半身近景，顶光聚焦于面部与手势。",
+        "dialogue": "林宇：下周五Demo可以。但我需要苏晴那边的视觉素材，最晚周三给我。",
+        "narration": "",
+        "audio_track_id": "dialogue_9",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，会议室空镜，投影幕布静止显示合同草案，无人物。固定。光影：顶部4000K柔光完全静止，桌面与幕布光影定格。",
+        "video_description": "镜头固定机位，画面完全静止，仅保留胡桃木长桌与投影幕布。顶部4000K柔光完全静止，桌面与幕布光影定格，承接上一镜构图。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  },
+  {
+    "chapter_info": {
+      "chapter_id": 4,
+      "chapter_summary": "苏晴协商素材交付时间，林宇同意，陈默起身踱步并敲定最终分工。",
+      "time_period": "现代",
+      "characters": [
+        {
+          "name": "陈默",
+          "appearance": "40岁左右，宽肩窄腰体型，黑色短发梳理整齐，深灰色修身西装搭配白色衬衫，左手腕佩戴银色机械表，主位站立。"
+        },
+        {
+          "name": "林宇",
+          "appearance": "28岁左右，清瘦体型，黑色短发微卷，黑色高领针织衫，黑框眼镜，右手握黑色签字笔，左侧落座。"
+        },
+        {
+          "name": "苏晴",
+          "appearance": "26岁左右，匀称体型，深棕色低马尾，米色针织开衫内搭白色T恤，左手托腮，右侧落座。"
+        }
+      ],
+      "scenes": [
+        {
+          "name": "公司会议室",
+          "environment": "现代简约风格会议室，哑光白墙与胡桃木长条会议桌，顶部投影幕布显示合同草案，顶部4000K柔光筒灯均匀照射，商业摄影质感（干净反射+零手持运动）。"
+        }
+      ],
+      "props": [
+        "合同草案投影",
+        "黑色签字笔",
+        "白色马克杯"
+      ]
+    },
+    "shots": [
+      {
+        "shot_id": 1,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "缓慢拉远",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，现代公司会议室，胡桃木长桌旁三人落座，顶部投影幕布亮着合同草案。缓慢拉远。光影：顶部4000K柔光均匀洒落，桌面泛起哑光质感。",
+        "video_description": "镜头从三人中景开始，缓慢向外拉远，交代会议室整体空间。左侧窗外冷蓝色路灯光斜照进室内，在地面拉出长长阴影，空气中漂浮细微尘埃。镜头落幅在会议室全景。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "陈默",
+          "林宇",
+          "苏晴"
+        ],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡入",
+          "style": "写实"
+        }
+      },
+      {
+        "shot_id": 2,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，苏晴放下马克杯，身体后仰，语气试探。固定。光影：正面柔光勾勒面部轮廓，针织开衫领口微敞。",
+        "video_description": "苏晴放下马克杯，身体后仰，语气试探。镜头固定机位，落幅在苏晴上半身近景，正面柔光勾勒面部轮廓。",
+        "dialogue": "苏晴：周三太赶了。周四中午之前给你，可以吗？",
+        "narration": "",
+        "audio_track_id": "dialogue_10",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": [
+          "白色马克杯"
+        ]
+      },
+      {
+        "shot_id": 3,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，苏晴面部，嘴唇微张，眼神期待看向林宇。固定。光影：侧光打在颧骨处，眼白反光清晰。",
+        "video_description": "苏晴面部，嘴唇微张，眼神期待看向林宇。镜头固定机位，落幅在苏晴面部特写，侧光打在颧骨处。",
+        "dialogue": "苏晴：周三太赶了。周四中午之前给你，可以吗？",
+        "narration": "",
+        "audio_track_id": "dialogue_10",
+        "character_list": [
+          "苏晴"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 4,
+        "shot_purpose": "emotion",
+        "shot_type": "中景",
+        "camera_movement": "缓慢推进",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，林宇微微点头，右手轻敲桌面。缓慢推进。光影：环境光随镜头移动掠过桌面，椅背阴影拉长。",
+        "video_description": "林宇微微点头，右手轻敲桌面。镜头缓慢推进，落幅在林宇中景，环境光随镜头移动掠过桌面。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 5,
+        "shot_purpose": "information",
+        "shot_type": "近景",
+        "camera_movement": "固定",
+        "duration": 2.0,
+        "scene_name": "公司会议室",
+        "shot_description": "近景，林宇身体前倾，右手抬起做妥协手势，嘴唇开合。固定。光影：顶光聚焦于面部与手势，背景虚化。",
+        "video_description": "林宇身体前倾，右手抬起做妥协手势，嘴唇开合。镜头固定机位，落幅在林宇上半身近景，顶光聚焦于面部与手势。",
+        "dialogue": "林宇：周四中午……可以，我周五赶工。",
+        "narration": "",
+        "audio_track_id": "dialogue_11",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 6,
+        "shot_purpose": "emotion",
+        "shot_type": "特写",
+        "camera_movement": "固定",
+        "duration": 1.0,
+        "scene_name": "公司会议室",
+        "shot_description": "特写，林宇面部，嘴唇微张，眼神坚定。固定。光影：顶光打在眉骨处，眼白反光清晰。",
+        "video_description": "林宇面部，嘴唇微张，眼神坚定。镜头固定机位，落幅在林宇面部特写，顶光打在眉骨处。",
+        "dialogue": "林宇：周四中午……可以，我周五赶工。",
+        "narration": "",
+        "audio_track_id": "dialogue_11",
+        "character_list": [
+          "林宇"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 7,
+        "shot_purpose": "action",
+        "shot_type": "中景",
+        "camera_movement": "右摇",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "中景，陈默双手撑桌，身体缓缓站起，目光扫视左右。右摇。光影：冷白光扫过西装面料，面部阴影加深。",
+        "video_description": "陈默双手撑桌，身体缓缓站起，目光扫视左右。镜头缓慢右摇，落幅在陈默中景，冷白光扫过西装面料。",
+        "dialogue": "陈默：那就这么定了。苏晴负责预热策划和视觉素材，林宇负责Demo开发。周五下午三点，我们在这里看Demo。",
+        "narration": "",
+        "audio_track_id": "dialogue_12",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 8,
+        "shot_purpose": "action",
+        "shot_type": "全景",
+        "camera_movement": "跟随",
+        "duration": 2.0,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，陈默在会议室过道缓慢踱步，双手背在身后。跟随。光影：顶光均匀照亮面部，眼神锐利。",
+        "video_description": "陈默在会议室过道缓慢踱步，双手背在身后。镜头跟随移动，落幅在会议室全景，顶光均匀照亮面部。",
+        "dialogue": "陈默：那就这么定了。苏晴负责预热策划和视觉素材，林宇负责Demo开发。周五下午三点，我们在这里看Demo。",
+        "narration": "",
+        "audio_track_id": "dialogue_12",
+        "character_list": [
+          "陈默"
+        ],
+        "prop_list": []
+      },
+      {
+        "shot_id": 9,
+        "shot_purpose": "transition",
+        "shot_type": "全景",
+        "camera_movement": "固定",
+        "duration": 1.5,
+        "scene_name": "公司会议室",
+        "shot_description": "全景，会议室空镜，投影幕布静止显示合同草案，无人物。固定。光影：顶部4000K柔光完全静止，桌面与幕布光影定格。",
+        "video_description": "镜头固定机位，画面完全静止，仅保留胡桃木长桌与投影幕布。顶部4000K柔光完全静止，桌面与幕布光影定格，承接上一镜构图。",
+        "dialogue": "",
+        "narration": "",
+        "audio_track_id": "",
+        "character_list": [],
+        "prop_list": [
+          "合同草案投影"
+        ],
+        "seedance_config": {
+          "fps": 24,
+          "transition": "淡出",
+          "style": "写实"
+        }
+      }
+    ]
+  }
+]

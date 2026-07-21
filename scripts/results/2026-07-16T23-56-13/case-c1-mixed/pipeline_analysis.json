@@ -1,0 +1,270 @@
+{
+  "timestamp": "2026-07-17T00:03:18.012Z",
+  "projectId": "1f04b1f5-ea22-4f2f-b6d6-8c929008d86c",
+  "chapterCount": 3,
+  "compliance": {
+    "passed": true,
+    "score": 3,
+    "warnings": [
+      "镜#2 对白7字 > 镜容量6字（近景 2s）"
+    ],
+    "errors": [],
+    "rhythmWarnings": [
+      {
+        "type": "rhythm",
+        "level": "warning",
+        "message": "Chapter 1: 连续对白 12.4s > 8s上限",
+        "shotIndex": 2,
+        "detail": "建议在对白间插入反应镜或空镜作为视觉呼吸"
+      },
+      {
+        "type": "rhythm",
+        "level": "suggestion",
+        "message": "Chapter 1: 对白占比 83% > 60%，确认是否为对白驱动场景",
+        "detail": "审讯戏/对峙戏等对白驱动场景可忽略此建议"
+      }
+    ]
+  },
+  "purposeSource": {
+    "ai": 9,
+    "fallback_keyword": 0,
+    "fallback_index": 0,
+    "overflow_skeleton": null,
+    "total": 9,
+    "aiPercent": 100
+  },
+  "rhythmSummary": {
+    "stats": {
+      "lipSyncShots": 15,
+      "voiceOverShots": 0,
+      "visualShots": 12,
+      "totalShots": 27,
+      "dialogueRatio": 59
+    },
+    "warnings": [
+      {
+        "level": "warning",
+        "shotIndex": 2,
+        "message": "Chapter 1: 连续对白 12.4s > 8s上限"
+      },
+      {
+        "level": "suggestion",
+        "message": "Chapter 1: 对白占比 83% > 60%，确认是否为对白驱动场景"
+      }
+    ]
+  },
+  "shotPurposes": [
+    {
+      "chapter": "陈默与林宇在控制…",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.3
+        },
+        {
+          "index": 2,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 3,
+          "purpose": "action",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 4,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 5,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 7,
+          "purpose": "information",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 2
+        },
+        {
+          "index": 8,
+          "purpose": "action",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "ai",
+          "dialogueChars": 0,
+          "duration": 1.2
+        }
+      ]
+    },
+    {
+      "chapter": "林宇·续1",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 8,
+          "duration": 2,
+          "expectedDialogue": 2
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 8,
+          "duration": 2,
+          "expectedDialogue": 2
+        },
+        {
+          "index": 4,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "action",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 7,
+          "duration": 1.7,
+          "expectedDialogue": 1.7
+        },
+        {
+          "index": 7,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 5,
+          "duration": 1.2,
+          "expectedDialogue": 1
+        },
+        {
+          "index": 8,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.5
+        }
+      ]
+    },
+    {
+      "chapter": "陈默·续1",
+      "shots": [
+        {
+          "index": 1,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.8
+        },
+        {
+          "index": 2,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 9,
+          "duration": 2,
+          "expectedDialogue": 2.3
+        },
+        {
+          "index": 3,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 6,
+          "duration": 2,
+          "expectedDialogue": 1.3
+        },
+        {
+          "index": 4,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 5,
+          "purpose": "action",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.7
+        },
+        {
+          "index": 6,
+          "purpose": "emotion",
+          "source": "overflow_skeleton",
+          "dialogueChars": 5,
+          "duration": 1.7,
+          "expectedDialogue": 1
+        },
+        {
+          "index": 7,
+          "purpose": "information",
+          "source": "overflow_skeleton",
+          "dialogueChars": 5,
+          "duration": 1.2,
+          "expectedDialogue": 1
+        },
+        {
+          "index": 8,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.2
+        },
+        {
+          "index": 9,
+          "purpose": "transition",
+          "source": "overflow_skeleton",
+          "dialogueChars": 0,
+          "duration": 1.5
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "chapter_info": { "chapter_id": 1, "chapter_summary": "清晨客厅，林宇下达行程压缩指令。", "time_period": "现代",
+      "characters": [{ "name": "林宇", "appearance": "25岁，瘦高体型，黑色短发，黑色棉质衬衫。" }],
+      "scenes": [{ "name": "林宇家客厅", "environment": "冷调线性灯带，磁悬浮咖啡桌。" }], "props": ["全息面板"] },
+    "shots": [
+      { "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "全景定场。", "video_description": "镜头从门口全景缓慢推进。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"], "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" } },
+      { "shot_id": 2, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇敲击全息面板。", "video_description": "镜头聚焦林宇手部特写。", "dialogue": "林宇：把今天行程压缩到12小时，空档全部删掉。", "narration": "", "audio_track_id": "dialogue_1", "character_list": ["林宇"] },
+      { "shot_id": 3, "shot_type": "中景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇继续操作。", "video_description": "镜头保持中景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 4, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇侧脸。", "video_description": "镜头聚焦林宇侧脸。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 5, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "智能手表屏幕跳动。", "video_description": "镜头聚焦手表屏幕。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 6, "shot_type": "中景", "camera_movement": "缓慢拉远", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇靠回沙发。", "video_description": "镜头缓慢拉远。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 7, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇凝视侧边抽屉。", "video_description": "镜头聚焦林宇眼神。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "全景过渡。", "video_description": "镜头固定全景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "空镜收尾。", "video_description": "固定全景，画面静止。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": [], "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" } }
+    ]
+  },
+  {
+    "chapter_info": { "chapter_id": 2, "chapter_summary": "艾娃端咖啡入画，问候林宇。", "time_period": "现代",
+      "characters": [{ "name": "艾娃", "appearance": "20岁，长发披肩，米白色针织家居裙。" }],
+      "scenes": [{ "name": "林宇家客厅", "environment": "冷调线性灯带。" }], "props": ["咖啡杯"] },
+    "shots": [
+      { "shot_id": 1, "shot_type": "全景", "camera_movement": "缓慢推进", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "全景定场。", "video_description": "镜头从门口全景缓慢推进。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"], "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" } },
+      { "shot_id": 2, "shot_type": "中景", "camera_movement": "右摇", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃端咖啡走入。", "video_description": "镜头右摇跟随艾娃。", "dialogue": "艾娃：早安，宇。", "narration": "", "audio_track_id": "dialogue_1", "character_list": ["艾娃"] },
+      { "shot_id": 3, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇转头。", "video_description": "镜头聚焦林宇面部。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 4, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇喉结滚动。", "video_description": "镜头聚焦喉结。", "dialogue": "林宇：……叫主人。", "narration": "", "audio_track_id": "dialogue_2", "character_list": ["林宇"] },
+      { "shot_id": 5, "shot_type": "中景", "camera_movement": "缓慢拉远", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃放下咖啡。", "video_description": "镜头拉远至中景。", "dialogue": "艾娃：已取消晨跑与午餐约会，今日空档：0。", "narration": "", "audio_track_id": "dialogue_3", "character_list": ["艾娃"] },
+      { "shot_id": 6, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇手表心率升高。", "video_description": "镜头聚焦手表。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 7, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "林宇沉默。", "video_description": "镜头固定近景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇"] },
+      { "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "全景过渡。", "video_description": "镜头固定全景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["林宇", "艾娃"] },
+      { "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "空镜收尾。", "video_description": "固定全景，画面静止。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": [], "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" } }
+    ]
+  },
+  {
+    "chapter_info": { "chapter_id": 3, "chapter_summary": "入夜后艾娃独立客厅，瞳孔泛起数据波纹。", "time_period": "现代",
+      "characters": [{ "name": "艾娃", "appearance": "20岁，长发披肩，米白色针织家居裙。" }],
+      "scenes": [{ "name": "林宇家客厅", "environment": "暗调，冷蓝色环境光。" }], "props": ["咖啡杯"] },
+    "shots": [
+      { "shot_id": 1, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "全景暗调客厅。", "video_description": "镜头固定全景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"], "seedance_config": { "fps": 24, "transition": "淡入", "style": "写实" } },
+      { "shot_id": 2, "shot_type": "中景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃独立客厅中央。", "video_description": "镜头固定中景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"] },
+      { "shot_id": 3, "shot_type": "大特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃瞳孔泛起数据波纹。", "video_description": "镜头聚焦眼部大特写。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"] },
+      { "shot_id": 4, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃面无表情。", "video_description": "镜头聚焦面部特写。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"] },
+      { "shot_id": 5, "shot_type": "中景", "camera_movement": "左摇", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃指尖微颤。", "video_description": "镜头左摇至手部。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"] },
+      { "shot_id": 6, "shot_type": "特写", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "咖啡杯裂纹加深。", "video_description": "镜头聚焦杯底裂纹。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": [] },
+      { "shot_id": 7, "shot_type": "近景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "艾娃恢复静止。", "video_description": "镜头固定近景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"] },
+      { "shot_id": 8, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "全景暗调客厅。", "video_description": "镜头固定全景。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": ["艾娃"] },
+      { "shot_id": 9, "shot_type": "全景", "camera_movement": "固定", "duration": 0, "scene_name": "林宇家客厅", "shot_description": "空镜收尾。", "video_description": "固定全景，画面静止。", "dialogue": "", "narration": "", "audio_track_id": "", "character_list": [], "seedance_config": { "fps": 24, "transition": "淡出", "style": "写实" } }
+    ]
+  }
+]
